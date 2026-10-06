@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include <string>
 #include <unordered_map>
 #include "raylib.h"
@@ -8,13 +8,18 @@ class ResourceManager {
 public:
     static ResourceManager& GetInstance();
 
-    // ƒL[‚ÆƒpƒX‚ğw’è‚µ‚Äƒ‚ƒfƒ‹‚ğƒ[ƒhE“o˜^‚·‚é
-    void LoadModel(const std::string& key, const std::string& path);
+    // ã‚­ãƒ¼ã¨ãƒ‘ã‚¹ã‚’æŒ‡å®šã—ã¦ãƒ¢ãƒ‡ãƒ«ã‚’ãƒ­ãƒ¼ãƒ‰ãƒ»ç™»éŒ²ã™ã‚‹
+    void LoadModel(const std::string& key, const std::string& path, bool animated = false);
 
-    // ƒL[‚ğw’è‚µ‚Ä‚Ç‚±‚©‚ç‚Å‚àƒ‚ƒfƒ‹‚ğæ“¾‚·‚é
+    // ã‚­ãƒ¼ã‚’æŒ‡å®šã—ã¦ã©ã“ã‹ã‚‰ã§ã‚‚ãƒ¢ãƒ‡ãƒ«ã‚’å–å¾—ã™ã‚‹
     Model GetModel(const std::string& key) const;
 
-    // ‘Sƒ‚ƒfƒ‹‚ÌˆêŠ‡ƒ[ƒh^ˆêŠ‡‰ğ•ú
+    // é™æ­¢å§¿å‹¢ã®å¯¸æ³•ã‚’ä¿æŒã—ã€æç”»æ™‚ã®é ‚ç‚¹èµ°æŸ»ã‚’çœãã€‚
+    BoundingBox GetModelBounds(const std::string& key) const;
+    // å…ˆé ­ã®ã‚¯ãƒªãƒƒãƒ—ã‚’è¿”ã™ã€‚æœªç™»éŒ²ãªã‚‰ç©ºã€‚æ‰€æœ‰ã¨è§£æ”¾ã¯ResourceManagerãŒæ‹…å½“ã™ã‚‹ã€‚
+    ModelAnimation GetModelAnimation(const std::string& key) const;
+
+    // å…¨ãƒ¢ãƒ‡ãƒ«ã®ä¸€æ‹¬ãƒ­ãƒ¼ãƒ‰ï¼ä¸€æ‹¬è§£æ”¾
     void LoadAll();
     void UnloadAll();
 
@@ -25,10 +30,16 @@ private:
     ResourceManager(const ResourceManager&) = delete;
     ResourceManager& operator=(const ResourceManager&) = delete;
 
-    std::unordered_map<std::string, Model> models_;
+    struct ModelResource {
+        Model model = {};
+        BoundingBox bounds = {};
+        ModelAnimation* animations = nullptr;
+        int animationCount = 0;
+    };
+    std::unordered_map<std::string, ModelResource> models_;
 };
 
-// ƒVƒ‡[ƒgƒJƒbƒgŠÖ”
+// ã‚·ãƒ§ãƒ¼ãƒˆã‚«ãƒƒãƒˆé–¢æ•°
 inline ResourceManager& RM() {
     return ResourceManager::GetInstance();
 }

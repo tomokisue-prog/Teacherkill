@@ -1,6 +1,7 @@
-ï»¿#include "Enemy.h"
+#include "Enemy.h"
 #include "Player.h"
 #include "Stage.h"
+#include "ResourceManager.h"
 #include "raymath.h"
 
 #include <algorithm>
@@ -8,12 +9,14 @@
 
 namespace {
 
-// æ¥è§¦é¢ã¨ã®ä½™ç™½ [m]ã€‚ä¸¸ã‚èª¤å·®ã«ã‚ˆã‚‹ä¾µå…¥ã¨è·é›¢0ä»˜è¿‘ã®é™¤ç®—ã‚’é¿ã‘ã‚‹ã€‚
+// ÚG–Ê‚Æ‚Ì—]”’ [m]BŠÛ‚ßŒë·‚É‚æ‚éN“ü‚Æ‹——£0•t‹ß‚ÌœZ‚ğ”ğ‚¯‚éB
 constexpr float ContactEpsilon = 0.001f;
 enum class MoveAxis { X, Z };
+// raylib 5.5‚ÌglTFƒAƒjƒ[ƒVƒ‡ƒ“‚Í17msŠÔŠu‚Å“Ç‚İ‚Ü‚ê‚éB
+constexpr float AnimationFrameDuration = 0.017f;
 
 
-// NaN/Infã¯æ—¢å®šå€¤ã¸ç½®æ›ã—ã€æœ‰é™å€¤ã¯ä¸‹é™ã¸ã‚¯ãƒ©ãƒ³ãƒ—ã™ã‚‹ã€‚
+// NaN/Inf‚ÍŠù’è’l‚Ö’uŠ·‚µA—LŒÀ’l‚Í‰ºŒÀ‚ÖƒNƒ‰ƒ“ƒv‚·‚éB
 float AtLeast(float value, float minimum, float fallback) {
     return (std::max)(minimum, std::isfinite(value) ? value : fallback);
 }
@@ -22,13 +25,9 @@ bool IsFinite(Vector3 value) {
     return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z);
 }
 
-// [-PI, PI]ã¸æ­£è¦åŒ–ã—ã€æ—‹å›æ™‚ã®è§’åº¦å·®ã‚’æœ€çŸ­æ–¹å‘ã§æ‰±ã†ã€‚
+// [-PI, PI]‚Ö³‹K‰»‚µAù‰ñ‚ÌŠp“x·‚ğÅ’Z•ûŒü‚Åˆµ‚¤B
 float WrapAngle(float angle) {
     return std::isfinite(angle) ? std::remainder(angle, 2.0f * PI) : 0.0f;
-}
-
-Vector3 Forward(float yaw) {
-    return { std::sin(yaw), 0.0f, -std::cos(yaw) };
 }
 
 BoundingBox BodyBounds(Vector3 position, float radius, float height) {
@@ -36,7 +35,7 @@ BoundingBox BodyBounds(Vector3 position, float radius, float height) {
              { position.x + radius, position.y + height, position.z + radius } };
 }
 
-// é¢åŒå£«ã®æ¥è§¦ã¯ä¾µå…¥ã¨è¦‹ãªã•ãªã„ãŸã‚ã€ç­‰å·ã‚’å«ã‚ãªã„ã€‚
+// –Ê“¯m‚ÌÚG‚ÍN“ü‚ÆŒ©‚È‚³‚È‚¢‚½‚ßA“™†‚ğŠÜ‚ß‚È‚¢B
 bool Overlaps(BoundingBox a, BoundingBox b) {
     return a.min.x < b.max.x && a.max.x > b.min.x &&
            a.min.y < b.max.y && a.max.y > b.min.y &&
@@ -44,8 +43,8 @@ bool Overlaps(BoundingBox a, BoundingBox b) {
 }
 
 
-// amount [m]ã‚’ç§»å‹•å¯èƒ½ãªç¬¦å·ä»˜ãè·é›¢ã¸åˆ¶é™ã™ã‚‹ã€‚target==nullptrãªã‚‰Stageã ã‘ã‚’åˆ¤å®šã€‚
-// X/Zã‚’ç‹¬ç«‹ã—ã¦è§£æ±ºã™ã‚‹ã“ã¨ã§ã€ç‰‡æ–¹ã®è»¸ãŒå¡ãŒã‚Œã¦ã‚‚å£æ²¿ã„ã®ç§»å‹•ã‚’è¨±å¯ã™ã‚‹ã€‚
+// amount [m]‚ğˆÚ“®‰Â”\‚È•„†•t‚«‹——£‚Ö§ŒÀ‚·‚éBtarget==nullptr‚È‚çStage‚¾‚¯‚ğ”»’èB
+// X/Z‚ğ“Æ—§‚µ‚Ä‰ğŒˆ‚·‚é‚±‚Æ‚ÅA•Ğ•û‚Ì²‚ªÇ‚ª‚ê‚Ä‚à•Ç‰ˆ‚¢‚ÌˆÚ“®‚ğ‹–‰Â‚·‚éB
 float AllowedTravel(Vector3 position, float amount, MoveAxis axis, float radius,
                     float height, const Stage& stage, const BoundingBox* target) {
     if (amount == 0.0f) return 0.0f;
@@ -55,7 +54,7 @@ float AllowedTravel(Vector3 position, float amount, MoveAxis axis, float radius,
     float travel = std::fabs(amount);
 
 
-    // 3é«˜ã•Ã—3æ¨ªä½ç½®ã‚’ãƒ¬ã‚¤ã§ã‚µãƒ³ãƒ—ãƒªãƒ³ã‚°ã™ã‚‹ã€‚å³å¯†ãªä½“ç©æƒå¼•ã§ã¯ãªã„ã€‚
+    // 3‚‚³~3‰¡ˆÊ’u‚ğƒŒƒC‚ÅƒTƒ“ƒvƒŠƒ“ƒO‚·‚éBŒµ–§‚È‘ÌÏ‘|ˆø‚Å‚Í‚È‚¢B
     const float heights[] = { height * 0.1f, height * 0.5f, height * 0.9f };
     const float offsets[] = { -radius, 0.0f, radius };
     for (float sampleHeight : heights) {
@@ -64,7 +63,7 @@ float AllowedTravel(Vector3 position, float amount, MoveAxis axis, float radius,
             origin.y += sampleHeight;
             if (xAxis) origin.z += offset;
             else origin.x += offset;
-            // ä¸­å¿ƒã‹ã‚‰ä½“ã®å‰ç«¯ã¾ã§ã®åŠå¹…ã‚‚å«ã‚ã‚‹ã€‚å¿…è¦ãªåŒºé–“ã ã‘ã‚’ãƒ¬ã‚¤ã‚­ãƒ£ã‚¹ãƒˆã™ã‚‹ã€‚
+            // ’†S‚©‚ç‘Ì‚Ì‘O’[‚Ü‚Å‚Ì”¼•‚àŠÜ‚ß‚éB•K—v‚È‹æŠÔ‚¾‚¯‚ğƒŒƒCƒLƒƒƒXƒg‚·‚éB
             const RayCollision hit = stage.Raycast({ origin, direction }, travel + radius + ContactEpsilon);
             if (hit.hit && std::isfinite(hit.distance) && hit.distance >= 0.0f) {
                 const float clearance = (std::max)(0.0f, hit.distance - radius - ContactEpsilon);
@@ -74,7 +73,7 @@ float AllowedTravel(Vector3 position, float amount, MoveAxis axis, float radius,
     }
 
 
-    // Yã¨ç§»å‹•è»¸ã«ç›´äº¤ã™ã‚‹è»¸ãŒé‡ãªã‚‹å ´åˆã ã‘ã€å¯¾è±¡ã¸ã®æ¥è¿‘è·é›¢ã‚’åˆ¶é™ã™ã‚‹ã€‚
+    // Y‚ÆˆÚ“®²‚É’¼Œğ‚·‚é²‚ªd‚È‚éê‡‚¾‚¯A‘ÎÛ‚Ö‚ÌÚ‹ß‹——£‚ğ§ŒÀ‚·‚éB
     const BoundingBox body = BodyBounds(position, radius, height);
     if (!target) return sign * travel;
     const bool overlapsHeight = body.min.y < target->max.y && body.max.y > target->min.y;
@@ -89,7 +88,7 @@ float AllowedTravel(Vector3 position, float amount, MoveAxis axis, float radius,
     const float bodyMax = xAxis ? body.max.x : body.max.z;
     const float targetMin = xAxis ? target->min.x : target->min.z;
     const float targetMax = xAxis ? target->max.x : target->max.z;
-    // gap<0ã¯å¯¾è±¡ãŒèƒŒå¾Œã¾ãŸã¯æ—¢ã«ä¾µå…¥ä¸­ã€‚ä¾µå…¥ã®è§£æ¶ˆã¯SeparateFromTargetã§æ‰±ã†ã€‚
+    // gap<0‚Í‘ÎÛ‚ª”wŒã‚Ü‚½‚ÍŠù‚ÉN“ü’†BN“ü‚Ì‰ğÁ‚ÍSeparateFromTarget‚Åˆµ‚¤B
     const float gap = sign > 0.0f ? targetMin - bodyMax : bodyMin - targetMax;
     if (gap >= 0.0f) travel = (std::min)(travel, (std::max)(0.0f, gap - ContactEpsilon));
     return sign * travel;
@@ -102,14 +101,14 @@ namespace demo {
 TargetInfo TargetInfo::FromPlayer(const Player& player) {
     TargetInfo target;
     target.position = player.GetPosition();
-    // Playerã®privateãªè¡çªå¯¸æ³•ã¨å¯¾å¿œã™ã‚‹ãŸã‚ã€Playerå´ã®å¯¸æ³•å¤‰æ›´æ™‚ã¯ã“ã“ã‚‚æ›´æ–°ã™ã‚‹ã€‚
+    // Player‚Ìprivate‚ÈÕ“Ë¡–@‚Æ‘Î‰‚·‚é‚½‚ßAPlayer‘¤‚Ì¡–@•ÏX‚Í‚±‚±‚àXV‚·‚éB
     target.bodyBounds = BodyBounds(target.position, 0.4f, 1.8f);
     target.alive = true;
     target.valid = IsFinite(target.position);
     return target;
 }
 
-// SetConfigã‚’å…ˆã«é©ç”¨ã—ã€è£œæ­£æ¸ˆã¿ã®maxHpã§Resetã™ã‚‹ã€‚å‡¦ç†é †ã‚’ç¶­æŒã™ã‚‹ã“ã¨ã€‚
+// SetConfig‚ğæ‚É“K—p‚µA•â³Ï‚İ‚ÌmaxHp‚ÅReset‚·‚éBˆ—‡‚ğˆÛ‚·‚é‚±‚ÆB
 Enemy::Enemy(EnemyId id, const EnemyConfig& config, Vector3 position, float yaw) : id_(id) {
     SetConfig(config);
     Reset(position, yaw);
@@ -124,7 +123,7 @@ void Enemy::SetConfig(const EnemyConfig& config) {
     config_.bodyRadius = AtLeast(config_.bodyRadius, 0.01f, defaults.bodyRadius);
     config_.bodyHeight = AtLeast(config_.bodyHeight, 0.01f, defaults.bodyHeight);
     config_.detectionRange = AtLeast(config_.detectionRange, 0.0f, defaults.detectionRange);
-    // çŠ¶æ…‹åˆ‡ã‚Šæ›¿ãˆã®æŒ¯å‹•ã‚’æŠ‘ãˆã‚‹ãŸã‚ã€é–‹å§‹ãƒ»åœæ­¢å´ã®é–¾å€¤ã«0.01mã®ä½™ç™½ã‚’è¨­ã‘ã‚‹ã€‚
+    // ó‘ÔØ‚è‘Ö‚¦‚ÌU“®‚ğ—}‚¦‚é‚½‚ßAŠJnE’â~‘¤‚Ìè‡’l‚É0.01m‚Ì—]”’‚ğİ‚¯‚éB
     config_.loseRange = AtLeast(config_.loseRange, config_.detectionRange + 0.01f, defaults.loseRange);
     config_.stopDistance = AtLeast(config_.stopDistance, 0.0f, defaults.stopDistance);
     config_.resumeDistance = AtLeast(config_.resumeDistance, config_.stopDistance + 0.01f, defaults.resumeDistance);
@@ -140,6 +139,7 @@ void Enemy::Reset(Vector3 position, float yaw) {
     state_ = EnemyState::Idle;
     shouldMove_ = true;
     corpseTimer_ = 0.0f;
+    animationTime_ = 0.0f;
 }
 
 void Enemy::Update(float dt, const TargetInfo& target, const Stage& stage) {
@@ -150,8 +150,8 @@ void Enemy::Update(float dt, const TargetInfo& target, const Stage& stage) {
     }
 
 
-    // ç”Ÿå­˜ä¸­ã®ã‚·ãƒŸãƒ¥ãƒ¬ãƒ¼ã‚·ãƒ§ãƒ³æ™‚é–“ã ã‘ä¸Šé™ã‚’è¨­ã‘ã‚‹ã€‚æ­»äº¡ã‚¿ã‚¤ãƒãƒ¼ã¯å®Ÿéš›ã®dtã‚’ä½¿ã†ã€‚
-    // è¡çªå‡¦ç†ã‚’dtã«å¿œã˜ã¦åå¾©ã—ãªã„ã“ã¨ã§ã€é…å»¶æ™‚ã®è² è·å¢—å¹…ã‚’é˜²ãã€‚
+    // ¶‘¶’†‚ÌƒVƒ~ƒ…ƒŒ[ƒVƒ‡ƒ“ŠÔ‚¾‚¯ãŒÀ‚ğİ‚¯‚éB€–Sƒ^ƒCƒ}[‚ÍÀÛ‚Ìdt‚ğg‚¤B
+    // Õ“Ëˆ—‚ğdt‚É‰‚¶‚Ä”½•œ‚µ‚È‚¢‚±‚Æ‚ÅA’x‰„‚Ì•‰‰×‘•‚ğ–h‚®B
     dt = (std::min)(dt, 0.25f);
     Vector3 displacement = {};
     const BoundingBox* targetBounds = nullptr;
@@ -162,19 +162,28 @@ void Enemy::Update(float dt, const TargetInfo& target, const Stage& stage) {
         state_ = EnemyState::Idle;
         shouldMove_ = true;
     }
-    // AIã¯ç§»å‹•è¦æ±‚ã‚’ç®—å‡ºã™ã‚‹ã ã‘ã€‚ç¢ºå®šä½ç½®ã¯è¡çªè§£æ±ºã¨æ¥åœ°å‡¦ç†ã§æ›´æ–°ã™ã‚‹ã€‚
+    // AI‚ÍˆÚ“®—v‹‚ğZo‚·‚é‚¾‚¯BŠm’èˆÊ’u‚ÍÕ“Ë‰ğŒˆ‚ÆÚ’nˆ—‚ÅXV‚·‚éB
+    const Vector3 previousPosition = position_;
     Move(displacement, targetBounds, stage);
     UpdateGround(dt, stage);
+    // Õ“Ë‰ğŒˆŒã‚É…•½ˆÚ“®‚Å‚«‚½‚Æ‚«‚¾‚¯Ä¶‚·‚éB•Ç‚Å~‚Ü‚Á‚½ê‡‚Í•à‚©‚¹‚È‚¢B
+    const bool moved = position_.x != previousPosition.x || position_.z != previousPosition.z;
+    const ModelAnimation animation = RM().GetModelAnimation(ResourceKeys::Model_Enemy);
+    if (IsMoving() && moved && animation.frameCount > 0) {
+        animationTime_ = std::fmod(animationTime_ + dt, animation.frameCount * AnimationFrameDuration);
+    } else {
+        animationTime_ = 0.0f;
+    }
 }
 
 Vector3 Enemy::ChaseTarget(float dt, Vector3 targetPosition) {
     Vector3 delta = Vector3Subtract(targetPosition, position_);
-    // è¿½è·¡è·é›¢ã¯XZå¹³é¢ã§è©•ä¾¡ã—ã€ç›®ç·šã‚„è¶³å ´ã®é«˜ã•ã®å·®ã‚’å«ã‚ãªã„ã€‚
+    // ’ÇÕ‹——£‚ÍXZ•½–Ê‚Å•]‰¿‚µA–Úü‚â‘«ê‚Ì‚‚³‚Ì·‚ğŠÜ‚ß‚È‚¢B
     delta.y = 0.0f;
     const float distance = Vector3Length(delta);
 
 
-    // æ¤œçŸ¥è·é›¢ã¨å–ªå¤±è·é›¢ã®é–“ã¯ç›´å‰ã®çŠ¶æ…‹ã‚’ä¿æŒã™ã‚‹ï¼ˆãƒ’ã‚¹ãƒ†ãƒªã‚·ã‚¹ï¼‰ã€‚
+    // ŒŸ’m‹——£‚Æ‘r¸‹——£‚ÌŠÔ‚Í’¼‘O‚Ìó‘Ô‚ğ•Û‚·‚éiƒqƒXƒeƒŠƒVƒXjB
     if (state_ == EnemyState::Idle && distance <= config_.detectionRange) {
         state_ = EnemyState::Chase;
         shouldMove_ = true;
@@ -185,33 +194,33 @@ Vector3 Enemy::ChaseTarget(float dt, Vector3 targetPosition) {
     if (state_ != EnemyState::Chase) return {};
 
     if (distance > ContactEpsilon) {
-        // å‰æ–¹ãŒ-Zãªã®ã§atan2(x, -z)ã€‚æ—‹å›é‡ã¯turnSpeed*dtä»¥å†…ã«åˆ¶é™ã™ã‚‹ã€‚
+        // ‘O•û‚ª-Z‚È‚Ì‚Åatan2(x, -z)Bù‰ñ—Ê‚ÍturnSpeed*dtˆÈ“à‚É§ŒÀ‚·‚éB
         const float desiredYaw = std::atan2(delta.x, -delta.z);
         const float maxTurn = config_.turnSpeed * dt;
         const float turn = Clamp(WrapAngle(desiredYaw - yaw_), -maxTurn, maxTurn);
         yaw_ = WrapAngle(yaw_ + turn);
     }
-    // åœæ­¢å¾Œã¯resumeDistanceã¾ã§é›¢ã‚Œãªã„é™ã‚Šå†é–‹ã—ãªã„ã€‚å£ã«ã‚ˆã‚‹åœæ­¢ã¨ã¯åˆ¥ã®åˆ¤å®šã€‚
+    // ’â~Œã‚ÍresumeDistance‚Ü‚Å—£‚ê‚È‚¢ŒÀ‚èÄŠJ‚µ‚È‚¢B•Ç‚É‚æ‚é’â~‚Æ‚Í•Ê‚Ì”»’èB
     if (distance <= config_.stopDistance) shouldMove_ = false;
     else if (distance >= config_.resumeDistance) shouldMove_ = true;
     if (!shouldMove_ || distance <= ContactEpsilon) return {};
 
-    // åœæ­¢è·é›¢ã‚’è¶Šãˆã¦æ¥è¿‘ã—ãªã„ã‚ˆã†ã€æ®‹è·é›¢ã‚’ç§»å‹•é‡ã®ä¸Šé™ã«ã™ã‚‹ã€‚
+    // ’â~‹——£‚ğ‰z‚¦‚ÄÚ‹ß‚µ‚È‚¢‚æ‚¤Ac‹——£‚ğˆÚ“®—Ê‚ÌãŒÀ‚É‚·‚éB
     const float travel = (std::min)(config_.moveSpeed * dt, distance - config_.stopDistance);
     return Vector3Scale(delta, travel / distance);
 }
 
 void Enemy::Move(Vector3 displacement, const BoundingBox* bounds, const Stage& stage) {
     if (bounds && Overlaps(GetBodyBounds(), *bounds)) SeparateFromTarget(*bounds, stage);
-    // Xæ›´æ–°å¾Œã®ä½ç½®ã‚’ä½¿ã£ã¦Zã‚’è§£æ±ºã™ã‚‹ã€‚è»¸ã®å‡¦ç†é †ã¯å›ºå®šã™ã‚‹ã€‚
+    // XXVŒã‚ÌˆÊ’u‚ğg‚Á‚ÄZ‚ğ‰ğŒˆ‚·‚éB²‚Ìˆ—‡‚ÍŒÅ’è‚·‚éB
     position_.x += AllowedTravel(position_, displacement.x, MoveAxis::X,
                                  config_.bodyRadius, config_.bodyHeight, stage, bounds);
     position_.z += AllowedTravel(position_, displacement.z, MoveAxis::Z,
                                  config_.bodyRadius, config_.bodyHeight, stage, bounds);
 }
 
-// å¯¾è±¡ãŒå…ˆã«ä¾µå…¥ã—ãŸå ´åˆã€4æ–¹å‘ã®åˆ†é›¢å€™è£œã‚’è·é›¢ã®çŸ­ã„é †ã«è©¦ã™ã€‚
-// å®Œå…¨ã«åˆ†é›¢ã§ãã‚‹å€™è£œã ã‘ã‚’æ¡ç”¨ã—ã€å…¨å€™è£œãŒå£ã«é˜»ã¾ã‚Œã‚‹å ´åˆã¯å¤‰æ›´ã—ãªã„ã€‚
+// ‘ÎÛ‚ªæ‚ÉN“ü‚µ‚½ê‡A4•ûŒü‚Ì•ª—£Œó•â‚ğ‹——£‚Ì’Z‚¢‡‚É‚·B
+// Š®‘S‚É•ª—£‚Å‚«‚éŒó•â‚¾‚¯‚ğÌ—p‚µA‘SŒó•â‚ª•Ç‚É‘j‚Ü‚ê‚éê‡‚Í•ÏX‚µ‚È‚¢B
 void Enemy::SeparateFromTarget(const BoundingBox& bounds, const Stage& stage) {
 
     struct Separation { float amount; MoveAxis axis; };
@@ -236,7 +245,7 @@ void Enemy::SeparateFromTarget(const BoundingBox& bounds, const Stage& stage) {
 }
 
 void Enemy::UpdateGround(float dt, const Stage& stage) {
-    // é€Ÿåº¦â†’ä½ç½®ã®é †ã§é‡åŠ›ã‚’ç©åˆ†ã™ã‚‹ã€‚ãƒ¬ã‚¤é•·ã¯ä»Šãƒ•ãƒ¬ãƒ¼ãƒ ã®è½ä¸‹è·é›¢ã¾ã§å«ã‚ã‚‹ã€‚
+    // ‘¬“x¨ˆÊ’u‚Ì‡‚Åd—Í‚ğÏ•ª‚·‚éBƒŒƒC’·‚Í¡ƒtƒŒ[ƒ€‚Ì—‰º‹——£‚Ü‚ÅŠÜ‚ß‚éB
     constexpr float groundProbeHeight = 0.25f;
     verticalVelocity_ -= 9.81f * dt;
     const float nextY = position_.y + verticalVelocity_ * dt;
@@ -244,7 +253,7 @@ void Enemy::UpdateGround(float dt, const Stage& stage) {
     const float probeDistance = groundProbeHeight + (std::max)(0.0f, position_.y - nextY) + ContactEpsilon;
     const RayCollision hit = stage.Raycast(downRay, probeDistance);
     const float groundY = downRay.position.y - hit.distance;
-    // ä¸Šå‘ãæ³•ç·šã‚’æŒã¤é¢ã ã‘ã«æ¥åœ°ã—ã€å£é¢ã‚„ä¸‹å‘ãã®é¢ã‚’åºŠã¨ã—ã¦æ‰±ã‚ãªã„ã€‚
+    // ãŒü‚«–@ü‚ğ‚Â–Ê‚¾‚¯‚ÉÚ’n‚µA•Ç–Ê‚â‰ºŒü‚«‚Ì–Ê‚ğ°‚Æ‚µ‚Äˆµ‚í‚È‚¢B
     if (hit.hit && hit.normal.y > 0.5f && std::isfinite(groundY) && nextY <= groundY + ContactEpsilon) {
         position_.y = groundY;
         verticalVelocity_ = 0.0f;
@@ -255,9 +264,9 @@ void Enemy::UpdateGround(float dt, const Stage& stage) {
 
 EnemyDamageResult Enemy::TakeDamage(int amount) {
     if (amount <= 0 || !IsAlive()) return { false, hp_, false };
-    // æ¸›ç®—å‰ã«æ¯”è¼ƒã—ã€å¤§ããªãƒ€ãƒ¡ãƒ¼ã‚¸ã§ã‚‚HPã‚’è² å€¤ã«ã—ãªã„ã€‚
+    // Œ¸Z‘O‚É”äŠr‚µA‘å‚«‚Èƒ_ƒ[ƒW‚Å‚àHP‚ğ•‰’l‚É‚µ‚È‚¢B
     hp_ = amount >= hp_ ? 0 : hp_ - amount;
-    // Deadã¸ã®é·ç§»ã¯ã“ã®å‘¼ã³å‡ºã—ã§ä¸€åº¦ã ã‘å ±å‘Šã™ã‚‹ã€‚ä»¥é™ã®è¢«å¼¾ã¯å†’é ­ã§æ‹’å¦ã™ã‚‹ã€‚
+    // Dead‚Ö‚Ì‘JˆÚ‚Í‚±‚ÌŒÄ‚Ño‚µ‚Åˆê“x‚¾‚¯•ñ‚·‚éBˆÈ~‚Ì”í’e‚Í–`“ª‚Å‹‘”Û‚·‚éB
     const bool died = hp_ == 0;
     if (died) {
         state_ = EnemyState::Dead;
@@ -276,7 +285,28 @@ bool Enemy::IsRemovalReady() const {
 }
 
 void Enemy::Draw() const {
-    // æç”»ç”¨ã®ä¸­å¿ƒã¯è¶³å…ƒã‹ã‚‰åŠé«˜åˆ†ãšã‚‰ã™ã€‚è«–ç†åº§æ¨™ã¨è¡çªAABBã¯å›è»¢ã•ã›ãªã„ã€‚
+    Model model = RM().GetModel(ResourceKeys::Model_Enemy);
+    if (model.meshCount > 0) {
+        const ModelAnimation animation = RM().GetModelAnimation(ResourceKeys::Model_Enemy);
+        if (animation.frameCount > 0) {
+            const int frame = static_cast<int>(animationTime_ / AnimationFrameDuration) % animation.frameCount;
+            // ƒƒbƒVƒ…‚ğ‹¤—L‚·‚é‚½‚ßAŠe“G‚Ì•`‰æ’¼‘O‚É‚»‚Ì“G‚Ìƒ|[ƒY‚ğ“K—p‚·‚éB
+            UpdateModelAnimation(model, animation, frame);
+        }
+        const BoundingBox bounds = RM().GetModelBounds(ResourceKeys::Model_Enemy);
+        const float height = bounds.max.y - bounds.min.y;
+        const float scale = height > ContactEpsilon ? config_.bodyHeight / height : 1.0f;
+        // ƒ‚ƒfƒ‹‚ÌŒ´“_‚ğ‘«Œ³’†S‚Ö•â³‚·‚éBÕ“Ë—pAABB‚ÌˆÊ’uE¡–@‚Í•ÏX‚µ‚È‚¢B
+        model.transform = MatrixTranslate(-(bounds.min.x + bounds.max.x) * 0.5f,
+                                          -bounds.min.y, -(bounds.min.z + bounds.max.z) * 0.5f);
+        // ƒ‚ƒfƒ‹‚Ì³–Ê‚Í+ZBEnemy‚Ìyaw=0i-Zj‚Æù‰ñ•ûŒü‚Ö‡‚í‚¹‚éB
+        const Color tint = IsAlive() ? WHITE : Color{ 110, 110, 110, 255 };
+        DrawModelEx(model, position_, { 0, 1, 0 }, 180.0f - yaw_ * RAD2DEG, { scale, scale, scale }, tint);
+        return;
+
+    }
+    // ƒ‚ƒfƒ‹‚ª“Ç‚İ‚ß‚È‚¢ê‡‚ÍAˆÊ’u‚ğŠm”F‚Å‚«‚é‚æ‚¤” ‚ğ•\¦‚·‚éB
+    // •`‰æ—p‚Ì’†S‚Í‘«Œ³‚©‚ç”¼‚•ª‚¸‚ç‚·B˜_—À•W‚ÆÕ“ËAABB‚Í‰ñ“]‚³‚¹‚È‚¢B
     Color color = { 57, 187, 173, 255 };
     if (!IsAlive()) color = { 91, 99, 110, 255 };
     else if (state_ == EnemyState::Chase) color = { 242, 146, 65, 255 };
@@ -286,9 +316,6 @@ void Enemy::Draw() const {
     const Vector3 size = { radius * 2, config_.bodyHeight, radius * 2 };
     DrawCubeV(center, size, color);
     DrawCubeWiresV(center, size, Fade(BLACK, 0.5f));
-    Vector3 face = Vector3Add(position_, Vector3Scale(Forward(yaw_), radius + 0.04f));
-    face.y += config_.bodyHeight * 0.83f;
-    DrawSphere(face, 0.09f, RAYWHITE);
 }
 
 }

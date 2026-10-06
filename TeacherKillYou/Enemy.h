@@ -1,4 +1,4 @@
-ï»¿#pragma once
+#pragma once
 #include "raylib.h"
 
 #include <cstdint>
@@ -8,58 +8,58 @@ class Stage;
 
 namespace demo {
 
-// é…åˆ—æ·»å­—ã¨ç‹¬ç«‹ã—ãŸè­˜åˆ¥å­ã€‚EnemyManagerãŒç”Ÿæˆæ™‚ã«ç™ºè¡Œã™ã‚‹ã€‚
+// ”z—ñ“Yš‚Æ“Æ—§‚µ‚½¯•ÊqBEnemyManager‚ª¶¬‚É”­s‚·‚éB
 using EnemyId = std::uint64_t;
 
-// Enemyã¸ã‚³ãƒ”ãƒ¼ã™ã‚‹è¨­å®šå€¤ã€‚ç¾åœ¨HPã‚„ç§»å‹•çŠ¶æ…‹ãªã©ã®å®Ÿè¡Œæ™‚ãƒ‡ãƒ¼ã‚¿ã¯å«ã¾ãªã„ã€‚
-// ãƒ¯ãƒ¼ãƒ«ãƒ‰åº§æ¨™ã¯Y-upã€‚è·é›¢ãƒ»å¯¸æ³•ã¯mã€é€Ÿåº¦ã¯m/sã€è§’åº¦ã¯radã€‚
+// Enemy‚ÖƒRƒs[‚·‚éİ’è’lBŒ»İHP‚âˆÚ“®ó‘Ô‚È‚Ç‚ÌÀsƒf[ƒ^‚ÍŠÜ‚Ü‚È‚¢B
+// ƒ[ƒ‹ƒhÀ•W‚ÍY-upB‹——£E¡–@‚ÍmA‘¬“x‚Ím/sAŠp“x‚ÍradB
 struct EnemyConfig {
-    int maxHp = 100;             // æœ€å¤§HPã€‚Resetæ™‚ã®ç¾åœ¨HPã«ã‚‚ä½¿ã†
-    float moveSpeed = 3.0f;      // æ°´å¹³ç§»å‹•é€Ÿåº¦ [m/s]
-    float turnSpeed = PI;        // æœ€å¤§æ—‹å›é€Ÿåº¦ [rad/s]
-    float bodyRadius = 0.4f;     // è¡çªç”¨AABBã®X/Zæ–¹å‘ã®åŠå¹… [m]
-    float bodyHeight = 1.8f;     // è¶³å…ƒã‹ã‚‰ã®AABBé«˜ã• [m]
-    float detectionRange = 15.0f; // Idleã‹ã‚‰Chaseã¸é·ç§»ã™ã‚‹æ°´å¹³è·é›¢ã®ä¸Šé™
-    float loseRange = 20.0f;      // Chaseã‚’ç¶­æŒã§ãã‚‹æ°´å¹³è·é›¢ã®ä¸Šé™
-    float stopDistance = 1.2f;    // ã“ã®è·é›¢ä»¥ä¸‹ã§ç§»å‹•è¦æ±‚ã‚’åœæ­¢
-    float resumeDistance = 1.5f;  // åœæ­¢å¾Œã€ã“ã®è·é›¢ä»¥ä¸Šã§ç§»å‹•è¦æ±‚ã‚’å†é–‹
-    float corpseDuration = 2.0f;  // Deadã¸é·ç§»ã—ã¦ã‹ã‚‰å‰Šé™¤å¯èƒ½ã«ãªã‚‹ã¾ã§ã®ç§’æ•°
+    int maxHp = 100;             // Å‘åHPBReset‚ÌŒ»İHP‚É‚àg‚¤
+    float moveSpeed = 3.0f;      // …•½ˆÚ“®‘¬“x [m/s]
+    float turnSpeed = PI;        // Å‘åù‰ñ‘¬“x [rad/s]
+    float bodyRadius = 0.4f;     // Õ“Ë—pAABB‚ÌX/Z•ûŒü‚Ì”¼• [m]
+    float bodyHeight = 1.8f;     // ‘«Œ³‚©‚ç‚ÌAABB‚‚³ [m]
+    float detectionRange = 15.0f; // Idle‚©‚çChase‚Ö‘JˆÚ‚·‚é…•½‹——£‚ÌãŒÀ
+    float loseRange = 20.0f;      // Chase‚ğˆÛ‚Å‚«‚é…•½‹——£‚ÌãŒÀ
+    float stopDistance = 1.2f;    // ‚±‚Ì‹——£ˆÈ‰º‚ÅˆÚ“®—v‹‚ğ’â~
+    float resumeDistance = 1.5f;  // ’â~ŒãA‚±‚Ì‹——£ˆÈã‚ÅˆÚ“®—v‹‚ğÄŠJ
+    float corpseDuration = 2.0f;  // Dead‚Ö‘JˆÚ‚µ‚Ä‚©‚çíœ‰Â”\‚É‚È‚é‚Ü‚Å‚Ì•b”
 };
 
-// TakeDamageã®å‘¼ã³å‡ºã—çµæœã€‚æ•µã®çŠ¶æ…‹ã‚’ä¿æŒã™ã‚‹ãŸã‚ã®æ§‹é€ ä½“ã§ã¯ãªã„ã€‚
+// TakeDamage‚ÌŒÄ‚Ño‚µŒ‹‰ÊB“G‚Ìó‘Ô‚ğ•Û‚·‚é‚½‚ß‚Ì\‘¢‘Ì‚Å‚Í‚È‚¢B
 struct EnemyDamageResult {
-    bool applied = false;    // æ­£ã®ãƒ€ãƒ¡ãƒ¼ã‚¸ã‚’ç”Ÿå­˜ä¸­ã®æ•µã«é©ç”¨ã§ããŸã‹
-    int hp = 0;              // å‡¦ç†å¾Œã®ç¾åœ¨HPã®ã‚³ãƒ”ãƒ¼
-    bool becameDead = false; // ä»Šå›ã®å‘¼ã³å‡ºã—ã§ç”Ÿå­˜çŠ¶æ…‹ã‹ã‚‰Deadã¸é·ç§»ã—ãŸã‹
+    bool applied = false;    // ³‚Ìƒ_ƒ[ƒW‚ğ¶‘¶’†‚Ì“G‚É“K—p‚Å‚«‚½‚©
+    int hp = 0;              // ˆ—Œã‚ÌŒ»İHP‚ÌƒRƒs[
+    bool becameDead = false; // ¡‰ñ‚ÌŒÄ‚Ño‚µ‚Å¶‘¶ó‘Ô‚©‚çDead‚Ö‘JˆÚ‚µ‚½‚©
 };
 
 enum class EnemyState { Idle, Chase, Dead };
 
-// æ›´æ–°æ™‚ç‚¹ã®å¯¾è±¡æƒ…å ±ã€‚Playerã®å‚ç…§ã‚’ä¿æŒã›ãšã€å„ãƒ•ãƒ¬ãƒ¼ãƒ ã§ä½œã‚Šç›´ã™ã€‚
+// XV“_‚Ì‘ÎÛî•ñBPlayer‚ÌQÆ‚ğ•Û‚¹‚¸AŠeƒtƒŒ[ƒ€‚Åì‚è’¼‚·B
 struct TargetInfo {
-    Vector3 position = {};       // è¶³å…ƒä¸­å¿ƒã®ãƒ¯ãƒ¼ãƒ«ãƒ‰åº§æ¨™
-    BoundingBox bodyBounds = {}; // ãƒ¯ãƒ¼ãƒ«ãƒ‰åº§æ¨™ã®AABBã€‚å¯¾è±¡ã¸ã®ä¾µå…¥é˜²æ­¢ã«ä½¿ã†
+    Vector3 position = {};       // ‘«Œ³’†S‚Ìƒ[ƒ‹ƒhÀ•W
+    BoundingBox bodyBounds = {}; // ƒ[ƒ‹ƒhÀ•W‚ÌAABBB‘ÎÛ‚Ö‚ÌN“ü–h~‚Ég‚¤
     bool alive = false;
     bool valid = false;
 
-    // Playerã®ä½ç½®ã¨å›ºå®šå¯¸æ³•ã‹ã‚‰ç”Ÿæˆã™ã‚‹ã€‚Playerã«æ­»äº¡çŠ¶æ…‹ãŒãªã„ãŸã‚alive=trueã€‚
+    // Player‚ÌˆÊ’u‚ÆŒÅ’è¡–@‚©‚ç¶¬‚·‚éBPlayer‚É€–Só‘Ô‚ª‚È‚¢‚½‚ßalive=trueB
     static TargetInfo FromPlayer(const Player& player);
 };
 
-// æ•µ1ä½“ã®AIãƒ»ç§»å‹•ãƒ»HPã‚’ç®¡ç†ã™ã‚‹ã€‚æ‰€æœ‰ã¨å‰Šé™¤ã¯EnemyManagerãŒæ‹…å½“ã™ã‚‹ã€‚
+// “G1‘Ì‚ÌAIEˆÚ“®EHP‚ğŠÇ—‚·‚éBŠ—L‚Æíœ‚ÍEnemyManager‚ª’S“–‚·‚éB
 class Enemy {
 public:
-    // positionã¯è¶³å…ƒä¸­å¿ƒã€yawã¯æ°´å¹³è§’ã€‚yaw=0ã®å‰æ–¹ã¯-Zã€‚
+    // position‚Í‘«Œ³’†SAyaw‚Í…•½ŠpByaw=0‚Ì‘O•û‚Í-ZB
     Enemy(EnemyId id, const EnemyConfig& config, Vector3 position, float yaw = 0.0f);
-    // IDã¨è¨­å®šã‚’ç¶­æŒã—ã€ç¾åœ¨HPãƒ»ä½ç½®ãƒ»çŠ¶æ…‹ãƒ»æ­»äº¡ã‚¿ã‚¤ãƒãƒ¼ã‚’åˆæœŸåŒ–ã™ã‚‹ã€‚
+    // ID‚Æİ’è‚ğˆÛ‚µAŒ»İHPEˆÊ’uEó‘ÔE€–Sƒ^ƒCƒ}[‚ğ‰Šú‰»‚·‚éB
     void Reset(Vector3 position, float yaw = 0.0f);
-    // dtã¯ç§’ã€‚ç„¡åŠ¹ãªå€¤ãƒ»éæ­£å€¤ã¯ç„¡è¦–ã€‚Deadã§ã¯æ­»äº¡ã‚¿ã‚¤ãƒãƒ¼ã®ã¿æ›´æ–°ã™ã‚‹ã€‚
+    // dt‚Í•bB–³Œø‚È’lE”ñ³’l‚Í–³‹BDead‚Å‚Í€–Sƒ^ƒCƒ}[‚Ì‚İXV‚·‚éB
     void Update(float dt, const TargetInfo& target, const Stage& stage);
-    // amount<=0ã¾ãŸã¯Deadã®å ´åˆã¯é©ç”¨ã—ãªã„ã€‚è¢«å¼¾ç„¡æ•µæ™‚é–“ã¯è¨­ã‘ã¦ã„ãªã„ã€‚
+    // amount<=0‚Ü‚½‚ÍDead‚Ìê‡‚Í“K—p‚µ‚È‚¢B”í’e–³“GŠÔ‚Íİ‚¯‚Ä‚¢‚È‚¢B
     EnemyDamageResult TakeDamage(int amount);
-    // å…¥åŠ›å€¤ã‚’è£œæ­£ã—ã¦ã‚³ãƒ”ãƒ¼ã™ã‚‹ã€‚ç¾åœ¨HPã¯ä¸Šé™å†…ã«åã‚ã‚‹ã ã‘ã§å›å¾©ã—ãªã„ã€‚
+    // “ü—Í’l‚ğ•â³‚µ‚ÄƒRƒs[‚·‚éBŒ»İHP‚ÍãŒÀ“à‚Éû‚ß‚é‚¾‚¯‚Å‰ñ•œ‚µ‚È‚¢B
     void SetConfig(const EnemyConfig& config);
-    // BeginMode3Dï½EndMode3Då†…ã§å‘¼ã¶ã€‚å¤–éƒ¨ãƒ¢ãƒ‡ãƒ«ã‚’æ‰€æœ‰ã›ãšãƒ—ãƒªãƒŸãƒ†ã‚£ãƒ–ã‚’æç”»ã™ã‚‹ã€‚
+    // BeginMode3D`EndMode3D“à‚ÅŒÄ‚ÔBƒ‚ƒfƒ‹‚ÍResourceManager‚ªŠ—L‚·‚éB
     void Draw() const;
 
     EnemyId GetId() const { return id_; }
@@ -69,28 +69,29 @@ public:
     int GetHp() const { return hp_; }
     EnemyState GetState() const { return state_; }
     bool IsAlive() const { return state_ != EnemyState::Dead; }
-    // å‰Šé™¤åˆ¤æ–­ã®ã¿è¡Œã†ã€‚å®Ÿéš›ã®å‰Šé™¤ã¯èµ°æŸ»çµ‚äº†å¾Œã«EnemyManagerã¸å§”è­²ã™ã‚‹ã€‚
+    // íœ”»’f‚Ì‚İs‚¤BÀÛ‚Ìíœ‚Í‘–¸I—¹Œã‚ÉEnemyManager‚ÖˆÏ÷‚·‚éB
     bool IsRemovalReady() const;
-    // ç§»å‹•è¦æ±‚ã®æœ‰ç„¡ã€‚å£ã«é˜»ã¾ã‚Œã¦å®Ÿç§»å‹•é‡ãŒ0ã§ã‚‚trueã«ãªã‚Šå¾—ã‚‹ã€‚
+    // ˆÚ“®—v‹‚Ì—L–³B•Ç‚É‘j‚Ü‚ê‚ÄÀˆÚ“®—Ê‚ª0‚Å‚àtrue‚É‚È‚è“¾‚éB
     bool IsMoving() const { return shouldMove_ && state_ == EnemyState::Chase; }
 
 private:
-    // çŠ¶æ…‹ã¨å‘ãã‚’æ›´æ–°ã—ã€ãã®ãƒ•ãƒ¬ãƒ¼ãƒ ã®æ°´å¹³ç§»å‹•è¦æ±‚ã‚’è¿”ã™ã€‚
+    // ó‘Ô‚ÆŒü‚«‚ğXV‚µA‚»‚ÌƒtƒŒ[ƒ€‚Ì…•½ˆÚ“®—v‹‚ğ•Ô‚·B
     Vector3 ChaseTarget(float dt, Vector3 targetPosition);
-    // targetBounds==nullptrãªã‚‰å¯¾è±¡ã¨ã®è¡çªã‚’çœç•¥ã—ã€ã‚¹ãƒ†ãƒ¼ã‚¸ã ã‘ã‚’åˆ¤å®šã™ã‚‹ã€‚
+    // targetBounds==nullptr‚È‚ç‘ÎÛ‚Æ‚ÌÕ“Ë‚ğÈ—ª‚µAƒXƒe[ƒW‚¾‚¯‚ğ”»’è‚·‚éB
     void Move(Vector3 displacement, const BoundingBox* targetBounds, const Stage& stage);
     void SeparateFromTarget(const BoundingBox& targetBounds, const Stage& stage);
     void UpdateGround(float dt, const Stage& stage);
 
     EnemyId id_;
     EnemyConfig config_;
-    Vector3 position_ = {}; // è¶³å…ƒä¸­å¿ƒã®ãƒ¯ãƒ¼ãƒ«ãƒ‰åº§æ¨™ [m]
-    float yaw_ = 0.0f; // æ°´å¹³è§’ [rad]ã€‚å‰æ–¹ã¯{sin(yaw), 0, -cos(yaw)}
-    float verticalVelocity_ = 0.0f; // Yæ–¹å‘é€Ÿåº¦ [m/s]
-    int hp_ = 100; // ç¾åœ¨HPã€‚ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã¨Resetã§config_.maxHpã‹ã‚‰è¨­å®šã™ã‚‹
+    Vector3 position_ = {}; // ‘«Œ³’†S‚Ìƒ[ƒ‹ƒhÀ•W [m]
+    float yaw_ = 0.0f; // …•½Šp [rad]B‘O•û‚Í{sin(yaw), 0, -cos(yaw)}
+    float verticalVelocity_ = 0.0f; // Y•ûŒü‘¬“x [m/s]
+    int hp_ = 100; // Œ»İHPBƒRƒ“ƒXƒgƒ‰ƒNƒ^‚ÆReset‚Åconfig_.maxHp‚©‚çİ’è‚·‚é
     EnemyState state_ = EnemyState::Idle;
-    bool shouldMove_ = true; // åœæ­¢ãƒ»å†é–‹è·é›¢ã®é–“ã§ä¿æŒã™ã‚‹ç§»å‹•è¦æ±‚
-    float corpseTimer_ = 0.0f; // Deadã¸é·ç§»ã—ã¦ã‹ã‚‰ã®çµŒéæ™‚é–“ [s]
+    bool shouldMove_ = true; // ’â~EÄŠJ‹——£‚ÌŠÔ‚Å•Û‚·‚éˆÚ“®—v‹
+    float corpseTimer_ = 0.0f; // Dead‚Ö‘JˆÚ‚µ‚Ä‚©‚ç‚ÌŒo‰ßŠÔ [s]
+    float animationTime_ = 0.0f; // Ä¶ˆÊ’u [s]B’â~‚Íæ“ª‚Ö–ß‚µA€–S‚ÍˆÛ‚·‚é
 };
 
 } // namespace demo

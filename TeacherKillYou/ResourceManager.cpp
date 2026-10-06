@@ -1,42 +1,85 @@
-#include "ResourceManager.h"
+ï»¿#include "ResourceManager.h"
 #include "raylib.h"
+#include "rlgl.h"
+
+#include <unordered_set>
 
 ResourceManager& ResourceManager::GetInstance() {
     static ResourceManager instance;
     return instance;
 }
 
-// ƒQ[ƒ€‘S‘Ì‚Åg‚¤ƒ‚ƒfƒ‹‚ğƒL[‚Æˆê‚É“o˜^‚µ‚Ä‚¨‚­
+// ã‚²ãƒ¼ãƒ å…¨ä½“ã§ä½¿ã†ãƒ¢ãƒ‡ãƒ«ã‚’ã‚­ãƒ¼ã¨ä¸€ç·’ã«ç™»éŒ²ã—ã¦ãŠã
 void ResourceManager::LoadAll() {
     LoadModel(ResourceKeys::Model_Player, "Data/Image/greenman.glb");
 
 	LoadModel(ResourceKeys::Model_Stage1, "Data/Image/free_loft_18_mini_office_v.optimization.glb");
-    // ‘¼‚Ìƒ‚ƒfƒ‹‚ª‘‚¦‚½‚ç‚±‚±‚É’Ç‰Á
+    LoadModel(ResourceKeys::Model_Enemy, "Data/Image/monster test.glb", true);
+    // ä»–ã®ãƒ¢ãƒ‡ãƒ«ãŒå¢—ãˆãŸã‚‰ã“ã“ã«è¿½åŠ 
     // LoadModel(ResourceKeys::Model_Stage, "Data/Image/stage.glb");
 }
 
-void ResourceManager::LoadModel(const std::string& key, const std::string& path) {
-    // ‚·‚Å‚É“o˜^Ï‚İ‚È‚çƒ[ƒh‚µ‚È‚¢i“ñdƒ[ƒh–h~j
+void ResourceManager::LoadModel(const std::string& key, const std::string& path, bool animated) {
+    // ã™ã§ã«ç™»éŒ²æ¸ˆã¿ãªã‚‰ãƒ­ãƒ¼ãƒ‰ã—ãªã„ï¼ˆäºŒé‡ãƒ­ãƒ¼ãƒ‰é˜²æ­¢ï¼‰
     if (models_.find(key) != models_.end()) {
         return;
     }
 
-    Model model = ::LoadModel(path.c_str());
-    models_[key] = model;
+    ModelResource resource;
+    resource.model = ::LoadModel(path.c_str());
+    if (!IsModelValid(resource.model)) {
+        ::UnloadModel(resource.model);
+        return;
+    }
+    resource.bounds = GetModelBoundingBox(resource.model);
+    if (animated) {
+        resource.animations = ::LoadModelAnimations(path.c_str(), &resource.animationCount);
+        if (resource.animations && (resource.animationCount == 0 || resource.animations[0].frameCount == 0 ||
+            !IsModelAnimationValid(resource.model, resource.animations[0]))) {
+            ::UnloadModelAnimations(resource.animations, resource.animationCount);
+            resource.animations = nullptr;
+            resource.animationCount = 0;
+        }
+    }
+    models_[key] = resource;
 }
 
-// ƒL[‚Åƒ‚ƒfƒ‹‚ğæ“¾i‚Ç‚ÌƒNƒ‰ƒX‚©‚ç‚Å‚àŒÄ‚×‚éj
+// ã‚­ãƒ¼ã§ãƒ¢ãƒ‡ãƒ«ã‚’å–å¾—ï¼ˆã©ã®ã‚¯ãƒ©ã‚¹ã‹ã‚‰ã§ã‚‚å‘¼ã¹ã‚‹ï¼‰
 Model ResourceManager::GetModel(const std::string& key) const {
     auto it = models_.find(key);
     if (it != models_.end()) {
-        return it->second;
+        return it->second.model;
     }
-    return Model{}; // Œ©‚Â‚©‚ç‚È‚¢ê‡‚Í‹ó‚Ìƒ‚ƒfƒ‹
+    return Model{}; // è¦‹ã¤ã‹ã‚‰ãªã„å ´åˆã¯ç©ºã®ãƒ¢ãƒ‡ãƒ«
+}
+
+BoundingBox ResourceManager::GetModelBounds(const std::string& key) const {
+    const auto it = models_.find(key);
+    return it != models_.end() ? it->second.bounds : BoundingBox{};
+}
+
+ModelAnimation ResourceManager::GetModelAnimation(const std::string& key) const {
+    const auto it = models_.find(key);
+    if (it == models_.end()) return {};
+    const ModelResource& resource = it->second;
+    return resource.animations && resource.animationCount > 0 ? resource.animations[0] : ModelAnimation{};
 }
 
 void ResourceManager::UnloadAll() {
+    // UnloadModelã¯ç”»åƒã‚’è§£æ”¾ã—ãªã„ã€‚å…±æœ‰IDã®é‡è¤‡è§£æ”¾ã¨æ—¢å®šãƒ†ã‚¯ã‚¹ãƒãƒ£ã®è§£æ”¾ã‚’é¿ã‘ã‚‹ã€‚
+    std::unordered_set<unsigned int> textures;
     for (auto& pair : models_) {
-        ::UnloadModel(pair.second);
+        ModelResource& resource = pair.second;
+        for (int material = 0; material < resource.model.materialCount; ++material) {
+            for (int map = MATERIAL_MAP_ALBEDO; map <= MATERIAL_MAP_BRDF; ++map) {
+                const Texture2D texture = resource.model.materials[material].maps[map].texture;
+                if (texture.id != 0 && texture.id != rlGetTextureIdDefault() && textures.insert(texture.id).second) {
+                    ::UnloadTexture(texture);
+                }
+            }
+        }
+        if (resource.animations) ::UnloadModelAnimations(resource.animations, resource.animationCount);
+        ::UnloadModel(resource.model);
     }
     models_.clear();
 }
