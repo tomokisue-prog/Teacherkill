@@ -22,6 +22,10 @@ bool IsFinite(Vector3 value) {
     return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z);
 }
 
+bool IsFinite(BoundingBox bounds) {
+    return IsFinite(bounds.min) && IsFinite(bounds.max);
+}
+
 // [-PI, PI]へ正規化し、旋回時の角度差を最短方向で扱う。
 float WrapAngle(float angle) {
     return std::isfinite(angle) ? std::remainder(angle, 2.0f * PI) : 0.0f;
@@ -155,7 +159,7 @@ void Enemy::Update(float dt, const TargetInfo& target, const Stage& stage) {
     dt = (std::min)(dt, 0.25f);
     Vector3 displacement = {};
     const BoundingBox* targetBounds = nullptr;
-    if (target.valid && target.alive && IsFinite(target.position)) {
+    if (target.valid && target.alive && IsFinite(target.position) && IsFinite(target.bodyBounds)) {
         displacement = ChaseTarget(dt, target.position);
         targetBounds = &target.bodyBounds;
     } else {
