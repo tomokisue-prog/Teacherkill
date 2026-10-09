@@ -20,7 +20,7 @@ void ResourceManager::LoadAll() {
     // 他のモデルが増えたらここに追加
     // LoadModel(ResourceKeys::Model_Stage, "Data/Image/stage.glb");
 }
-
+ 
 void ResourceManager::LoadModel(const std::string& key, const std::string& path) {
     // すでに登録済みならロードしない（二重ロード防止）
     if (models_.find(key) != models_.end()) {
