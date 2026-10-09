@@ -1,37 +1,42 @@
 #pragma once
-#include "raylib.h"
+#include "GameObject.h"
 
 class Stage;
+class PlayerCamera; // 前方宣言
 
-class Player
+class Player : public GameObject
 {
 public:
-    Player() = default;
-    ~Player() = default;
+    Player() : GameObject(GameObjectType::Player, "Player") {}
+    ~Player() override = default;
 
     void Init();
     void Reset();
-    // Stageの参照を受け取るように修正
     void Update(float deltaTime, const Stage& stage, Vector3 forward = { 0,0,1 }, Vector3 right = { 1,0,0 });
-    void Draw() const;
+
+    // カメラ情報を受け取る Draw 関数
+    void Draw(const PlayerCamera* camera = nullptr) const;
     void End();
 
-    Vector3 GetPosition() const { return position_; }
-    void SetPosition(Vector3 pos) { position_ = pos; }
+    float GetRadius() const { return playerRadius_; }
+    float GetHeight() const { return playerHeight_; }
+    void SetColliderSize(float radius, float height) { playerRadius_ = radius; playerHeight_ = height; }
 
 private:
-    Vector3 position_{ 0.0f, 0.0f, 0.0f };
+    Vector3 GetInputMoveDirection(Vector3 forward, Vector3 right) const;
+    void MoveWithCollision(Vector3 moveAmount, const Stage& stage);
+    void UpdateVerticalPhysics(float deltaTime, const Stage& stage);
+
+private:
     Vector3 velocity_{ 0.0f, 0.0f, 0.0f };
     float moveSpeed_{ 5.0f };
 
-    // プレイヤーの当たり判定用パラメータ（半径と高さ）
-    float playerRadius_{ 0.4f }; // 半径（横幅）
-    float playerHeight_{ 1.8f }; // 高さ
+    float playerRadius_{ 0.4f };
+    float playerHeight_{ 1.8f };
 
-	//プレイヤーの重力加速度
-	float gravity_{ -9.81f }; // 重力加速度
-	float jumpForce_{ 3.0f }; // ジャンプ力
+    float gravity_{ -9.81f };
+    float jumpForce_{ 3.0f };
 
-	bool isGrounded_{ false }; // 地面に接地しているかどうかのフラグ
-
+    bool isGrounded_{ false };
+    float viewModelScale_{ 0.01f }; // 手のモデルのスケール調整用
 };

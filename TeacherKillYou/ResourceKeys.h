@@ -1,16 +1,19 @@
-#pragma once
+ï»¿#pragma once
 
 namespace ResourceKeys {
-    // 3Dƒ‚ƒfƒ‹—pƒL[
+    // 3Dãƒ¢ãƒ‡ãƒ«ç”¨ã‚­ãƒ¼
+    constexpr const char* Model_Enemy = "Model_Enemy";
     constexpr const char* Model_Stage = "Model_Stage";
     constexpr const char* Model_Paladin = "Model_Paladin";
 
-	constexpr const char* Model_Player = "Model_Player";
+	//Playerï¿½Ìƒï¿½ï¿½fï¿½ï¿½(FPS hand and gun)
+    constexpr const char* Model_HandGunView = "HandGunView";
+  
 
 
-    // ƒXƒe[ƒW‚Ìƒ‚ƒfƒ‹
+    // ã‚¹ãƒ†ãƒ¼ã‚¸ã®ãƒ¢ãƒ‡ãƒ«
     
 	constexpr const char* Model_Stage1 = "Model_Stage1";
 
-    // •K—v‚É‰‚¶‚Ä‚±‚±‚É’Ç‰Á
+    // å¿…è¦ã«å¿œã˜ã¦ã“ã“ã«è¿½åŠ 
 }

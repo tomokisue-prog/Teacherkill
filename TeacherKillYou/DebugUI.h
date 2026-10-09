@@ -1,10 +1,26 @@
 #pragma once
 #include "CameraController.h"
+#include "GizmoDrawer.h"
+
+enum class SelectedObjectType {
+    None,
+    Player,
+    EnemyManager,
+    Stage,
+    PaladinModel
+};
+
+class GameContext;
 
 class DebugUI {
 public:
-    DebugUI() = default;
-    ~DebugUI() = default;
+    void Draw(GameContext& gameContext);
 
-    void Draw(CameraController& cameraController);
+private:
+    void DrawHierarchy();
+    void DrawInspector(GameContext& gameContext);
+    void DrawCameraController(CameraController& cameraController);
+
+    SelectedObjectType selectedObject_{ SelectedObjectType::None };
+    GizmoDrawer gizmoDrawer_;
 };

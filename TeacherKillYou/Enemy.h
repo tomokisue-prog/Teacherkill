@@ -59,7 +59,7 @@ public:
     EnemyDamageResult TakeDamage(int amount);
     // 入力値を補正してコピーする。現在HPは上限内に収めるだけで回復しない。
     void SetConfig(const EnemyConfig& config);
-    // BeginMode3D～EndMode3D内で呼ぶ。外部モデルを所有せずプリミティブを描画する。
+    // BeginMode3D～EndMode3D内で呼ぶ。モデルはResourceManagerが所有する。
     void Draw() const;
 
     EnemyId GetId() const { return id_; }
@@ -91,6 +91,7 @@ private:
     EnemyState state_ = EnemyState::Idle;
     bool shouldMove_ = true; // 停止・再開距離の間で保持する移動要求
     float corpseTimer_ = 0.0f; // Deadへ遷移してからの経過時間 [s]
+    float animationTime_ = 0.0f; // 再生位置 [s]。停止時は先頭へ戻し、死亡時は維持する
 };
 
 } // namespace demo

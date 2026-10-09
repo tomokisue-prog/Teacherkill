@@ -20,8 +20,8 @@ void TitleScene::Update(float deltaTime)
 
 void TitleScene::Render() const
 {
-    ClearBackground(RAYWHITE);
-    DrawText("ESCAPE SCHOOL 3D", 750, 400, 40, DARKGRAY);
+    ClearBackground({ 3, 5, 8, 255 });
+    DrawText("ESCAPE SCHOOL 3D", 750, 400, 40, { 170, 180, 180, 255 });
     DrawText("PRESS SPACE TO START", 780, 500, 20, GRAY);
 }
 

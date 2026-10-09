@@ -21,6 +21,8 @@ void SceneManager::Init()
     titleScene.SetGameContext(&gameContext);
     gameScene.SetGameContext(&gameContext);
 
+    systemMode_.Init(&gameContext);
+
     // 最初はタイトルシーンから開始
     currentScene = &titleScene;
     currentScene->Init();
@@ -28,6 +30,7 @@ void SceneManager::Init()
 
 void SceneManager::Shutdown()
 {
+    gameContext.End();
     RM().UnloadAll();
     rlImGuiShutdown();
     CloseWindow();
@@ -49,7 +52,7 @@ void SceneManager::Run()
     {
         float deltaTime = GetFrameTime();
 
-        // 更新
+        // 1. シーンおよびSystemModeの更新
         if (currentScene)
         {
             currentScene->Update(deltaTime);
@@ -65,19 +68,27 @@ void SceneManager::Run()
                 }
                 else
                 {
-                    break; // 次のシーンがなければ終了
+                    break;
                 }
             }
         }
 
-        // 描画
-        BeginDrawing();
-        ClearBackground(RAYWHITE);
+        systemMode_.Update(deltaTime);
 
+        // 2. 描画処理
+        BeginDrawing();
+        ClearBackground({ 3, 5, 8, 255 });
+
+        // 3D/2Dシーン描画
         if (currentScene)
         {
             currentScene->Render();
         }
+
+        // ImGui（SystemMode / DebugUI）の描画処理を有効化
+        rlImGuiBegin();
+        systemMode_.Draw();
+        rlImGuiEnd();
 
         EndDrawing();
     }

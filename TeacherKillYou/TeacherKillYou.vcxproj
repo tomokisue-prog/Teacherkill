@@ -20,6 +20,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="tools\FBX.md" />
+    <None Include="third_party\ufbx\LICENSE" />
+    <None Include="third_party\ufbx\README.md" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CameraController.cpp" />
@@ -28,6 +31,7 @@
     <ClCompile Include="EnemyManager.cpp" />
     <ClCompile Include="GameContext.cpp" />
     <ClCompile Include="GameScene.cpp" />
+    <ClCompile Include="GizmoDrawer.cpp" />
     <ClCompile Include="imguizmo\GraphEditor.cpp" />
     <ClCompile Include="imguizmo\ImCurveEdit.cpp" />
     <ClCompile Include="imguizmo\ImGradient.cpp" />
@@ -42,11 +46,27 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Player.cpp" />
     <ClCompile Include="PlayerCamera.cpp" />
+    <ClCompile Include="FbxLoader.cpp">
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="BakedAnimation.cpp">
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="GltfMaterials.cpp">
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="third_party\ufbx\ufbx.c">
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
+      <WarningLevel>Level1</WarningLevel>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="HorrorLighting.cpp" />
     <ClCompile Include="ResourceManager.cpp" />
     <ClCompile Include="rlImGui\rlImGui.cpp" />
     <ClCompile Include="SceneManager.cpp" />
     <ClCompile Include="Stage.cpp" />
     <ClCompile Include="SystemCamera.cpp" />
+    <ClCompile Include="SystemMode.cpp" />
     <ClCompile Include="TitleScene.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -55,7 +75,9 @@
     <ClInclude Include="Enemy.h" />
     <ClInclude Include="EnemyManager.h" />
     <ClInclude Include="GameContext.h" />
+    <ClInclude Include="GameObject.h" />
     <ClInclude Include="GameScene.h" />
+    <ClInclude Include="GizmoDrawer.h" />
     <ClInclude Include="ICamera.h" />
     <ClInclude Include="imguizmo\GraphEditor.h" />
     <ClInclude Include="imguizmo\ImCurveEdit.h" />
@@ -77,12 +99,18 @@
     <ClInclude Include="Player.h" />
     <ClInclude Include="PlayerCamera.h" />
     <ClInclude Include="ResourceKeys.h" />
+    <ClInclude Include="FbxLoader.h" />
+    <ClInclude Include="BakedAnimation.h" />
+    <ClInclude Include="GltfMaterials.h" />
+    <ClInclude Include="third_party\ufbx\ufbx.h" />
+    <ClInclude Include="HorrorLighting.h" />
     <ClInclude Include="ResourceManager.h" />
     <ClInclude Include="rlImGui\rlImGui.h" />
     <ClInclude Include="Scene.h" />
     <ClInclude Include="SceneManager.h" />
     <ClInclude Include="Stage.h" />
     <ClInclude Include="SystemCamera.h" />
+    <ClInclude Include="SystemMode.h" />
     <ClInclude Include="TitleScene.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -137,6 +165,10 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <OutDir>$(ProjectDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\</IntDir>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -176,6 +208,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -191,6 +224,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -38,16 +38,46 @@ void PlayerCamera::Update() {
     camera_.target = Vector3Add(camera_.position, forward);
 }
 
-void PlayerCamera::OnActivate() {
+void PlayerCamera::OnActivate()
+{
     DisableCursor();
 }
 
-Vector3 PlayerCamera::GetForwardVector() const {
-    Vector3 forward = { sinf(yaw_), 0.0f, cosf(yaw_) };
-        return Vector3Normalize(forward);
+Vector3 PlayerCamera::GetForwardVector() const
+{
+    Vector3 forward =
+    {
+        sinf(yaw_),
+        0.0f,
+        cosf(yaw_)
+    };
+
+    return Vector3Normalize(forward);
 }
 
-Vector3 PlayerCamera::GetRightVector() const {
+Vector3 PlayerCamera::GetRightVector() const
+{
     Vector3 forward = GetForwardVector();
-        return Vector3{ forward.z, 0.0f, -forward.x };
+
+    return Vector3
+    {
+        forward.z,
+        0.0f,
+        -forward.x
+    };
+}
+
+Vector3 PlayerCamera::GetPosition() const
+{
+    return camera_.position;
+}
+
+Vector3 PlayerCamera::GetUpVector() const
+{
+    return camera_.up;
+}
+
+float PlayerCamera::GetPitch() const
+{
+    return pitch_;
 }

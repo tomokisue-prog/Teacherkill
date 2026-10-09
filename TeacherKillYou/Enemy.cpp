@@ -1,6 +1,7 @@
 ﻿#include "Enemy.h"
 #include "Player.h"
 #include "Stage.h"
+#include "ResourceManager.h"
 #include "raymath.h"
 
 #include <algorithm>
@@ -11,6 +12,8 @@ namespace {
 // 接触面との余白 [m]。丸め誤差による侵入と距離0付近の除算を避ける。
 constexpr float ContactEpsilon = 0.001f;
 enum class MoveAxis { X, Z };
+// raylib 5.5のglTFアニメーションは17ms間隔で読み込まれる。
+constexpr float AnimationFrameDuration = 0.017f;
 
 
 // NaN/Infは既定値へ置換し、有限値は下限へクランプする。
@@ -25,10 +28,6 @@ bool IsFinite(Vector3 value) {
 // [-PI, PI]へ正規化し、旋回時の角度差を最短方向で扱う。
 float WrapAngle(float angle) {
     return std::isfinite(angle) ? std::remainder(angle, 2.0f * PI) : 0.0f;
-}
-
-Vector3 Forward(float yaw) {
-    return { std::sin(yaw), 0.0f, -std::cos(yaw) };
 }
 
 BoundingBox BodyBounds(Vector3 position, float radius, float height) {
@@ -140,6 +139,7 @@ void Enemy::Reset(Vector3 position, float yaw) {
     state_ = EnemyState::Idle;
     shouldMove_ = true;
     corpseTimer_ = 0.0f;
+    animationTime_ = 0.0f;
 }
 
 void Enemy::Update(float dt, const TargetInfo& target, const Stage& stage) {
@@ -163,8 +163,17 @@ void Enemy::Update(float dt, const TargetInfo& target, const Stage& stage) {
         shouldMove_ = true;
     }
     // AIは移動要求を算出するだけ。確定位置は衝突解決と接地処理で更新する。
+    const Vector3 previousPosition = position_;
     Move(displacement, targetBounds, stage);
     UpdateGround(dt, stage);
+    // 衝突解決後に水平移動できたときだけ再生する。壁で止まった場合は歩かせない。
+    const bool moved = position_.x != previousPosition.x || position_.z != previousPosition.z;
+    const ModelAnimation animation = RM().GetModelAnimation(ResourceKeys::Model_Enemy);
+    if (IsMoving() && moved && animation.frameCount > 0) {
+        animationTime_ = std::fmod(animationTime_ + dt, animation.frameCount * AnimationFrameDuration);
+    } else {
+        animationTime_ = 0.0f;
+    }
 }
 
 Vector3 Enemy::ChaseTarget(float dt, Vector3 targetPosition) {
@@ -242,10 +251,10 @@ void Enemy::UpdateGround(float dt, const Stage& stage) {
     const float nextY = position_.y + verticalVelocity_ * dt;
     const Ray downRay = { Vector3Add(position_, { 0, groundProbeHeight, 0 }), { 0, -1, 0 } };
     const float probeDistance = groundProbeHeight + (std::max)(0.0f, position_.y - nextY) + ContactEpsilon;
-    const RayCollision hit = stage.Raycast(downRay, probeDistance);
+    const RayCollision hit = stage.RaycastGround(downRay, probeDistance);
     const float groundY = downRay.position.y - hit.distance;
     // 上向き法線を持つ面だけに接地し、壁面や下向きの面を床として扱わない。
-    if (hit.hit && hit.normal.y > 0.5f && std::isfinite(groundY) && nextY <= groundY + ContactEpsilon) {
+    if (hit.hit && std::isfinite(groundY) && nextY <= groundY + ContactEpsilon) {
         position_.y = groundY;
         verticalVelocity_ = 0.0f;
     } else {
@@ -276,6 +285,26 @@ bool Enemy::IsRemovalReady() const {
 }
 
 void Enemy::Draw() const {
+    Model model = RM().GetModel(ResourceKeys::Model_Enemy);
+    if (model.meshCount > 0) {
+        const ModelAnimation animation = RM().GetModelAnimation(ResourceKeys::Model_Enemy);
+        if (animation.frameCount > 0) {
+            const int frame = static_cast<int>(animationTime_ / AnimationFrameDuration) % animation.frameCount;
+            // メッシュを共有するため、各敵の描画直前にその敵のポーズを適用する。
+            RM().ApplyModelAnimation(ResourceKeys::Model_Enemy, frame);
+        }
+        const BoundingBox bounds = RM().GetModelBounds(ResourceKeys::Model_Enemy);
+        const float height = bounds.max.y - bounds.min.y;
+        const float scale = height > ContactEpsilon ? config_.bodyHeight / height : 1.0f;
+        // モデルの原点を足元中心へ補正する。衝突用AABBの位置・寸法は変更しない。
+        model.transform = MatrixTranslate(-(bounds.min.x + bounds.max.x) * 0.5f,
+                                          -bounds.min.y, -(bounds.min.z + bounds.max.z) * 0.5f);
+        // モデルの正面は+Z。Enemyのyaw=0（-Z）と旋回方向へ合わせる。
+        const Color tint = IsAlive() ? WHITE : Color{ 110, 110, 110, 255 };
+        DrawModelEx(model, position_, { 0, 1, 0 }, 180.0f - yaw_ * RAD2DEG, { scale, scale, scale }, tint);
+        return;
+    }
+    // モデルが読み込めない場合は、位置を確認できるよう箱を表示する。
     // 描画用の中心は足元から半高分ずらす。論理座標と衝突AABBは回転させない。
     Color color = { 57, 187, 173, 255 };
     if (!IsAlive()) color = { 91, 99, 110, 255 };
@@ -286,9 +315,6 @@ void Enemy::Draw() const {
     const Vector3 size = { radius * 2, config_.bodyHeight, radius * 2 };
     DrawCubeV(center, size, color);
     DrawCubeWiresV(center, size, Fade(BLACK, 0.5f));
-    Vector3 face = Vector3Add(position_, Vector3Scale(Forward(yaw_), radius + 0.04f));
-    face.y += config_.bodyHeight * 0.83f;
-    DrawSphere(face, 0.09f, RAYWHITE);
 }
 
 }
