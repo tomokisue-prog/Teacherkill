@@ -4,6 +4,7 @@
 #include "Stage.h"
 #include "EnemyManager.h"
 #include "HorrorLighting.h"
+#include "DoorMove.h"
 
 class GameContext
 {
@@ -29,6 +30,9 @@ public:
     demo::EnemyManager& GetEnemyManager() { return enemyManager_; }
     const demo::EnemyManager& GetEnemyManager() const { return enemyManager_; }
 
+    DoorMove& GetDoor() { return door_; }
+    const DoorMove& GetDoor() const { return door_; }
+
 private:
     void PlaceCharacters();
     mutable HorrorLighting lighting_;
@@ -36,6 +40,7 @@ private:
     Player player_;
     Stage stage_;
     demo::EnemyManager enemyManager_;
+	DoorMove door_;
 
     Vector3 paladinPosition_{ 0.0f, 0.0f, 3.0f };
 

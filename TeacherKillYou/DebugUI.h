@@ -1,13 +1,15 @@
 #pragma once
 #include "CameraController.h"
 #include "GizmoDrawer.h"
+#include "DoorMove.h"
 
 enum class SelectedObjectType {
     None,
     Player,
     EnemyManager,
     Stage,
-    PaladinModel
+    PaladinModel,
+    Door
 };
 
 class GameContext;
@@ -23,4 +25,5 @@ private:
 
     SelectedObjectType selectedObject_{ SelectedObjectType::None };
     GizmoDrawer gizmoDrawer_;
+	DoorMove door_;
 };

@@ -17,6 +17,7 @@ void GameContext::Reset()
 {
     player_.Reset();
     stage_.Reset();
+    door_.Reset();
     PlaceCharacters();
     lighting_.Init(RM().GetModelShaders());
 }
@@ -44,6 +45,8 @@ void GameContext::Update(float deltaTime)
         Vector3 right = cameraController_.GetPlayerCamera().GetRightVector();
         player_.Update(deltaTime, stage_, forward, right);
     }
+
+    door_.Update(deltaTime, player_);
 
     // 2. ワールドオブジェクト（ステージ・敵）の更新
     enemyManager_.Update(deltaTime, player_, stage_);
@@ -86,8 +89,9 @@ void GameContext::Draw() const
         activePlayerCam = &cameraController_.GetPlayerCamera();
     }
 
-    player_.Draw(activePlayerCam);
+    door_.Draw();
 
+    player_.Draw(activePlayerCam);
     enemyManager_.Draw();
 
     Model& paladinModel = ResourceManager::GetInstance().GetModelRef(ResourceKeys::Model_Paladin);

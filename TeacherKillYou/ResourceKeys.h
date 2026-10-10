@@ -9,6 +9,8 @@ namespace ResourceKeys {
 	//Player�̃��f��(FPS hand and gun)
     constexpr const char* Model_HandGunView = "HandGunView";
   
+	// ドアのモデル
+	constexpr const char* Model_Door = "Model_Door";
 
 
     // ステージのモデル

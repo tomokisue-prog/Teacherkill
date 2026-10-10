@@ -11,13 +11,15 @@ void DebugUI::Draw(GameContext& gameContext) {
         DrawHierarchy();
         DrawInspector(gameContext);
 
-        // 選択されている列挙型に応じてターゲットの GameObject* を特定
+        // 選択対象のポインタをギズモに渡す
         GameObject* targetObj = nullptr;
         if (selectedObject_ == SelectedObjectType::Player) {
             targetObj = &gameContext.GetPlayer();
         }
+        else if (selectedObject_ == SelectedObjectType::Door) {
+            targetObj = &gameContext.GetDoor(); // GameContext に Door の getter を用意
+        }
 
-        // ギズモ描画クラスへポインタを渡す
         gizmoDrawer_.Draw(gameContext, targetObj);
     }
 
@@ -46,6 +48,11 @@ void DebugUI::DrawHierarchy()
     if (ImGui::Selectable("Paladin Model", selectedObject_ == SelectedObjectType::PaladinModel))
     {
         selectedObject_ = SelectedObjectType::PaladinModel;
+    }
+
+    if (ImGui::Selectable("Door", selectedObject_ == SelectedObjectType::Door))
+    {
+        selectedObject_ = SelectedObjectType::Door;
     }
 
     ImGui::End();
@@ -119,6 +126,37 @@ void DebugUI::DrawInspector(GameContext& gameContext)
     case SelectedObjectType::PaladinModel:
         ImGui::Text("Paladin Model");
         break;
+
+    case SelectedObjectType::Door:
+    {
+        DoorMove& door = gameContext.GetDoor();
+
+        Vector3 position = door.GetPosition();
+        Vector3 rotation = door.GetRotation();
+        Vector3 scale = door.GetScale();
+        float speed = door.GetSlideSpeed();
+        float distance = door.GetOpenDistance();
+
+        ImGui::Text("Door Transform");
+
+        if (ImGui::DragFloat3("Position", &position.x, 0.1f)) door.SetPosition(position);
+        if (ImGui::DragFloat3("Rotation", &rotation.x, 1.0f)) door.SetRotation(rotation);
+        if (ImGui::DragFloat3("Scale", &scale.x, 0.05f, 0.1f, 10.0f)) door.SetScale(scale);
+
+        ImGui::Separator();
+        ImGui::Text("Door Controls");
+
+        // スライド速度・移動距離の調整
+        if (ImGui::SliderFloat("Slide Speed", &speed, 0.1f, 10.0f)) door.SetSlideSpeed(speed);
+        if (ImGui::DragFloat("Open Distance", &distance, 0.1f)) door.SetOpenDistance(distance);
+
+        // インスペクター上でのテスト開閉ボタン
+        if (ImGui::Button("Toggle Door"))
+        {
+            door.Toggle();
+        }
+        break;
+    }
 
     default:
         ImGui::Text("No object selected.");

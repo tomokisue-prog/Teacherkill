@@ -26,6 +26,8 @@ void ResourceManager::LoadAll() {
 
     LoadModel(ResourceKeys::Model_Enemy, "Data/Image/MONSTER   run.fbx");
 
+	LoadModel(ResourceKeys::Model_Door, "Data/Image/slide door.glb");
+
 }
  
 void ResourceManager::LoadModel(const std::string& key, const std::string& path) {
