@@ -84,6 +84,9 @@
     <Filter Include="Debug\GizmoDrawer">
       <UniqueIdentifier>{b92afbe3-f4cc-4fd4-932f-df5f72d13a48}</UniqueIdentifier>
     </Filter>
+    <Filter Include="GamePlay\Actors\Stage\Door">
+      <UniqueIdentifier>{fc2eb779-bfe8-4626-a97c-072d32b37eea}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -190,6 +193,9 @@
     </ClCompile>
     <ClCompile Include="GizmoDrawer.cpp">
       <Filter>Debug\GizmoDrawer</Filter>
+    </ClCompile>
+    <ClCompile Include="DoorMove.cpp">
+      <Filter>GamePlay\Actors\Stage\Door</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -318,6 +324,9 @@
     </ClInclude>
     <ClInclude Include="GizmoDrawer.h">
       <Filter>Debug\GizmoDrawer</Filter>
+    </ClInclude>
+    <ClInclude Include="DoorMove.h">
+      <Filter>GamePlay\Actors\Stage\Door</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

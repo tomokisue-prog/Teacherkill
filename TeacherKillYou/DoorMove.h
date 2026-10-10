@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "GameObject.h"
+#include "raylib.h"
 
 class Player; // 前方宣言
 
@@ -15,6 +16,8 @@ public:
     // Player を受け取って距離とEキー入力を判定
     void Update(float deltaTime, const Player& player);
     void Draw() const;
+
+    BoundingBox GetBoundingBox() const;
 
     // 開閉制御
     void Open() { isOpen_ = true; }

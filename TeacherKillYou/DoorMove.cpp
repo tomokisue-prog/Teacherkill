@@ -69,3 +69,24 @@ void DoorMove::Draw() const
     }
     rlPopMatrix();
 }
+
+BoundingBox DoorMove::GetBoundingBox() const
+{
+    // スライド進行度を反映した現在の中心位置
+    Vector3 currentPos = Vector3Add(
+        position_,
+        Vector3Scale({ 1.0f, 0.0f, 0.0f }, openDistance_ * slideProgress_)
+    );
+
+    // ドアの標準的なサイズ（幅1.2, 高さ2.0, 奥行き0.2 と仮定し、scale_ を掛ける）
+    Vector3 halfSize = {
+        0.6f * scale_.x,
+        1.0f * scale_.y,
+        0.1f * scale_.z
+    };
+
+    return {
+        Vector3Subtract(currentPos, halfSize),
+        Vector3Add(currentPos, halfSize)
+    };
+}
