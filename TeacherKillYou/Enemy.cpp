@@ -2,6 +2,8 @@
 #include "Player.h"
 #include "Stage.h"
 #include "ResourceManager.h"
+#include "DamageFlash.h"
+#include "HorrorLighting.h"
 #include "raymath.h"
 
 #include <algorithm>
@@ -14,6 +16,7 @@ constexpr float ContactEpsilon = 0.001f;
 enum class MoveAxis { X, Z };
 // raylib 5.5のglTFアニメーションは17ms間隔で読み込まれる。
 constexpr float AnimationFrameDuration = 0.017f;
+constexpr float DamageFlashDuration = 0.6f;
 
 
 // NaN/Infは既定値へ置換し、有限値は下限へクランプする。
@@ -101,8 +104,7 @@ namespace demo {
 TargetInfo TargetInfo::FromPlayer(const Player& player) {
     TargetInfo target;
     target.position = player.GetPosition();
-    // Playerのprivateな衝突寸法と対応するため、Player側の寸法変更時はここも更新する。
-    target.bodyBounds = BodyBounds(target.position, 0.4f, 1.8f);
+    target.bodyBounds = BodyBounds(target.position, player.GetRadius(), player.GetHeight());
     target.alive = player.IsAlive();
     target.valid = IsFinite(target.position);
     return target;
@@ -128,6 +130,10 @@ void Enemy::SetConfig(const EnemyConfig& config) {
     config_.stopDistance = AtLeast(config_.stopDistance, 0.0f, defaults.stopDistance);
     config_.resumeDistance = AtLeast(config_.resumeDistance, config_.stopDistance + 0.01f, defaults.resumeDistance);
     config_.corpseDuration = AtLeast(config_.corpseDuration, 0.0f, defaults.corpseDuration);
+    config_.attackDamage = (std::max)(0, config_.attackDamage);
+    config_.attackRange = AtLeast(config_.attackRange, config_.stopDistance + 0.05f, defaults.attackRange);
+    config_.attackHitFraction = Clamp(AtLeast(config_.attackHitFraction, 0.01f, defaults.attackHitFraction), 0.01f, 0.99f);
+    config_.attackRecovery = AtLeast(config_.attackRecovery, 0.0f, defaults.attackRecovery);
     hp_ = (std::min)(hp_, config_.maxHp);
 }
 
@@ -140,40 +146,105 @@ void Enemy::Reset(Vector3 position, float yaw) {
     shouldMove_ = true;
     corpseTimer_ = 0.0f;
     animationTime_ = 0.0f;
+    attackTime_ = attackCooldown_ = damageFlashTimer_ = 0.0f;
+    attackHitChecked_ = attackPose_ = false;
+    pendingAttackDamage_ = 0;
 }
 
-void Enemy::Update(float dt, const TargetInfo& target, const Stage& stage) {
+float Enemy::AttackDuration() const {
+    const auto clip = RM().GetModelAnimation(ResourceKeys::Animation_EnemyAttack);
+    return clip.frameCount > 1 ? (clip.frameCount - 1) * AnimationFrameDuration : 0.9f;
+}
+
+bool Enemy::CanHitTarget(const TargetInfo& target, const Stage& stage, const BoundingBox* blocker) const {
+    if (!target.valid || !target.alive || !IsFinite(target.position)) return false;
+    const auto body = GetBodyBounds();
+    if (body.max.y <= target.bodyBounds.min.y || body.min.y >= target.bodyBounds.max.y) return false;
+    Vector3 delta = Vector3Subtract(target.position, position_);
+    delta.y = 0.0f;
+    const float distance = Vector3Length(delta);
+    if (distance > config_.attackRange) return false;
+    if (distance > ContactEpsilon && Vector3DotProduct(Vector3Scale(delta, 1.0f / distance),
+        {std::sin(yaw_), 0, -std::cos(yaw_)}) < 0.7f) return false;
+    const Vector3 origin = Vector3Add(position_, {0, config_.bodyHeight * 0.6f, 0});
+    const Vector3 aim = {target.position.x, (target.bodyBounds.min.y + target.bodyBounds.max.y) * 0.5f, target.position.z};
+    const Vector3 rayDelta = Vector3Subtract(aim, origin);
+    const float length = Vector3Length(rayDelta);
+    if (length <= ContactEpsilon) return true;
+    const Ray ray = {origin, Vector3Scale(rayDelta, 1.0f / length)};
+    const auto wall = stage.Raycast(ray, length);
+    if (wall.hit && wall.distance < length - ContactEpsilon) return false;
+    if (blocker) {
+        if (CheckCollisionBoxSphere(*blocker, origin, ContactEpsilon)) return false;
+        const auto door = GetRayCollisionBox(ray, *blocker);
+        if (door.hit && door.distance < length - ContactEpsilon) return false;
+    }
+    return true;
+}
+
+void Enemy::Update(float dt, const TargetInfo& target, const Stage& stage, const BoundingBox* blocker) {
+    pendingAttackDamage_ = 0;
     if (!std::isfinite(dt) || dt <= 0.0f) return;
+    damageFlashTimer_ = (std::max)(0.0f, damageFlashTimer_ - dt);
     if (!IsAlive()) {
         corpseTimer_ = (std::min)(config_.corpseDuration, corpseTimer_ + dt);
         return;
     }
-
-
-    // 生存中のシミュレーション時間だけ上限を設ける。死亡タイマーは実際のdtを使う。
-    // 衝突処理をdtに応じて反復しないことで、遅延時の負荷増幅を防ぐ。
+    // 遅延したフレームで攻撃・衝突を何度も実行しない。
     dt = (std::min)(dt, 0.25f);
-    Vector3 displacement = {};
-    const BoundingBox* targetBounds = nullptr;
-    if (target.valid && target.alive && IsFinite(target.position)) {
-        displacement = ChaseTarget(dt, target.position);
-        targetBounds = &target.bodyBounds;
-    } else {
+    attackCooldown_ = (std::max)(0.0f, attackCooldown_ - dt);
+    const bool validTarget = target.valid && target.alive && IsFinite(target.position);
+    if (!validTarget) {
         state_ = EnemyState::Idle;
+        attackPose_ = false;
+        animationTime_ = 0.0f;
         shouldMove_ = true;
     }
-    // AIは移動要求を算出するだけ。確定位置は衝突解決と接地処理で更新する。
+    const bool attacking = state_ == EnemyState::Attack;
     const Vector3 previousPosition = position_;
-    Move(displacement, targetBounds, stage);
+    const Vector3 displacement = validTarget && !attacking ? ChaseTarget(dt, target.position) : Vector3{};
+    Move(displacement, validTarget ? &target.bodyBounds : nullptr, stage);
     UpdateGround(dt, stage);
-    // 衝突解決後に水平移動できたときだけ再生する。壁で止まった場合は歩かせない。
+    if (attacking) {
+        attackTime_ += dt;
+        animationTime_ = attackTime_;
+        const float duration = AttackDuration();
+        // 命中時に再判定するので、振り始めてから逃げれば回避できる。
+        if (!attackHitChecked_ && attackTime_ >= duration * config_.attackHitFraction) {
+            attackHitChecked_ = true;
+            if (CanHitTarget(target, stage, blocker)) pendingAttackDamage_ = config_.attackDamage;
+        }
+        if (attackTime_ >= duration) {
+            state_ = EnemyState::Chase;
+            attackPose_ = false;
+            animationTime_ = 0.0f;
+            attackCooldown_ = config_.attackRecovery;
+        }
+        return;
+    }
+    if (state_ == EnemyState::Chase && attackCooldown_ <= 0.0f && config_.attackDamage > 0 && CanHitTarget(target, stage, blocker)) {
+        state_ = EnemyState::Attack;
+        shouldMove_ = false;
+        attackPose_ = true;
+        attackTime_ = animationTime_ = 0.0f;
+        attackHitChecked_ = false;
+        return;
+    }
+    attackPose_ = false;
     const bool moved = position_.x != previousPosition.x || position_.z != previousPosition.z;
     const ModelAnimation animation = RM().GetModelAnimation(ResourceKeys::Model_Enemy);
-    if (IsMoving() && moved && animation.frameCount > 0) {
-        animationTime_ = std::fmod(animationTime_ + dt, animation.frameCount * AnimationFrameDuration);
-    } else {
-        animationTime_ = 0.0f;
-    }
+    animationTime_ = IsMoving() && moved && animation.frameCount > 0 ?
+        std::fmod(animationTime_ + dt, animation.frameCount * AnimationFrameDuration) : 0.0f;
+}
+
+int Enemy::ConsumeAttackDamage() {
+    const int damage = pendingAttackDamage_;
+    pendingAttackDamage_ = 0;
+    return damage;
+}
+
+float Enemy::GetDamageFlashStrength() const {
+    return DamageFlashStrength(damageFlashTimer_, DamageFlashDuration);
 }
 
 Vector3 Enemy::ChaseTarget(float dt, Vector3 targetPosition) {
@@ -267,11 +338,13 @@ EnemyDamageResult Enemy::TakeDamage(int amount) {
     // 減算前に比較し、大きなダメージでもHPを負値にしない。
     hp_ = amount >= hp_ ? 0 : hp_ - amount;
     // Deadへの遷移はこの呼び出しで一度だけ報告する。以降の被弾は冒頭で拒否する。
+    damageFlashTimer_ = DamageFlashDuration;
     const bool died = hp_ == 0;
     if (died) {
         state_ = EnemyState::Dead;
         shouldMove_ = false;
         corpseTimer_ = 0.0f;
+        pendingAttackDamage_ = 0;
     }
     return { true, hp_, died };
 }
@@ -287,11 +360,14 @@ bool Enemy::IsRemovalReady() const {
 void Enemy::Draw() const {
     Model model = RM().GetModel(ResourceKeys::Model_Enemy);
     if (model.meshCount > 0) {
-        const ModelAnimation animation = RM().GetModelAnimation(ResourceKeys::Model_Enemy);
+        const char* clipKey = attackPose_ && RM().GetModelAnimation(ResourceKeys::Animation_EnemyAttack).frameCount > 0 ?
+            ResourceKeys::Animation_EnemyAttack : ResourceKeys::Model_Enemy;
+        const ModelAnimation animation = RM().GetModelAnimation(clipKey);
         if (animation.frameCount > 0) {
-            const int frame = static_cast<int>(animationTime_ / AnimationFrameDuration) % animation.frameCount;
+            const int elapsedFrame = static_cast<int>(animationTime_ / AnimationFrameDuration);
+            const int frame = attackPose_ ? (std::min)(elapsedFrame, animation.frameCount - 1) : elapsedFrame % animation.frameCount;
             // メッシュを共有するため、各敵の描画直前にその敵のポーズを適用する。
-            RM().ApplyModelAnimation(ResourceKeys::Model_Enemy, frame);
+            RM().ApplyModelAnimation(clipKey, frame);
         }
         const BoundingBox bounds = RM().GetModelBounds(ResourceKeys::Model_Enemy);
         const float height = bounds.max.y - bounds.min.y;
@@ -301,7 +377,7 @@ void Enemy::Draw() const {
                                           -bounds.min.y, -(bounds.min.z + bounds.max.z) * 0.5f);
         // モデルの正面は+Z。Enemyのyaw=0（-Z）と旋回方向へ合わせる。
         const Color tint = IsAlive() ? WHITE : Color{ 110, 110, 110, 255 };
-        DrawModelEx(model, position_, { 0, 1, 0 }, 180.0f - yaw_ * RAD2DEG, { scale, scale, scale }, tint);
+        DrawHorrorModelEx(model, position_, { 0, 1, 0 }, 180.0f - yaw_ * RAD2DEG, { scale, scale, scale }, tint, GetDamageFlashStrength());
         return;
     }
     // モデルが読み込めない場合は、位置を確認できるよう箱を表示する。
@@ -310,6 +386,10 @@ void Enemy::Draw() const {
     if (!IsAlive()) color = { 91, 99, 110, 255 };
     else if (state_ == EnemyState::Chase) color = { 242, 146, 65, 255 };
 
+    const float flash = GetDamageFlashStrength();
+    color = { static_cast<unsigned char>(color.r + (255 - color.r) * flash),
+              static_cast<unsigned char>(color.g * (1.0f - flash)),
+              static_cast<unsigned char>(color.b * (1.0f - flash)), 255 };
     const float radius = config_.bodyRadius;
     const Vector3 center = Vector3Add(position_, { 0, config_.bodyHeight * 0.5f, 0 });
     const Vector3 size = { radius * 2, config_.bodyHeight, radius * 2 };

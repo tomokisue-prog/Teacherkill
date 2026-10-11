@@ -1,4 +1,5 @@
-﻿#include "DoorMove.h"
+﻿#include "HorrorLighting.h"
+#include "DoorMove.h"
 #include "Player.h"
 #include "ResourceManager.h"
 #include "ResourceKeys.h"
@@ -64,7 +65,7 @@ void DoorMove::Draw() const
 
         for (int i = 0; i < doorModel.meshCount; i++)
         {
-            DrawMesh(doorModel.meshes[i], doorModel.materials[doorModel.meshMaterial[i]], MatrixIdentity());
+            DrawHorrorMesh(doorModel.meshes[i], doorModel.materials[doorModel.meshMaterial[i]], MatrixIdentity());
         }
     }
     rlPopMatrix();

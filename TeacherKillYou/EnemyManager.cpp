@@ -1,4 +1,5 @@
 ﻿#include "EnemyManager.h"
+#include "Player.h"
 
 #include <algorithm>
 
@@ -21,6 +22,13 @@ void EnemyManager::Update(float dt, const TargetInfo& target, const Stage& stage
 
 void EnemyManager::Update(float dt, const Player& player, const Stage& stage) {
     Update(dt, TargetInfo::FromPlayer(player), stage);
+}
+
+void EnemyManager::Update(float dt, Player& player, const Stage& stage, const BoundingBox* blocker) {
+    for (auto& enemy : enemies_) {
+        enemy.Update(dt, TargetInfo::FromPlayer(player), stage, blocker);
+        player.TakeDamage(enemy.ConsumeAttackDamage());
+    }
 }
 
 Enemy* EnemyManager::Find(EnemyId id) {

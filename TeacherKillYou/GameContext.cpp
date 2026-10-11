@@ -1,3 +1,4 @@
+#include "HorrorLighting.h"
 #include "GameContext.h"
 #include "ResourceManager.h"
 #include "ResourceKeys.h"
@@ -66,7 +67,7 @@ void GameContext::Init()
     player_.Init();
     stage_.Init();
     PlaceCharacters();
-    lighting_.Init(RM().GetModelShaders());
+    lighting_.Init(RM().GetModelShaders(), RM().GetModel(ResourceKeys::Model_Stage1));
     hitMarkerTimer_ = 0.0f;
     hitMarkerKill_ = false;
 }
@@ -77,7 +78,7 @@ void GameContext::Reset()
     stage_.Reset();
     door_.Reset();
     PlaceCharacters();
-    lighting_.Init(RM().GetModelShaders());
+    lighting_.Init(RM().GetModelShaders(), RM().GetModel(ResourceKeys::Model_Stage1));
     hitMarkerTimer_ = 0.0f;
     hitMarkerKill_ = false;
 }
@@ -227,7 +228,8 @@ void GameContext::Update(float deltaTime)
     door_.Update(deltaTime, player_);
 
     // 2. ワールドオブジェクト（ステージ・敵）の更新
-    enemyManager_.Update(deltaTime, player_, stage_);
+    const BoundingBox doorBounds = door_.GetBoundingBox();
+    enemyManager_.Update(deltaTime, player_, stage_, &doorBounds);
     enemyManager_.RemoveExpired();
 
     // パラディンモデルのアニメーション更新
@@ -254,7 +256,7 @@ void GameContext::Draw() const
 {
     const bool playerView = cameraController_.GetActiveType() == CameraType::Player;
     lighting_.BeginFrame(cameraController_.GetActiveRaylibCamera(),
-        cameraController_.GetPlayerCamera().GetRaylibCamera());
+        cameraController_.GetPlayerCamera().GetRaylibCamera(), stage_.GetPosition(), stage_.GetScale());
     BeginMode3D(cameraController_.GetActiveRaylibCamera());
 
     // 編集用グリッドはシステムカメラでだけ表示する。
@@ -274,7 +276,7 @@ void GameContext::Draw() const
     enemyManager_.Draw();
 
     Model& paladinModel = ResourceManager::GetInstance().GetModelRef(ResourceKeys::Model_Paladin);
-    DrawModel(paladinModel, paladinPosition_, 1.0f, WHITE);
+    DrawHorrorModel(paladinModel, paladinPosition_, 1.0f, WHITE);
 
     EndMode3D();
     lighting_.EndFrame(playerView);

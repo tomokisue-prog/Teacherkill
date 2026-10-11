@@ -82,7 +82,7 @@ private:
     int hp_{ 100 };
 
     float damageFlashTimer_{ 0.0f };
-    float damageFlashDuration_{ 0.25f };
+    float damageFlashDuration_{ 0.6f };
 
     float sprintSpeed_{ 8.0f };
     bool isSprinting_{ false };

@@ -74,6 +74,7 @@
     <ClInclude Include="CameraController.h" />
     <ClInclude Include="DebugUI.h" />
     <ClInclude Include="DoorMove.h" />
+    <ClInclude Include="DamageFlash.h" />
     <ClInclude Include="Enemy.h" />
     <ClInclude Include="EnemyManager.h" />
     <ClInclude Include="GameContext.h" />

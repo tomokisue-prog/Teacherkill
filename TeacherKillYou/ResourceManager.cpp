@@ -31,6 +31,8 @@ void ResourceManager::LoadAll() {
     LoadModelAnimations(ResourceKeys::Model_Paladin, "Data/Image/BrainStem.glb");
 
     LoadModel(ResourceKeys::Model_Enemy, "Data/Image/MONSTER   run.fbx");
+    LoadFbxAnimation(ResourceKeys::Animation_EnemyAttack, ResourceKeys::Model_Enemy,
+                     "Data/Image/MONSTER  attack.fbx");
 
 	LoadModel(ResourceKeys::Model_Door, "Data/Image/slide door.glb");
 
@@ -47,6 +49,7 @@ void ResourceManager::LoadModel(const std::string& key, const std::string& path)
         if (data.model.meshCount == 0) return;
         models_[key] = data.model;
         modelBounds_[key] = GetModelBoundingBox(data.model);
+        fbxBindings_[key] = std::move(data.bindings);
         if (data.animationCount > 0) {
             animations_[key] = { data.animations, data.animationCount, std::move(data.bakedFrames) };
         }
@@ -89,7 +92,8 @@ ModelAnimation ResourceManager::GetModelAnimation(const std::string& key) const
     int count = 0;
     ModelAnimation* animations = GetModelAnimations(key, &count);
     if (!animations || count == 0 || animations[0].frameCount == 0) return {};
-    const Model model = GetModel(key);
+    const auto& owner = animations_.at(key).modelKey;
+    const Model model = GetModel(owner.empty() ? key : owner);
     return IsModelAnimationValid(model, animations[0]) ? animations[0] : ModelAnimation{};
 }
 
@@ -110,11 +114,22 @@ void ResourceManager::LoadModelAnimations(const std::string& key, const std::str
     }
 }
 
+void ResourceManager::LoadFbxAnimation(const std::string& key, const std::string& modelKey, const std::string& path) {
+    if (animations_.find(key) != animations_.end()) return;
+    const auto model = models_.find(modelKey);
+    const auto bindings = fbxBindings_.find(modelKey);
+    if (model == models_.end() || bindings == fbxBindings_.end()) return;
+    FbxAnimationData data = LoadFbxAnimations(path, model->second, bindings->second);
+    if (data.animationCount > 0)
+        animations_[key] = { data.animations, data.animationCount, std::move(data.bakedFrames), modelKey };
+}
+
 void ResourceManager::ApplyModelAnimation(const std::string& key, int frame, int animationIndex) {
-    const auto model = models_.find(key);
     const auto animation = animations_.find(key);
-    if (model == models_.end() || animation == animations_.end()) return;
+    if (animation == animations_.end()) return;
     const AnimationData& data = animation->second;
+    const auto model = models_.find(data.modelKey.empty() ? key : data.modelKey);
+    if (model == models_.end()) return;
     if (animationIndex < 0 || animationIndex >= data.count ||
         !IsModelAnimationValid(model->second, data.anims[animationIndex])) return;
     if (animationIndex < static_cast<int>(data.bakedFrames.size()) && !data.bakedFrames[animationIndex].empty()) {
@@ -155,7 +170,7 @@ void ResourceManager::UnloadAll() {
         for (int material = 0; material < model.materialCount; ++material) {
             if (model.materials[material].shader.id != 0 && model.materials[material].shader.id != rlGetShaderIdDefault() &&
                 shaders.insert(model.materials[material].shader.id).second) {
-                UnloadShader(model.materials[material].shader);
+                UnloadHorrorShader(model.materials[material].shader);
             }
             for (int map = MATERIAL_MAP_ALBEDO; map <= MATERIAL_MAP_BRDF; ++map) {
                 const Texture2D texture = model.materials[material].maps[map].texture;
@@ -176,4 +191,5 @@ void ResourceManager::UnloadAll() {
         }
     }
     animations_.clear();
+    fbxBindings_.clear();
 }

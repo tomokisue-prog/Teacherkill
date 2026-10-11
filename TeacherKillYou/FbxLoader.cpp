@@ -54,6 +54,47 @@ std::string ErrorText(const ufbx_error& error) {
     return message;
 }
 
+ScenePtr ReadScene(const std::string& path, bool animationOnly = false) {
+    ufbx_load_opts options{};
+    options.target_axes = ufbx_axes_right_handed_y_up;
+    options.target_unit_meters = 1.0;
+    options.generate_missing_normals = !animationOnly;
+    options.ignore_geometry = animationOnly;
+    options.ignore_embedded = animationOnly;
+    ufbx_error error{};
+    ScenePtr scene(ufbx_load_file(path.c_str(), &options, &error), ufbx_free_scene);
+    if (!scene && error.type == UFBX_ERROR_FILE_NOT_FOUND) {
+        // ufbxはUTF-8のパスを使う。既存のCP932ソースから渡されたパスも開けるようにする。
+        std::FILE* nativeFile = nullptr;
+#ifdef _MSC_VER
+        fopen_s(&nativeFile, path.c_str(), "rb");
+#else
+        nativeFile = std::fopen(path.c_str(), "rb");
+#endif
+        std::unique_ptr<std::FILE, decltype(&std::fclose)> file(nativeFile, std::fclose);
+        if (file) {
+        options.filename = { path.c_str(), path.size() };
+        scene.reset(ufbx_load_stdio(file.get(), &options, &error));
+        }
+    }
+    if (!scene) throw std::runtime_error(ErrorText(error));
+    return scene;
+}
+
+// Node names may exceed raylib's 32-byte BoneInfo names. Match full hierarchy paths.
+std::string NodePath(const ufbx_node* node) {
+    if (!node) return {};
+    const std::string name = Text(node->name);
+    return NodePath(node->parent) + std::to_string(name.size()) + ":" + name;
+}
+ufbx_matrix UfbxMatrix(Matrix m) {
+    ufbx_matrix result{};
+    result.m00=m.m0; result.m01=m.m4; result.m02=m.m8; result.m03=m.m12;
+    result.m10=m.m1; result.m11=m.m5; result.m12=m.m9; result.m13=m.m13;
+    result.m20=m.m2; result.m21=m.m6; result.m22=m.m10; result.m23=m.m14;
+    return result;
+}
+
 // クラスタの逆バインド行列はメッシュごとに異なる。骨ノードだけで共有しない。
 struct Binding {
     uint32_t node;
@@ -158,7 +199,7 @@ void main() {
     fragNormal = mat3(matNormal) * transpose(inverse(mat3(skin))) * vertexNormal;
 })";
     Shader shader = LoadHorrorShader(vertex.c_str(), true);
-    if (shader.id == rlGetShaderIdDefault()) return {};
+    if (!shader.id || !shader.locs || shader.id == rlGetShaderIdDefault()) return {};
     shader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocation(shader, "matModel");
     shader.locs[SHADER_LOC_MATRIX_NORMAL] = GetShaderLocation(shader, "matNormal");
     shader.locs[SHADER_LOC_MAP_NORMAL] = GetShaderLocation(shader, "texture2");
@@ -178,7 +219,7 @@ void Release(FbxModelData& data) {
             const auto texture = material.maps[map].texture;
             if (texture.id && texture.id != rlGetTextureIdDefault() && textures.insert(texture.id).second) UnloadTexture(texture);
         }
-        if (material.shader.id && material.shader.id != rlGetShaderIdDefault() && shaders.insert(material.shader.id).second) UnloadShader(material.shader);
+        if (material.shader.id && material.shader.id != rlGetShaderIdDefault() && shaders.insert(material.shader.id).second) UnloadHorrorShader(material.shader);
     }
     UnloadModel(data.model);
     if (data.animations) UnloadModelAnimations(data.animations, data.animationCount);
@@ -249,27 +290,8 @@ void BuildMesh(Mesh& mesh, const MeshPart& part, int bones, bool gpu) {
 FbxModelData LoadFbxModel(const std::string& path) {
     FbxModelData data;
     try {
-        ufbx_load_opts options{};
-        options.target_axes = ufbx_axes_right_handed_y_up;
-        options.target_unit_meters = 1.0;
-        options.generate_missing_normals = true;
+        ScenePtr scene = ReadScene(path);
         ufbx_error error{};
-        ScenePtr scene(ufbx_load_file(path.c_str(), &options, &error), ufbx_free_scene);
-        if (!scene && error.type == UFBX_ERROR_FILE_NOT_FOUND) {
-            // ufbxはUTF-8のパスを使う。既存のCP932ソースから渡されたパスも開けるようにする。
-            std::FILE* nativeFile = nullptr;
-#ifdef _MSC_VER
-            fopen_s(&nativeFile, path.c_str(), "rb");
-#else
-            nativeFile = std::fopen(path.c_str(), "rb");
-#endif
-            std::unique_ptr<std::FILE, decltype(&std::fclose)> file(nativeFile, std::fclose);
-            if (file) {
-                options.filename = { path.c_str(), path.size() };
-                scene.reset(ufbx_load_stdio(file.get(), &options, &error));
-            }
-        }
-        if (!scene) throw std::runtime_error(ErrorText(error));
         std::vector<MeshSource> sources;
         std::vector<Binding> bindings;
         sources.reserve(scene->nodes.count);
@@ -324,6 +346,10 @@ FbxModelData LoadFbxModel(const std::string& path) {
             data.model.bones[bone].parent = -1;
             data.model.bindPose[bone] = { {}, {0,0,0,1}, {1,1,1} };
         }
+        for (const auto& binding : bindings) {
+            data.bindings.push_back({ NodePath(scene->nodes[binding.node]),
+                MatrixFrom(binding.toBone), MatrixFrom(binding.fromWorld), binding.rigid });
+        }
         std::unordered_map<const ufbx_texture*, Texture2D> textures;
         const std::string directory = GetDirectoryPath(path.c_str());
         bool gpu = data.model.boneCount <= GpuBones && scene->anim_stacks.count;
@@ -339,8 +365,14 @@ FbxModelData LoadFbxModel(const std::string& path) {
             material = LoadMaterialDefault();
             if (shader.id) material.shader = shader;
             material.maps[MATERIAL_MAP_NORMAL].texture = flatNormal;
+            material.params[0] = 2.0f; // FBX normal maps use the flipped green channel.
+            material.maps[MATERIAL_MAP_ROUGHNESS].value = 0.72f;
             if (m == 0) continue;
             const auto* source = scene->materials[m - 1];
+            if (source->pbr.roughness.has_value)
+                material.maps[MATERIAL_MAP_ROUGHNESS].value = static_cast<float>(source->pbr.roughness.value_real);
+            if (source->pbr.metalness.has_value)
+                material.maps[MATERIAL_MAP_METALNESS].value = static_cast<float>(source->pbr.metalness.value_real);
             const auto& base = source->pbr.base_color;
             const auto& color = base.has_value ? base : source->fbx.diffuse_color;
             if (color.has_value) material.maps[MATERIAL_MAP_ALBEDO].color = {
@@ -411,6 +443,69 @@ FbxModelData LoadFbxModel(const std::string& path) {
     } catch (const std::exception& error) {
         TraceLog(LOG_WARNING, "FBX: [%s] %s", path.c_str(), error.what());
         Release(data);
+    }
+    return data;
+}
+
+FbxAnimationData LoadFbxAnimations(const std::string& path, const Model& model,
+                                   const std::vector<FbxSkinBinding>& bindings) {
+    FbxAnimationData data;
+    try {
+        if (!model.bones || bindings.size() != static_cast<std::size_t>(model.boneCount))
+            throw std::runtime_error("Missing FBX skin bindings");
+        ScenePtr scene = ReadScene(path, true);
+        std::unordered_map<std::string, uint32_t> nodes;
+        for (const auto* node : scene->nodes) {
+            if (!nodes.emplace(NodePath(node), node->typed_id).second)
+                throw std::runtime_error("Ambiguous animation node path");
+        }
+        std::vector<uint32_t> boneNodes;
+        for (const auto& binding : bindings) {
+            const auto found = nodes.find(binding.nodePath);
+            if (found == nodes.end()) throw std::runtime_error("Animation rig does not match the model");
+            boneNodes.push_back(found->second);
+        }
+        data.animations = Allocate<ModelAnimation>(scene->anim_stacks.count);
+        data.animationCount = static_cast<int>(scene->anim_stacks.count);
+        data.bakedFrames.resize(data.animationCount);
+        for (int clip = 0; clip < data.animationCount; ++clip) {
+            const auto* source = scene->anim_stacks[clip];
+            const double duration = source->time_end - source->time_begin;
+            if (!std::isfinite(duration) || duration <= 0 || duration / FrameDuration > (std::numeric_limits<int>::max)() - 1)
+                throw std::runtime_error("Invalid FBX animation duration");
+            ModelAnimation& animation = data.animations[clip];
+            CopyName(animation.name, source->name);
+            animation.boneCount = model.boneCount;
+            animation.bones = Allocate<BoneInfo>(bindings.size());
+            std::memcpy(animation.bones, model.bones, bindings.size() * sizeof(BoneInfo));
+            animation.frameCount = static_cast<int>(std::ceil(duration / FrameDuration)) + 1;
+            animation.framePoses = Allocate<Transform*>(animation.frameCount);
+            auto& frames = data.bakedFrames[clip];
+            frames.reserve(static_cast<std::size_t>(animation.frameCount) * bindings.size());
+            for (int frame = 0; frame < animation.frameCount; ++frame) {
+                ufbx_error error{};
+                const double time = source->time_begin + (std::min)(duration, frame * FrameDuration);
+                ScenePtr evaluated(ufbx_evaluate_scene(scene.get(), source->anim, time, nullptr, &error), ufbx_free_scene);
+                if (!evaluated) throw std::runtime_error(ErrorText(error));
+                animation.framePoses[frame] = Allocate<Transform>(bindings.size());
+                for (std::size_t bone = 0; bone < bindings.size(); ++bone) {
+                    const auto& binding = bindings[bone];
+                    const auto* node = evaluated->nodes[boneNodes[bone]];
+                    const auto toBone = UfbxMatrix(binding.toBone);
+                    const auto fromWorld = UfbxMatrix(binding.fromWorld);
+                    const auto toWorld = binding.rigid ? node->geometry_to_world : ufbx_matrix_mul(&node->node_to_world, &toBone);
+                    const Matrix matrix = MatrixFrom(ufbx_matrix_mul(&toWorld, &fromWorld));
+                    frames.push_back(matrix);
+                    Transform& pose = animation.framePoses[frame][bone];
+                    MatrixDecompose(matrix, &pose.translation, &pose.rotation, &pose.scale);
+                }
+            }
+        }
+        TraceLog(LOG_INFO, "FBX: [%s] Imported %i clips onto existing rig (no geometry upload)", path.c_str(), data.animationCount);
+    } catch (const std::exception& error) {
+        TraceLog(LOG_WARNING, "FBX animation: [%s] %s", path.c_str(), error.what());
+        if (data.animations) UnloadModelAnimations(data.animations, data.animationCount);
+        data = {};
     }
     return data;
 }
