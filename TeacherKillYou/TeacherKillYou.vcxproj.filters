@@ -320,6 +320,7 @@
     <ClInclude Include="Stage.h">
       <Filter>GamePlay\Actors\Stage</Filter>
     </ClInclude>
+    <ClInclude Include="DamageFlash.h" />
     <ClInclude Include="Enemy.h">
       <Filter>GamePlay\Actors\Enemy</Filter>
     </ClInclude>

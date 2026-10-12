@@ -1,3 +1,4 @@
+#include "HorrorLighting.h"
 #include "Stage.h"
 #include "ResourceManager.h"
 #include "ResourceKeys.h"
@@ -75,7 +76,7 @@ void Stage::Reset()
 void Stage::Draw() const
 {
     Model stageModel = ResourceManager::GetInstance().GetModel(ResourceKeys::Model_Stage1);
-    DrawModel(stageModel, position_, scale_, WHITE);
+    DrawHorrorModel(stageModel, position_, scale_, WHITE);
 }
 
 void Stage::End()

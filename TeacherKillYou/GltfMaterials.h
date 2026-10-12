@@ -2,5 +2,5 @@
 #include "raylib.h"
 #include <string>
 
-// Adapt the material's base-color UV selection to raylib's default shader.
+// Preserve base-color UV selection and PBR/emission factors for the lighting shader.
 void ApplyGltfTextureCoordinates(Model& model, const std::string& path);

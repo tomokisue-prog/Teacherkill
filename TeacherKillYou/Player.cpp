@@ -1,4 +1,6 @@
 #include "Player.h"
+#include "DamageFlash.h"
+#include "HorrorLighting.h"
 #include "Stage.h"
 #include "ResourceManager.h"
 #include "ResourceKeys.h"
@@ -320,13 +322,12 @@ void Player::DrawDamageOverlay() const
 {
     if (damageFlashTimer_ <= 0.0f) return;
 
-    const float progress = Clamp(
-        damageFlashTimer_ / damageFlashDuration_, 0.0f, 1.0f);
+    const float progress = DamageFlashStrength(damageFlashTimer_, damageFlashDuration_);
 
     DrawRectangle(
         0, 0,
         GetScreenWidth(), GetScreenHeight(),
-        Fade(RED, progress * 0.30f));
+        Fade(Color{210, 8, 18, 255}, progress * 0.36f));
 }
 void Player::DrawStaminaHUD() const
 {
@@ -425,7 +426,7 @@ void Player::Draw(const PlayerCamera* camera) const
         float yaw = atan2f(forward.x, forward.z) * RAD2DEG;
 
         // FPSカメラの上下・左右に連動させて描画
-        DrawModelEx(
+        DrawHorrorModelEx(
             handGun, pos, { 0.0f, 1.0f, 0.0f }, yaw,
             { viewModelScale_, viewModelScale_, viewModelScale_ }, WHITE
         );
@@ -449,7 +450,7 @@ void Player::Draw(const PlayerCamera* camera) const
 
             for (int i = 0; i < handGun.meshCount; i++)
             {
-                DrawMesh(handGun.meshes[i], handGun.materials[handGun.meshMaterial[i]], MatrixIdentity());
+                DrawHorrorMesh(handGun.meshes[i], handGun.materials[handGun.meshMaterial[i]], MatrixIdentity());
             }
         }
         rlPopMatrix();

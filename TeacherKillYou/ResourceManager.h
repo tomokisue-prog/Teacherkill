@@ -4,6 +4,7 @@
 #include <vector>
 #include "raylib.h"
 #include "ResourceKeys.h"
+#include "FbxLoader.h"
 
 class ResourceManager {
 public:
@@ -23,6 +24,9 @@ public:
 
     // アニメーション読み込み用関数
     void LoadModelAnimations(const std::string& key, const std::string& path);
+
+    // Register an animation-only FBX against an already loaded model.
+    void LoadFbxAnimation(const std::string& animationKey, const std::string& modelKey, const std::string& path);
 
     // FBXはシアーを含む行列で再生し、通常のモデルはraylibへ委譲する。
     void ApplyModelAnimation(const std::string& key, int frame, int animationIndex = 0);
@@ -52,8 +56,10 @@ private:
         ModelAnimation* anims{ nullptr };
         int count{ 0 };
         std::vector<std::vector<Matrix>> bakedFrames;
+        std::string modelKey; // Empty means the animation key is also the model key.
     };
     std::unordered_map<std::string, AnimationData> animations_;
+    std::unordered_map<std::string, std::vector<FbxSkinBinding>> fbxBindings_;
 };
 
 // ショートカット関数

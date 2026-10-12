@@ -14,6 +14,8 @@ public:
     void Clear();
     void Update(float dt, const TargetInfo& target, const Stage& stage);
     void Update(float dt, const Player& player, const Stage& stage);
+    // 生存状態を毎回取り直し、各攻撃イベントを1回だけPlayerへ適用する。
+    void Update(float dt, Player& player, const Stage& stage, const BoundingBox* blocker = nullptr);
     // 未検出のIDには既定結果（applied=false、hp=0、becameDead=false）を返す。
     EnemyDamageResult ApplyDamage(EnemyId id, int amount);
     // 更新・敵一覧の走査が終わった後に呼ぶ。削除待ち時間を過ぎた死体を除去する。

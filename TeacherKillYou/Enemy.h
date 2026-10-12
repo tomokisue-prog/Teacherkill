@@ -24,6 +24,10 @@ struct EnemyConfig {
     float stopDistance = 1.2f;    // この距離以下で移動要求を停止
     float resumeDistance = 1.5f;  // 停止後、この距離以上で移動要求を再開
     float corpseDuration = 2.0f;  // Deadへ遷移してから削除可能になるまでの秒数
+    int attackDamage = 15;       // 攻撃1回のダメージ
+    float attackRange = 1.6f;    // 攻撃開始・命中判定の水平距離 [m]
+    float attackHitFraction = 0.4f; // 攻撃クリップ内で命中を判定する再生割合
+    float attackRecovery = 0.65f; // 攻撃終了後の待ち時間 [s]
 };
 
 // TakeDamageの呼び出し結果。敵の状態を保持するための構造体ではない。
@@ -33,7 +37,7 @@ struct EnemyDamageResult {
     bool becameDead = false; // 今回の呼び出しで生存状態からDeadへ遷移したか
 };
 
-enum class EnemyState { Idle, Chase, Dead };
+enum class EnemyState { Idle, Chase, Dead, Attack };
 
 // 更新時点の対象情報。Playerの参照を保持せず、各フレームで作り直す。
 struct TargetInfo {
@@ -42,7 +46,7 @@ struct TargetInfo {
     bool alive = false;
     bool valid = false;
 
-    // Playerの位置と固定寸法から生成する。Playerに死亡状態がないためalive=true。
+    // Playerの位置・衝突寸法・生存状態から生成する。
     static TargetInfo FromPlayer(const Player& player);
 };
 
@@ -53,8 +57,11 @@ public:
     Enemy(EnemyId id, const EnemyConfig& config, Vector3 position, float yaw = 0.0f);
     // IDと設定を維持し、現在HP・位置・状態・死亡タイマーを初期化する。
     void Reset(Vector3 position, float yaw = 0.0f);
-    // dtは秒。無効な値・非正値は無視。Deadでは死亡タイマーのみ更新する。
-    void Update(float dt, const TargetInfo& target, const Stage& stage);
+    // dtは秒。無効・非正値は無視。Deadでは死亡・被弾表示タイマーだけを更新する。
+    void Update(float dt, const TargetInfo& target, const Stage& stage, const BoundingBox* blocker = nullptr);
+    // 命中フレームに1回だけ発行する。Managerが消費してPlayerへ適用する。
+    int ConsumeAttackDamage();
+    float GetDamageFlashStrength() const;
     // amount<=0またはDeadの場合は適用しない。被弾無敵時間は設けていない。
     EnemyDamageResult TakeDamage(int amount);
     // 入力値を補正してコピーする。現在HPは上限内に収めるだけで回復しない。
@@ -81,6 +88,8 @@ private:
     void Move(Vector3 displacement, const BoundingBox* targetBounds, const Stage& stage);
     void SeparateFromTarget(const BoundingBox& targetBounds, const Stage& stage);
     void UpdateGround(float dt, const Stage& stage);
+    bool CanHitTarget(const TargetInfo& target, const Stage& stage, const BoundingBox* blocker) const;
+    float AttackDuration() const;
 
     EnemyId id_;
     EnemyConfig config_;
@@ -91,6 +100,12 @@ private:
     EnemyState state_ = EnemyState::Idle;
     bool shouldMove_ = true; // 停止・再開距離の間で保持する移動要求
     float corpseTimer_ = 0.0f; // Deadへ遷移してからの経過時間 [s]
+    float attackTime_ = 0.0f;
+    float attackCooldown_ = 0.0f;
+    bool attackHitChecked_ = false;
+    int pendingAttackDamage_ = 0;
+    float damageFlashTimer_ = 0.0f;
+    bool attackPose_ = false; // 死亡時も最後の攻撃ポーズを保持する
     float animationTime_ = 0.0f; // 再生位置 [s]。停止時は先頭へ戻し、死亡時は維持する
 };
 
