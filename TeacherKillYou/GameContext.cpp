@@ -69,6 +69,19 @@ void GameContext::Init()
     lighting_.Init(RM().GetModelShaders());
     hitMarkerTimer_ = 0.0f;
     hitMarkerKill_ = false;
+
+    teleportPoints_.clear();
+    TeleportPoint tp1;
+    tp1.SetPosition({ 3.0f, 0.0f, 0.0f });
+    tp1.SetPointNumber(1);
+    tp1.SetTeleportType(TeleportType::Source);
+    teleportPoints_.push_back(tp1);
+
+    TeleportPoint tp2;
+    tp2.SetPosition({ 8.0f, 0.0f, 0.0f });
+    tp2.SetPointNumber(1);
+    tp2.SetTeleportType(TeleportType::Destination);
+    teleportPoints_.push_back(tp2);
 }
 
 void GameContext::Reset()
@@ -80,6 +93,19 @@ void GameContext::Reset()
     lighting_.Init(RM().GetModelShaders());
     hitMarkerTimer_ = 0.0f;
     hitMarkerKill_ = false;
+
+    teleportPoints_.clear();
+    TeleportPoint tp1;
+    tp1.SetPosition({ 3.0f, 0.0f, 0.0f });
+    tp1.SetPointNumber(1);
+    tp1.SetTeleportType(TeleportType::Source);
+    teleportPoints_.push_back(tp1);
+
+    TeleportPoint tp2;
+    tp2.SetPosition({ 8.0f, 0.0f, 0.0f });
+    tp2.SetPointNumber(1);
+    tp2.SetTeleportType(TeleportType::Destination);
+    teleportPoints_.push_back(tp2);
 }
 
 void GameContext::PlaceCharacters()
@@ -222,7 +248,55 @@ void GameContext::Update(float deltaTime)
             // 衝突している場合は移動前の位置に巻き戻す（すり抜け防止）
             player_.SetPosition(oldPlayerPos);
         }
+
+        // 1. プレイヤーの移動処理後、テレポート判定を行う
+        if (!gameFade_.IsFading())
+        {
+            for (auto& sourcePt : teleportPoints_)
+            {
+                if (sourcePt.GetTeleportType() == TeleportType::Source)
+                {
+                    float dist = Vector3Distance(player_.GetPosition(), sourcePt.GetPosition());
+                    if (dist <= sourcePt.GetRadius())
+                    {
+                        // バイオ風のフェードアウトを開始
+                        gameFade_.StartFade(2.5f);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // フェードの更新
+        gameFade_.Update(deltaTime);
+
+        // 画面が完全に暗転した瞬間にテレポート先へ移動
+        if (gameFade_.IsMidpoint())
+        {
+            for (auto& sourcePt : teleportPoints_)
+            {
+                if (sourcePt.GetTeleportType() == TeleportType::Source)
+                {
+                    if (Vector3Distance(player_.GetPosition(), sourcePt.GetPosition()) <= sourcePt.GetRadius())
+                    {
+                        for (const auto& destPt : teleportPoints_)
+                        {
+                            if (destPt.GetTeleportType() == TeleportType::Destination &&
+                                destPt.GetPointNumber() == sourcePt.GetPointNumber())
+                            {
+                                Vector3 targetPos = stage_.FindGroundPosition(destPt.GetPosition());
+                                player_.SetPosition(targetPos);
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
     }
+
 
     door_.Update(deltaTime, player_);
 
@@ -261,6 +335,14 @@ void GameContext::Draw() const
     if (!playerView) DrawGrid(20, 1.0f);
     stage_.Draw();
 
+    if (!playerView)
+    {
+        for (const auto& tp : teleportPoints_)
+        {
+            tp.Draw();
+        }
+    }
+
     // Player Camera がアクティブな時だけカメラポインタを渡し、一人称用に追従させる
     const PlayerCamera* activePlayerCam = nullptr;
     if (cameraController_.GetActiveType() == CameraType::Player)
@@ -294,6 +376,8 @@ void GameContext::Draw() const
         player_.DrawStaminaHUD();
         player_.DrawAmmoHUD();
     }
+
+    gameFade_.Draw();
 }
 
 void GameContext::End()

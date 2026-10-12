@@ -5,6 +5,9 @@
 #include "EnemyManager.h"
 #include "HorrorLighting.h"
 #include "DoorMove.h"
+#include <vector>
+#include "TeleportPoint.h"
+#include "GameFade.h"
 
 class GameContext
 {
@@ -33,6 +36,9 @@ public:
     DoorMove& GetDoor() { return door_; }
     const DoorMove& GetDoor() const { return door_; }
 
+    std::vector<TeleportPoint>& GetTeleportPoints() { return teleportPoints_; }
+    const std::vector<TeleportPoint>& GetTeleportPoints() const { return teleportPoints_; }
+
 private:
     void PlaceCharacters();
     void ProcessPlayerShot();
@@ -43,14 +49,16 @@ private:
     Stage stage_;
     demo::EnemyManager enemyManager_;
 	DoorMove door_;
+    GameFade gameFade_;
 
     Vector3 paladinPosition_{ 0.0f, 0.0f, 3.0f };
+
+    std::vector<TeleportPoint> teleportPoints_;
 
     float hitMarkerTimer_{ 0.0f };
     bool hitMarkerKill_{ false };
 
     int animFrame_{ 0 };
     int animIndex_{ 0 };
-
 
 };

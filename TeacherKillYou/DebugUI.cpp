@@ -8,7 +8,7 @@ void DebugUI::Draw(GameContext& gameContext) {
     if (cameraController.GetActiveType() == CameraType::System) {
         ImGuizmo::BeginFrame();
 
-        DrawHierarchy();
+        DrawHierarchy(gameContext);
         DrawInspector(gameContext);
 
         // 選択対象のポインタをギズモに渡す
@@ -20,13 +20,20 @@ void DebugUI::Draw(GameContext& gameContext) {
             targetObj = &gameContext.GetDoor(); // GameContext に Door の getter を用意
         }
 
+        else if (selectedObject_ == SelectedObjectType::TeleportPoint) {
+            auto& tps = gameContext.GetTeleportPoints();
+            if (!tps.empty() && selectedTeleportIndex_ >= 0 && selectedTeleportIndex_ < tps.size()) {
+                targetObj = &tps[selectedTeleportIndex_]; // 選択中のテレポートポイントをギズモに渡す
+            }
+        }
+
         gizmoDrawer_.Draw(gameContext, targetObj);
     }
 
     DrawCameraController(cameraController);
 }
 
-void DebugUI::DrawHierarchy()
+void DebugUI::DrawHierarchy(GameContext& gameContext)
 {
     ImGui::Begin("Hierarchy");
 
@@ -53,6 +60,30 @@ void DebugUI::DrawHierarchy()
     if (ImGui::Selectable("Door", selectedObject_ == SelectedObjectType::Door))
     {
         selectedObject_ = SelectedObjectType::Door;
+    }
+
+    auto& tps = gameContext.GetTeleportPoints();
+    for (size_t i = 0; i < tps.size(); ++i)
+    {
+        char label[64];
+        const char* typeStr = (tps[i].GetTeleportType() == TeleportType::Source) ? "Source" : "Destination";
+        snprintf(label, sizeof(label), "Teleport Point %d [%s]", (int)i, typeStr);
+
+        bool isSelected = (selectedObject_ == SelectedObjectType::TeleportPoint && selectedTeleportIndex_ == (int)i);
+        if (ImGui::Selectable(label, isSelected))
+        {
+            selectedObject_ = SelectedObjectType::TeleportPoint;
+            selectedTeleportIndex_ = static_cast<int>(i);
+        }
+    }
+
+    if (ImGui::Button("+ Add Teleport Point"))
+    {
+        TeleportPoint newTp;
+        newTp.SetPosition({ 0.0f, 0.0f, 0.0f });
+        tps.push_back(newTp);
+        selectedObject_ = SelectedObjectType::TeleportPoint;
+        selectedTeleportIndex_ = static_cast<int>(tps.size()) - 1;
     }
 
     ImGui::End();
@@ -154,6 +185,65 @@ void DebugUI::DrawInspector(GameContext& gameContext)
         if (ImGui::Button("Toggle Door"))
         {
             door.Toggle();
+        }
+        break;
+    }
+
+    case SelectedObjectType::TeleportPoint:
+    {
+        auto& tps = gameContext.GetTeleportPoints();
+        if (!tps.empty())
+        {
+            if (selectedTeleportIndex_ >= tps.size()) selectedTeleportIndex_ = 0;
+
+            ImGui::Text("Teleport Points Count: %d", (int)tps.size());
+            if (ImGui::Button("Add Point"))
+            {
+                TeleportPoint newTp;
+                newTp.SetPosition(gameContext.GetPlayer().GetPosition());
+                tps.push_back(newTp);
+                selectedTeleportIndex_ = static_cast<int>(tps.size()) - 1;
+            }
+
+            ImGui::Separator();
+
+            TeleportPoint& tp = tps[selectedTeleportIndex_];
+            Vector3 pos = tp.GetPosition();
+            Vector3 rot = tp.GetRotation();
+            Vector3 scale = tp.GetScale();
+            int pointNum = tp.GetPointNumber();
+            int typeVal = static_cast<int>(tp.GetTeleportType());
+            float radius = tp.GetRadius();
+
+            // インデックス変更用
+            ImGui::DragInt("Point Index", &selectedTeleportIndex_, 1.0f, 0, (int)tps.size() - 1);
+            if (selectedTeleportIndex_ < 0) selectedTeleportIndex_ = 0;
+            if (selectedTeleportIndex_ >= tps.size()) selectedTeleportIndex_ = static_cast<int>(tps.size()) - 1;
+
+            ImGui::Text("Transform");
+            if (ImGui::DragFloat3("Position", &pos.x, 0.1f)) tp.SetPosition(pos);
+            if (ImGui::DragFloat3("Rotation", &rot.x, 1.0f)) tp.SetRotation(rot);
+            if (ImGui::DragFloat3("Scale", &scale.x, 0.05f, 0.1f, 10.0f)) tp.SetScale(scale);
+
+            ImGui::Separator();
+            ImGui::Text("Teleport Settings");
+            if (ImGui::DragInt("Pair Number", &pointNum, 1.0f, 0, 99)) tp.SetPointNumber(pointNum);
+
+            const char* types[] = { "Source (Origin)", "Destination (Target)" };
+            if (ImGui::Combo("Type", &typeVal, types, IM_ARRAYSIZE(types)))
+            {
+                tp.SetTeleportType(static_cast<TeleportType>(typeVal));
+            }
+            if (ImGui::DragFloat("Radius", &radius, 0.1f, 0.1f, 10.0f)) tp.SetRadius(radius);
+        }
+        else
+        {
+            if (ImGui::Button("Add Point"))
+            {
+                TeleportPoint newTp;
+                tps.push_back(newTp);
+                selectedTeleportIndex_ = 0;
+            }
         }
         break;
     }
