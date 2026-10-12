@@ -87,6 +87,12 @@
     <Filter Include="GamePlay\Actors\Stage\Door">
       <UniqueIdentifier>{fc2eb779-bfe8-4626-a97c-072d32b37eea}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Fade">
+      <UniqueIdentifier>{f49d64c5-4fb1-456b-b557-5e03e6d9029d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Fade\GameFade">
+      <UniqueIdentifier>{31a80382-ce83-45b3-870f-0ed8cafddf3e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -196,6 +202,10 @@
     </ClCompile>
     <ClCompile Include="DoorMove.cpp">
       <Filter>GamePlay\Actors\Stage\Door</Filter>
+    </ClCompile>
+    <ClCompile Include="TeleportPoint.cpp" />
+    <ClCompile Include="GameFade.cpp">
+      <Filter>Fade\GameFade</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -328,6 +338,12 @@
     </ClInclude>
     <ClInclude Include="DoorMove.h">
       <Filter>GamePlay\Actors\Stage\Door</Filter>
+    </ClInclude>
+    <ClInclude Include="TeleportPoint.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="GameFade.h">
+      <Filter>Fade\GameFade</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

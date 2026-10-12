@@ -9,7 +9,8 @@ enum class SelectedObjectType {
     EnemyManager,
     Stage,
     PaladinModel,
-    Door
+    Door,
+    TeleportPoint
 };
 
 class GameContext;
@@ -19,11 +20,13 @@ public:
     void Draw(GameContext& gameContext);
 
 private:
-    void DrawHierarchy();
+    void DrawHierarchy(GameContext& gameContext);
     void DrawInspector(GameContext& gameContext);
     void DrawCameraController(CameraController& cameraController);
 
     SelectedObjectType selectedObject_{ SelectedObjectType::None };
     GizmoDrawer gizmoDrawer_;
-	DoorMove door_;
+    DoorMove door_;
+
+    int selectedTeleportIndex_{ 0 };
 };
