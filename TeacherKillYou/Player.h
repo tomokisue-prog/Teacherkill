@@ -33,6 +33,9 @@ public:
     float GetRadius() const { return playerRadius_; }
     float GetHeight() const { return playerHeight_; }
 
+    Vector3 GetMuzzlePosition(const Camera3D& view) const;
+
+
     void SetColliderSize(float radius, float height)
     {
         playerRadius_ = radius;

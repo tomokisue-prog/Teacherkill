@@ -8,6 +8,8 @@
 #include "raymath.h"
 #include <fstream>
 #include "json.hpp"
+#include "rlgl.h"
+#include <algorithm>
 
 static nlohmann::json Vector3ToJson(const Vector3& v) {
     return nlohmann::json{ {"x", v.x}, {"y", v.y}, {"z", v.z} };
@@ -98,7 +100,22 @@ void GameContext::Init()
     tp2.SetPointNumber(1);
     tp2.SetTeleportType(TeleportType::Destination);
     teleportPoints_.push_back(tp2);
-    
+
+    if (muzzleFlashTexture_.id == 0)
+    {
+        muzzleFlashTexture_ =
+            LoadTexture("Data/Image/Effects/muzzleFlash0.png");
+
+        if (muzzleFlashTexture_.id != 0)
+        {
+            SetTextureFilter(
+                muzzleFlashTexture_, TEXTURE_FILTER_BILINEAR);
+        }
+    }
+
+    muzzleFlashTimer_ = 0.0f;
+    tracerActive_ = false;
+    tracerAge_ = 0.0f;
 }
 
 void GameContext::Reset()
@@ -124,6 +141,10 @@ void GameContext::Reset()
     tp2.SetPointNumber(1);
     tp2.SetTeleportType(TeleportType::Destination);
     teleportPoints_.push_back(tp2);
+
+    muzzleFlashTimer_ = 0.0f;
+    tracerActive_ = false;
+    tracerAge_ = 0.0f;
 }
 
 void GameContext::PlaceCharacters()
@@ -200,6 +221,20 @@ void GameContext::ProcessPlayerShot()
         }
     }
 
+    // Trigger the visual effects for EVERY shot, even when it misses.
+    // The raycast has already found the nearest wall or enemy distance.
+    muzzleFlashTimer_ = 0.06f;
+    muzzleFlashFrame_ = GetRandomValue(0, 3);
+
+    // The tracer starts at the visible gun muzzle, but aims at the
+    // point found by the crosshair's hitscan ray.
+    tracerStart_ = player_.GetMuzzlePosition(camera);
+    tracerEnd_ = Vector3Add(
+        ray.position,
+        Vector3Scale(ray.direction, closestDistance));
+    tracerAge_ = 0.0f;
+    tracerActive_ = true;
+
     if (!foundTarget)
     {
         TraceLog(LOG_INFO, "SHOT: no enemy hit");
@@ -222,9 +257,101 @@ void GameContext::ProcessPlayerShot()
         }
     }
 }
+void GameContext::UpdateShotEffects(float deltaTime)
+{
+    muzzleFlashTimer_ = (std::max)(
+        0.0f, muzzleFlashTimer_ - deltaTime);
+
+    if (tracerActive_)
+    {
+        tracerAge_ += deltaTime;
+
+        if (tracerAge_ >= tracerDuration_)
+        {
+            tracerActive_ = false;
+        }
+    }
+
+    if (!player_.IsAlive())
+    {
+        muzzleFlashTimer_ = 0.0f;
+    }
+}
+void GameContext::DrawShotEffects() const
+{
+    if (cameraController_.GetActiveType() != CameraType::Player)
+    {
+        return;
+    }
+
+    const Camera3D camera =
+        cameraController_.GetPlayerCamera().GetRaylibCamera();
+
+    const Color flashColor = { 255, 225, 140, 255 };
+    const Color tracerColor = { 255, 220, 110, 255 };
+
+    // Keep depth testing, but don't let the effect write depth.
+    rlDrawRenderBatchActive();
+    rlDisableDepthMask();
+
+    BeginBlendMode(BLEND_ADDITIVE);
+
+    if (tracerActive_ && tracerDuration_ > 0.0f)
+    {
+        const float progress = Clamp(
+            tracerAge_ / tracerDuration_, 0.0f, 1.0f);
+
+        // Show a short moving segment rather than a full laser beam.
+        const float head = Clamp(
+            progress * 1.25f + 0.15f, 0.0f, 1.0f);
+
+        const float tail = Clamp(
+            progress * 1.25f - 0.10f, 0.0f, 1.0f);
+
+        const Vector3 start =
+            Vector3Lerp(tracerStart_, tracerEnd_, tail);
+
+        const Vector3 end =
+            Vector3Lerp(tracerStart_, tracerEnd_, head);
+
+        DrawLine3D(start, end, tracerColor);
+    }
+
+    if (muzzleFlashTimer_ > 0.0f &&
+        muzzleFlashTexture_.id != 0 &&
+        player_.IsAlive())
+    {
+        const float frameWidth =
+            muzzleFlashTexture_.width / 4.0f;
+
+        const Rectangle source = {
+            muzzleFlashFrame_ * frameWidth,
+            0.0f,
+            frameWidth,
+            static_cast<float>(muzzleFlashTexture_.height)
+        };
+
+        const Vector3 muzzle =
+            player_.GetMuzzlePosition(camera);
+
+        DrawBillboardRec(
+            camera,
+            muzzleFlashTexture_,
+            source,
+            muzzle,
+            { 0.12f, 0.12f },
+            flashColor);
+    }
+
+    EndBlendMode();
+
+    rlDrawRenderBatchActive();
+    rlEnableDepthMask();
+}
 
 void GameContext::Update(float deltaTime)
 {
+    UpdateShotEffects(deltaTime);
     if (hitMarkerTimer_ > 0.0f)
     {
         hitMarkerTimer_ -= deltaTime;
@@ -378,6 +505,10 @@ void GameContext::Draw() const
     Model& paladinModel = ResourceManager::GetInstance().GetModelRef(ResourceKeys::Model_Paladin);
     DrawHorrorModel(paladinModel, paladinPosition_, 1.0f, WHITE);
 
+    // Muzzle flash and bullet tracer must be drawn inside BeginMode3D.
+    // Draw after the world geometry so these effects appear correctly.
+    DrawShotEffects();
+
     EndMode3D();
     lighting_.EndFrame(playerView);
 
@@ -407,6 +538,15 @@ void GameContext::End()
     player_.End();
     stage_.End();
     lighting_.Shutdown();
+
+    if (muzzleFlashTexture_.id != 0)
+    {
+        UnloadTexture(muzzleFlashTexture_);
+        muzzleFlashTexture_ = {};
+    }
+
+    muzzleFlashTimer_ = 0.0f;
+    tracerActive_ = false;
 }
 
 void GameContext::SaveScene(const std::string& filepath)

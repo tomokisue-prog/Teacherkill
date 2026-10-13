@@ -436,6 +436,38 @@ void Player::DrawHealthHUD() const
 
     DrawRectangleLines(x, y + 30, width, height, RAYWHITE);
 }
+Vector3 Player::GetMuzzlePosition(const Camera3D& view) const
+{
+    const Vector3 forward = Vector3Normalize(
+        Vector3Subtract(view.target, view.position));
+
+    const Vector3 right = Vector3Normalize(
+        Vector3CrossProduct(forward, view.up));
+
+    const Vector3 up = Vector3Normalize(
+        Vector3CrossProduct(right, forward));
+
+    Vector3 pos = Vector3Add(
+        view.position, Vector3Scale(forward, 0.22f));
+
+    pos = Vector3Add(pos, Vector3Scale(right, 0.18f));
+    pos = Vector3Subtract(pos, Vector3Scale(up, 0.17f));
+
+    const float yaw = atan2f(forward.x, forward.z);
+    const float pitch = asinf(Clamp(forward.y, -1.0f, 1.0f));
+
+    const Quaternion rotation = QuaternionNormalize(
+        QuaternionMultiply(
+            QuaternionFromAxisAngle({ 0, 1, 0 }, yaw),
+            QuaternionFromAxisAngle({ 1, 0, 0 }, -pitch)));
+
+    const Vector3 muzzleLocal = { 0.0f, 7.0f, 25.5f };
+
+    const Vector3 muzzleOffset = Vector3RotateByQuaternion(
+        Vector3Scale(muzzleLocal, viewModelScale_), rotation);
+
+    return Vector3Add(pos, muzzleOffset);
+}
 
 void Player::Draw(const PlayerCamera* camera) const
 {
@@ -471,8 +503,8 @@ void Player::Draw(const PlayerCamera* camera) const
         Vector3 pos = Vector3Add(
             view.position, Vector3Scale(forward, 0.22f));
 
-        pos = Vector3Add(pos, Vector3Scale(right, 0.1f));
-        pos = Vector3Subtract(pos, Vector3Scale(up, 0.15f));
+        pos = Vector3Add(pos, Vector3Scale(right, 0.18f));
+        pos = Vector3Subtract(pos, Vector3Scale(up, 0.17f));
 
         const float yaw = atan2f(forward.x, forward.z);
         const float pitch = asinf(Clamp(forward.y, -1.0f, 1.0f));

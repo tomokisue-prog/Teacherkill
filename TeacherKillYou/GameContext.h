@@ -45,6 +45,9 @@ public:
 private:
     void PlaceCharacters();
     void ProcessPlayerShot();
+    void UpdateShotEffects(float deltaTime);
+    void DrawShotEffects() const;
+
 
     mutable HorrorLighting lighting_;
     CameraController cameraController_;
@@ -60,6 +63,19 @@ private:
 
     float hitMarkerTimer_{ 0.0f };
     bool hitMarkerKill_{ false };
+
+  
+    Texture2D muzzleFlashTexture_{};
+
+    float muzzleFlashTimer_{ 0.0f };
+    int muzzleFlashFrame_{ 0 };
+
+    Vector3 tracerStart_{};
+    Vector3 tracerEnd_{};
+
+    float tracerAge_{ 0.0f };
+    float tracerDuration_{ 0.05f };
+    bool tracerActive_{ false };
 
     int animFrame_{ 0 };
     int animIndex_{ 0 };
