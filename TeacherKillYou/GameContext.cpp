@@ -1,5 +1,6 @@
 #include "HorrorLighting.h"
 #include "GameContext.h"
+#include "AudioManager.h"
 #include "ResourceManager.h"
 #include "ResourceKeys.h"
 #include "raylib.h"
@@ -87,6 +88,7 @@ void GameContext::Init()
 
 void GameContext::Reset()
 {
+    AM().StopAllSe();
     player_.Reset();
     stage_.Reset();
     door_.Reset();
@@ -287,6 +289,7 @@ void GameContext::Update(float deltaTime)
                             {
                                 Vector3 targetPos = stage_.FindGroundPosition(destPt.GetPosition());
                                 player_.SetPosition(targetPos);
+                                AM().PlaySe(SeId::Teleport);
                                 break;
                             }
                         }
@@ -384,6 +387,7 @@ void GameContext::Draw() const
 
 void GameContext::End()
 {
+    AM().StopAllSe();
     enemyManager_.Clear();
     player_.End();
     stage_.End();

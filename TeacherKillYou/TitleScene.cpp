@@ -1,10 +1,12 @@
 #include "TitleScene.h"
 #include "SceneManager.h"
+#include "AudioManager.h"
 
 void TitleScene::Init()
 {
     finished = false;
     nextScene = nullptr;
+    AM().PlayBgm(BgmId::Title);
     // タイトル時はマウスカーソルを表示状態にする
     EnableCursor();
 }
@@ -14,6 +16,7 @@ void TitleScene::Update(float deltaTime)
     // スペースキーまたは画面クリックでゲームシーンへ遷移
     if (IsKeyPressed(KEY_SPACE))
     {
+        AM().PlaySe(SeId::Confirm);
         SetNextScene(SceneManager::GetInstance().GetScene(SceneID::Game));
     }
 }
@@ -27,4 +30,5 @@ void TitleScene::Render() const
 
 void TitleScene::End()
 {
+    AM().StopBgm();
 }

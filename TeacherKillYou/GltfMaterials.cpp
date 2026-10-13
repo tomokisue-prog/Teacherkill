@@ -55,7 +55,8 @@ void UsePrimaryCoordinates(Mesh& mesh, const float* coordinates) {
 
 } // namespace
 
-void ApplyGltfTextureCoordinates(Model& model, const std::string& path) {
+void ApplyGltfTextureCoordinates(Model& model, const std::string& path,
+                                const std::vector<std::string>& nonEmissiveMaterials) {
     if (!IsFileExtension(path.c_str(), ".glb;.gltf") || !model.meshes || !model.meshMaterial) return;
     try {
         const auto document = ReadDocument(path);
@@ -92,6 +93,12 @@ void ApplyGltfTextureCoordinates(Model& model, const std::string& path) {
             const auto extensions = source.value("extensions", nlohmann::json::object());
             const float strength = extensions.value("KHR_materials_emissive_strength", nlohmann::json::object()).value("emissiveStrength", 1.0f);
             target.maps[MATERIAL_MAP_EMISSION].value = peak * (std::max)(0.0f, strength);
+            // A decorative pattern may carry emission in the source asset; keep its albedo/UVs intact.
+            if (!nonEmissiveMaterials.empty() &&
+                std::find(nonEmissiveMaterials.begin(), nonEmissiveMaterials.end(), source.value("name", std::string{})) != nonEmissiveMaterials.end()) {
+                target.maps[MATERIAL_MAP_EMISSION].value = 0.0f;
+                target.params[2] = 0.0f;
+            }
         }
         for (int m = 0; m < model.meshCount; ++m) {
             const int materialIndex = model.meshMaterial[m] - 1;

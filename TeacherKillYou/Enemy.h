@@ -23,7 +23,7 @@ struct EnemyConfig {
     float loseRange = 20.0f;      // Chaseを維持できる水平距離の上限
     float stopDistance = 1.2f;    // この距離以下で移動要求を停止
     float resumeDistance = 1.5f;  // 停止後、この距離以上で移動要求を再開
-    float corpseDuration = 2.0f;  // Deadへ遷移してから削除可能になるまでの秒数
+    float corpseDuration = 2.0f;  // 死亡アニメーション終了後、死体を残す秒数
     int attackDamage = 15;       // 攻撃1回のダメージ
     float attackRange = 1.6f;    // 攻撃開始・命中判定の水平距離 [m]
     float attackHitFraction = 0.4f; // 攻撃クリップ内で命中を判定する再生割合
@@ -57,7 +57,7 @@ public:
     Enemy(EnemyId id, const EnemyConfig& config, Vector3 position, float yaw = 0.0f);
     // IDと設定を維持し、現在HP・位置・状態・死亡タイマーを初期化する。
     void Reset(Vector3 position, float yaw = 0.0f);
-    // dtは秒。無効・非正値は無視。Deadでは死亡・被弾表示タイマーだけを更新する。
+    // dtは秒。無効・非正値は無視。Deadでは死亡再生・被弾表示・削除待ちを更新する。
     void Update(float dt, const TargetInfo& target, const Stage& stage, const BoundingBox* blocker = nullptr);
     // 命中フレームに1回だけ発行する。Managerが消費してPlayerへ適用する。
     int ConsumeAttackDamage();
@@ -90,6 +90,7 @@ private:
     void UpdateGround(float dt, const Stage& stage);
     bool CanHitTarget(const TargetInfo& target, const Stage& stage, const BoundingBox* blocker) const;
     float AttackDuration() const;
+    float DeathDuration() const;
 
     EnemyId id_;
     EnemyConfig config_;
@@ -105,8 +106,8 @@ private:
     bool attackHitChecked_ = false;
     int pendingAttackDamage_ = 0;
     float damageFlashTimer_ = 0.0f;
-    bool attackPose_ = false; // 死亡時も最後の攻撃ポーズを保持する
-    float animationTime_ = 0.0f; // 再生位置 [s]。停止時は先頭へ戻し、死亡時は維持する
+    bool attackPose_ = false; // 死亡クリップがない場合は最後の攻撃ポーズを保持する
+    float animationTime_ = 0.0f; // 再生位置 [s]。死亡時は最終フレームで停止する
 };
 
 } // namespace demo

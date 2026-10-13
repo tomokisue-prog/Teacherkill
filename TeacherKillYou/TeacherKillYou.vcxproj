@@ -20,11 +20,13 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="Data\Audio\README.md" />
     <None Include="tools\FBX.md" />
     <None Include="third_party\ufbx\LICENSE" />
     <None Include="third_party\ufbx\README.md" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AudioManager.cpp" />
     <ClCompile Include="CameraController.cpp" />
     <ClCompile Include="DebugUI.cpp" />
     <ClCompile Include="DoorMove.cpp" />
@@ -73,6 +75,7 @@
     <ClCompile Include="TitleScene.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AudioManager.h" />
     <ClInclude Include="CameraController.h" />
     <ClInclude Include="DebugUI.h" />
     <ClInclude Include="DoorMove.h" />

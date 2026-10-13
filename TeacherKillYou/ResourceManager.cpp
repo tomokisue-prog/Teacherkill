@@ -33,6 +33,8 @@ void ResourceManager::LoadAll() {
     LoadModel(ResourceKeys::Model_Enemy, "Data/Image/MONSTER   run.fbx");
     LoadFbxAnimation(ResourceKeys::Animation_EnemyAttack, ResourceKeys::Model_Enemy,
                      "Data/Image/MONSTER  attack.fbx");
+    LoadFbxAnimation(ResourceKeys::Animation_EnemyDeath, ResourceKeys::Model_Enemy,
+                     "Data/Image/MONSTER dead.fbx");
 
 	LoadModel(ResourceKeys::Model_Door, "Data/Image/slide door.glb");
 
@@ -56,7 +58,12 @@ void ResourceManager::LoadModel(const std::string& key, const std::string& path)
         return;
     }
     Model model = ::LoadModel(path.c_str());
-    ApplyGltfTextureCoordinates(model, path);
+    if (key == ResourceKeys::Model_Stage1) {
+        // この素材は天井の模様。名前や発光データがあっても照明として扱わない。
+        ApplyGltfTextureCoordinates(model, path, { "floor 1 light" });
+    } else {
+        ApplyGltfTextureCoordinates(model, path);
+    }
     if (model.meshCount > 0) {
         if (!modelShader_.id) modelShader_ = LoadHorrorShader();
         if (modelShader_.id) {

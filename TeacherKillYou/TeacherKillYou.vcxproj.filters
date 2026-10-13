@@ -95,6 +95,9 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <None Include="Data\Audio\README.md">
+      <Filter>Resource</Filter>
+    </None>
     <None Include="packages.config" />
     <None Include="tools\FBX.md" />
     <None Include="third_party\ufbx\LICENSE" />
@@ -168,6 +171,9 @@
       <Filter>lib\ufbx</Filter>
     </ClCompile>
     <ClCompile Include="HorrorLighting.cpp">
+      <Filter>Resource</Filter>
+    </ClCompile>
+    <ClCompile Include="AudioManager.cpp">
       <Filter>Resource</Filter>
     </ClCompile>
     <ClCompile Include="ResourceManager.cpp">
@@ -297,6 +303,9 @@
       <Filter>lib\ufbx</Filter>
     </ClInclude>
     <ClInclude Include="HorrorLighting.h">
+      <Filter>Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="AudioManager.h">
       <Filter>Resource</Filter>
     </ClInclude>
     <ClInclude Include="ResourceManager.h">

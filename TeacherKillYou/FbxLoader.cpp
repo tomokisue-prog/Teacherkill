@@ -108,6 +108,7 @@ struct MeshSource {
     int firstBone;
     int rigidBone;
     ufbx_matrix normalMatrix;
+    std::vector<int> fallbackBones; // Missing skin weights are repaired once at import.
 };
 struct MeshPart {
     const MeshSource* source;
@@ -226,6 +227,40 @@ void Release(FbxModelData& data) {
     data = {};
 }
 
+void PrepareSkinFallbacks(MeshSource& source) {
+    if (!source.skin || source.skin->clusters.count == 0) return;
+    const auto* mesh = source.node->mesh;
+    const std::size_t count = (std::min)(mesh->vertices.count, source.skin->vertices.count);
+    source.fallbackBones.assign(count, source.rigidBone);
+    std::vector<Vector3> boneCenters;
+    for (const auto* cluster : source.skin->clusters) {
+        // Match the vertices' bind coordinate system, rather than the currently animated pose.
+        const auto boneToGeometry = ufbx_matrix_invert(&cluster->geometry_to_bone);
+        const auto bind = ufbx_matrix_mul(&source.node->geometry_to_world, &boneToGeometry);
+        boneCenters.push_back(Vector(ufbx_transform_position(&bind, {0, 0, 0})));
+    }
+    std::size_t repaired = 0;
+    for (std::size_t v = 0; v < count; ++v) {
+        const auto& vertex = source.skin->vertices[v];
+        double weightSum = 0.0;
+        for (std::size_t i = 0; i < (std::min)(vertex.num_weights, uint32_t(4)); ++i)
+            weightSum += source.skin->weights[vertex.weight_begin + i].weight;
+        if (weightSum > 0.0) continue;
+        const Vector3 position = Vector(ufbx_transform_position(&source.node->geometry_to_world, mesh->vertices[v]));
+        float nearest = (std::numeric_limits<float>::max)();
+        for (std::size_t bone = 0; bone < boneCenters.size(); ++bone) {
+            const float distance = Vector3DistanceSqr(position, boneCenters[bone]);
+            if (distance < nearest) {
+                nearest = distance;
+                source.fallbackBones[v] = source.firstBone + static_cast<int>(bone);
+            }
+        }
+        ++repaired;
+    }
+    // Keep all geometry. Unweighted vertices must follow the skeleton when it collapses.
+    if (repaired) TraceLog(LOG_INFO, "FBX: [%s] Bound %zu unweighted vertices to nearby bones", source.node->name.data, repaired);
+}
+
 Vertex ReadVertex(const MeshSource& source, uint32_t corner) {
     const auto* mesh = source.node->mesh;
     Vertex result{};
@@ -246,7 +281,12 @@ Vertex ReadVertex(const MeshSource& source, uint32_t corner) {
         }
     }
     if (weightSum > 0) for (auto& weight : result.weights) weight /= weightSum;
-    else { result.bones[0] = static_cast<unsigned char>(source.rigidBone); result.weights[0] = 1; }
+    else {
+        const std::size_t vertex = mesh->vertex_indices[corner];
+        const int fallback = vertex < source.fallbackBones.size() ? source.fallbackBones[vertex] : source.rigidBone;
+        result.bones[0] = static_cast<unsigned char>(fallback);
+        result.weights[0] = 1;
+    }
     return result;
 }
 
@@ -306,6 +346,7 @@ FbxModelData LoadFbxModel(const std::string& path) {
             const int rigidBone = static_cast<int>(bindings.size());
             bindings.push_back({ node->typed_id, ufbx_identity_matrix, inverseGeometry, true });
             sources.push_back({ node, skin, firstBone, rigidBone, ufbx_matrix_for_normals(&node->geometry_to_world) });
+            PrepareSkinFallbacks(sources.back());
         }
         if (sources.empty()) throw std::runtime_error("FBX has no triangle mesh");
         if (bindings.size() > 256) throw std::runtime_error("FBX exceeds raylib's 256 skin binding limit");
@@ -471,7 +512,8 @@ FbxAnimationData LoadFbxAnimations(const std::string& path, const Model& model,
         for (int clip = 0; clip < data.animationCount; ++clip) {
             const auto* source = scene->anim_stacks[clip];
             const double duration = source->time_end - source->time_begin;
-            if (!std::isfinite(duration) || duration <= 0 || duration / FrameDuration > (std::numeric_limits<int>::max)() - 1)
+            // A zero-length take is a valid static pose, not a reason to reject the other clips.
+            if (!std::isfinite(duration) || duration < 0 || duration / FrameDuration > (std::numeric_limits<int>::max)() - 1)
                 throw std::runtime_error("Invalid FBX animation duration");
             ModelAnimation& animation = data.animations[clip];
             CopyName(animation.name, source->name);

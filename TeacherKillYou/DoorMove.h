@@ -20,9 +20,9 @@ public:
     BoundingBox GetBoundingBox() const;
 
     // 開閉制御
-    void Open() { isOpen_ = true; }
-    void Close() { isOpen_ = false; }
-    void Toggle() { isOpen_ = !isOpen_; }
+    void Open();
+    void Close();
+    void Toggle();
 
     // インスペクター編集用パラメータ
     float GetSlideSpeed() const { return slideSpeed_; }

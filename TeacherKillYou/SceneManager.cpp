@@ -2,6 +2,7 @@
 #include "raylib.h"
 #include "rlImGui.h"
 #include "ResourceManager.h"
+#include "AudioManager.h"
 #include "imgui.h"
 
 void SceneManager::Init()
@@ -15,6 +16,7 @@ void SceneManager::Init()
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
 
     // アセットの一括ロード
+    AM().Init();
     RM().LoadAll();
 
     // 各シーンにコンテキストを伝搬
@@ -32,6 +34,7 @@ void SceneManager::Shutdown()
 {
     gameContext.End();
     RM().UnloadAll();
+    AM().Shutdown();
     rlImGuiShutdown();
     CloseWindow();
 }
@@ -74,6 +77,7 @@ void SceneManager::Run()
         }
 
         systemMode_.Update(deltaTime);
+        AM().Update();
 
         // 2. 描画処理
         BeginDrawing();
