@@ -12,7 +12,7 @@ class SceneManager
 public:
     static SceneManager& GetInstance()
     {
-        static SceneManager instance;
+		static SceneManager instance;
         return instance;
     }
 
@@ -48,6 +48,8 @@ private:
     Scene* currentScene = nullptr;
 
     RunConfig runConfig{};
+
+    bool hasLoadedScene_{ false };
 };
 
 inline SceneManager& SM() { return SceneManager::GetInstance(); }

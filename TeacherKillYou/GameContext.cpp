@@ -6,6 +6,20 @@
 #include "raylib.h"
 #include "CameraController.h"
 #include "raymath.h"
+#include <fstream>
+#include "json.hpp"
+
+static nlohmann::json Vector3ToJson(const Vector3& v) {
+    return nlohmann::json{ {"x", v.x}, {"y", v.y}, {"z", v.z} };
+}
+
+static Vector3 JsonToVector3(const nlohmann::json& j) {
+    return Vector3{
+        j.value("x", 0.0f),
+        j.value("y", 0.0f),
+        j.value("z", 0.0f)
+    };
+}
 
 static void DrawCrosshair()
 {
@@ -84,6 +98,7 @@ void GameContext::Init()
     tp2.SetPointNumber(1);
     tp2.SetTeleportType(TeleportType::Destination);
     teleportPoints_.push_back(tp2);
+    
 }
 
 void GameContext::Reset()
@@ -392,4 +407,102 @@ void GameContext::End()
     player_.End();
     stage_.End();
     lighting_.Shutdown();
+}
+
+void GameContext::SaveScene(const std::string& filepath)
+{
+    nlohmann::json root;
+
+    // 1. Player
+    root["player"]["position"] = Vector3ToJson(player_.GetPosition());
+    root["player"]["rotation"] = Vector3ToJson(player_.GetRotation());
+    root["player"]["scale"] = Vector3ToJson(player_.GetScale());
+
+    // 2. Door
+    root["door"]["position"] = Vector3ToJson(door_.GetPosition());
+    root["door"]["rotation"] = Vector3ToJson(door_.GetRotation());
+    root["door"]["scale"] = Vector3ToJson(door_.GetScale());
+    root["door"]["slideSpeed"] = door_.GetSlideSpeed();
+    root["door"]["openDistance"] = door_.GetOpenDistance();
+
+    // 3. TeleportPoints
+    nlohmann::json tpArray = nlohmann::json::array();
+    for (const auto& tp : teleportPoints_)
+    {
+        nlohmann::json tpJson;
+        tpJson["position"] = Vector3ToJson(tp.GetPosition());
+        tpJson["rotation"] = Vector3ToJson(tp.GetRotation());
+        tpJson["scale"] = Vector3ToJson(tp.GetScale());
+        tpJson["pointNumber"] = tp.GetPointNumber();
+        tpJson["type"] = static_cast<int>(tp.GetTeleportType());
+        tpJson["radius"] = tp.GetRadius();
+        tpArray.push_back(tpJson);
+    }
+    root["teleportPoints"] = tpArray;
+
+    std::ofstream file(filepath);
+    if (file.is_open()) {
+        file << root.dump(4);
+        file.close();
+        TraceLog(LOG_INFO, "SCENE: Saved successfully to %s", filepath.c_str());
+    }
+    else {
+        TraceLog(LOG_ERROR, "SCENE: Failed to open file for saving: %s", filepath.c_str());
+    }
+}
+
+void GameContext::LoadScene(const std::string& filepath)
+{
+    std::ifstream file(filepath);
+    if (!file.is_open()) {
+        TraceLog(LOG_WARNING, "SCENE: Save file not found (%s). Skipping load.", filepath.c_str());
+        return;
+    }
+
+    nlohmann::json root;
+    try {
+        file >> root;
+        file.close();
+    }
+    catch (const std::exception& e) {
+        TraceLog(LOG_ERROR, "SCENE: Failed to parse JSON: %s", e.what());
+        return;
+    }
+
+    // 1. Player
+    if (root.contains("player")) {
+        const auto& p = root["player"];
+        if (p.contains("position")) player_.SetPosition(JsonToVector3(p["position"]));
+        if (p.contains("rotation")) player_.SetRotation(JsonToVector3(p["rotation"]));
+        if (p.contains("scale"))    player_.SetScale(JsonToVector3(p["scale"]));
+    }
+
+    // 2. Door
+    if (root.contains("door")) {
+        const auto& d = root["door"];
+        if (d.contains("position"))     door_.SetPosition(JsonToVector3(d["position"]));
+        if (d.contains("rotation"))     door_.SetRotation(JsonToVector3(d["rotation"]));
+        if (d.contains("scale"))        door_.SetScale(JsonToVector3(d["scale"]));
+        if (d.contains("slideSpeed"))   door_.SetSlideSpeed(d["slideSpeed"].get<float>());
+        if (d.contains("openDistance")) door_.SetOpenDistance(d["openDistance"].get<float>());
+    }
+
+    // 3. TeleportPoints
+    if (root.contains("teleportPoints") && root["teleportPoints"].is_array()) {
+        teleportPoints_.clear();
+        for (const auto& tpJson : root["teleportPoints"]) {
+            TeleportPoint tp;
+            if (tpJson.contains("position"))    tp.SetPosition(JsonToVector3(tpJson["position"]));
+            if (tpJson.contains("rotation"))    tp.SetRotation(JsonToVector3(tpJson["rotation"]));
+            if (tpJson.contains("scale"))       tp.SetScale(JsonToVector3(tpJson["scale"]));
+            if (tpJson.contains("pointNumber")) tp.SetPointNumber(tpJson["pointNumber"].get<int>());
+            if (tpJson.contains("type"))        tp.SetTeleportType(static_cast<TeleportType>(tpJson["type"].get<int>()));
+            if (tpJson.contains("radius"))      tp.SetRadius(tpJson["radius"].get<float>());
+
+            teleportPoints_.push_back(tp);
+        }
+    }
+
+    player_.SetPosition(stage_.FindGroundPosition(player_.GetPosition()));
+    TraceLog(LOG_INFO, "SCENE: Loaded successfully from %s", filepath.c_str());
 }

@@ -18,7 +18,7 @@ void SceneManager::Init()
     // アセットの一括ロード
     AM().Init();
     RM().LoadAll();
-
+    
     // 各シーンにコンテキストを伝搬
     titleScene.SetGameContext(&gameContext);
     gameScene.SetGameContext(&gameContext);
@@ -28,6 +28,7 @@ void SceneManager::Init()
     // 最初はタイトルシーンから開始
     currentScene = &titleScene;
     currentScene->Init();
+
 }
 
 void SceneManager::Shutdown()
@@ -51,6 +52,7 @@ Scene* SceneManager::GetScene(SceneID id)
 
 void SceneManager::Run()
 {
+
     while (!WindowShouldClose())
     {
         float deltaTime = GetFrameTime();
@@ -68,6 +70,10 @@ void SceneManager::Run()
                 {
                     currentScene = next;
                     currentScene->Init();
+                    if (!hasLoadedScene_) {
+                        gameContext.LoadScene("scene.json");
+                        hasLoadedScene_ = true;
+                    }
                 }
                 else
                 {

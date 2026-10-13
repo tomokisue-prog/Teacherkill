@@ -10,7 +10,7 @@ void GizmoDrawer::Draw(GameContext& gameContext, GameObject* targetObj) {
     // ショートカットキー切り替え (W: 移動, E: 回転, R: 拡大)
     if (!ImGui::GetIO().WantCaptureKeyboard)
     {
-		//ショートカットキー　W+Ctrl,E+Ctrl,R+Ctrlで切り替え
+        // ショートカットキー W+Ctrl, E+Ctrl, R+Ctrlで切り替え
         if (IsKeyPressed(KEY_W) && IsKeyDown(KEY_LEFT_CONTROL)) currentOperation_ = ImGuizmo::TRANSLATE;
         if (IsKeyPressed(KEY_E) && IsKeyDown(KEY_LEFT_CONTROL)) currentOperation_ = ImGuizmo::ROTATE;
         if (IsKeyPressed(KEY_R) && IsKeyDown(KEY_LEFT_CONTROL)) currentOperation_ = ImGuizmo::SCALE;
@@ -36,6 +36,11 @@ void GizmoDrawer::Draw(GameContext& gameContext, GameObject* targetObj) {
     Vector3 rot = targetObj->GetRotation();
     Vector3 scale = targetObj->GetScale();
 
+    // スケールが 0 やマイナスになってギズモが崩れるのを防ぐ（最小値を保証）
+    scale.x = (std::max)(0.001f, scale.x);
+    scale.y = (std::max)(0.001f, scale.y);
+    scale.z = (std::max)(0.001f, scale.z);
+
     Matrix rlScale = MatrixScale(scale.x, scale.y, scale.z);
     Matrix rlRotX = MatrixRotateX(rot.x * DEG2RAD);
     Matrix rlRotY = MatrixRotateY(rot.y * DEG2RAD);
@@ -57,6 +62,11 @@ void GizmoDrawer::Draw(GameContext& gameContext, GameObject* targetObj) {
 
         float matrixTranslation[3], matrixRotation[3], matrixScale[3];
         ImGuizmo::DecomposeMatrixToComponents(matrix, matrixTranslation, matrixRotation, matrixScale);
+
+        // デコンポーズされたスケール側も 0 にならないように保護
+        matrixScale[0] = (std::max)(0.001f, matrixScale[0]);
+        matrixScale[1] = (std::max)(0.001f, matrixScale[1]);
+        matrixScale[2] = (std::max)(0.001f, matrixScale[2]);
 
         // GameObject に直接結果を反映
         targetObj->SetPosition({ matrixTranslation[0], matrixTranslation[1], matrixTranslation[2] });
