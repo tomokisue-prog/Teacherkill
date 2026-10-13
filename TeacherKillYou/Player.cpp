@@ -9,6 +9,7 @@
 #include "rlgl.h"
 #include <algorithm>
 #include  <vector>
+#include <cmath>
 namespace
 {
     bool HasWeaponAnimation(const char* key)
@@ -450,50 +451,49 @@ void Player::Draw(const PlayerCamera* camera) const
 
     if (camera != nullptr)
     {
-        // 1. 一人称視点 (FPS) 時の描画計算
-        // カメラの位置・正面方向・上下角度(Pitch)に手を完全に追従させる
-        
-        Vector3 camPos = camera->GetPosition();
-        Vector3 forward = camera->GetForwardVector();
-        Vector3 right = camera->GetRightVector();
-        Vector3 up = camera->GetUpVector();
+        const Camera3D view = camera->GetRaylibCamera();
 
-        // カメラ視点からの手元オフセット位置
-        Vector3 pos = Vector3Add(camPos, Vector3Scale(forward, 0.22f));
-        pos = Vector3Add(pos, Vector3Scale(right, -0.2f));
-        pos = Vector3Subtract(pos, Vector3Scale(up, 0.18f));
+        const Vector3 forward = Vector3Normalize(
+            Vector3Subtract(view.target, view.position));
 
-        float yaw = atan2f(forward.x, forward.z) * RAD2DEG;
+        const Vector3 right = Vector3Normalize(
+            Vector3CrossProduct(forward, view.up));
 
-        // FPSカメラの上下・左右に連動させて描画
-        DrawHorrorModelEx(
-            handGun, pos, { 0.0f, 1.0f, 0.0f }, yaw,
-            { viewModelScale_, viewModelScale_, viewModelScale_ }, WHITE
+        const Vector3 up = Vector3Normalize(
+            Vector3CrossProduct(right, forward));
+
+        // Keep your existing viewmodel offsets.
+        Vector3 pos = Vector3Add(
+            view.position, Vector3Scale(forward, 0.22f));
+
+        pos = Vector3Add(pos, Vector3Scale(right, 0.1f));
+        pos = Vector3Subtract(pos, Vector3Scale(up, 0.15f));
+
+        const float yaw = atan2f(forward.x, forward.z);
+        const float pitch = asinf(Clamp(forward.y, -1.0f, 1.0f));
+
+        const Quaternion yawRotation =
+            QuaternionFromAxisAngle({ 0.0f, 1.0f, 0.0f }, yaw);
+
+        const Quaternion pitchRotation =
+            QuaternionFromAxisAngle({ 1.0f, 0.0f, 0.0f }, -pitch);
+
+        const Quaternion rotation = QuaternionNormalize(
+            QuaternionMultiply(yawRotation, pitchRotation));
+
+        Vector3 axis = { 0.0f, 1.0f, 0.0f };
+        float angle = 0.0f;
+
+        QuaternionToAxisAngle(rotation, &axis, &angle);
+
+        DrawModelEx(
+            handGun,
+            pos,
+            axis,
+            angle * RAD2DEG,
+            { viewModelScale_, viewModelScale_, viewModelScale_ },
+            WHITE
         );
-    }
-    else
-    {
-        // 2. システムカメラ（デバッグ）時の描画計算
-        // ギズモ操作用の Transform (position_, rotation_, scale_) に直接従う
-        rlPushMatrix();
-        {
-            rlTranslatef(position_.x, position_.y, position_.z);
-            rlRotatef(rotation_.z, 0.0f, 0.0f, 1.0f);
-            rlRotatef(rotation_.x, 1.0f, 0.0f, 0.0f);
-            rlRotatef(rotation_.y, 0.0f, 1.0f, 0.0f);
-
-            rlScalef(
-                scale_.x * viewModelScale_,
-                scale_.y * viewModelScale_,
-                scale_.z * viewModelScale_
-            );
-
-            for (int i = 0; i < handGun.meshCount; i++)
-            {
-                DrawHorrorMesh(handGun.meshes[i], handGun.materials[handGun.meshMaterial[i]], MatrixIdentity());
-            }
-        }
-        rlPopMatrix();
     }
 }
 
