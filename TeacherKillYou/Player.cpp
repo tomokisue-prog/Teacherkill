@@ -8,7 +8,7 @@
 #include "raymath.h"
 #include "rlgl.h"
 #include <algorithm>
-
+#include  <vector>
 namespace
 {
     bool HasWeaponAnimation(const char* key)
@@ -31,11 +31,51 @@ namespace
         Model& model = RM().GetModelRef(key);
 
         int count = 0;
-        ModelAnimation* animations = RM().GetModelAnimations(key, &count);
+        ModelAnimation* animations =
+            RM().GetModelAnimations(key, &count);
+
         const ModelAnimation& animation = animations[0];
 
-        const int frame = static_cast<int>(
-            Clamp(progress, 0.0f, 1.0f) * (animation.frameCount - 1));
+        if (animation.boneCount <= 0 ||
+            animation.framePoses == nullptr)
+        {
+            return;
+        }
+
+        const float framePosition =
+            Clamp(progress, 0.0f, 1.0f) * (animation.frameCount - 1);
+
+        const int frameA = static_cast<int>(framePosition);
+        const int frameB = (std::min)(
+            frameA + 1, animation.frameCount - 1);
+
+        const float blend = framePosition - frameA;
+
+        // Reuse storage instead of allocating on every update.
+        static std::vector<Transform> blendedPose;
+        blendedPose.resize(animation.boneCount);
+
+        for (int bone = 0; bone < animation.boneCount; ++bone)
+        {
+            const Transform& a = animation.framePoses[frameA][bone];
+            const Transform& b = animation.framePoses[frameB][bone];
+
+            blendedPose[bone].translation =
+                Vector3Lerp(a.translation, b.translation, blend);
+
+            blendedPose[bone].rotation =
+                QuaternionSlerp(a.rotation, b.rotation, blend);
+
+            blendedPose[bone].scale =
+                Vector3Lerp(a.scale, b.scale, blend);
+        }
+
+        // Present the blended pose as a temporary one-frame animation.
+        Transform* poseFrames[] = { blendedPose.data() };
+
+        ModelAnimation blendedAnimation = animation;
+        blendedAnimation.frameCount = 1;
+        blendedAnimation.framePoses = poseFrames;
 
         for (int i = 0; i < model.meshCount; ++i)
         {
@@ -52,7 +92,7 @@ namespace
             skinnedView.meshes = &mesh;
             skinnedView.meshCount = 1;
 
-            UpdateModelAnimation(skinnedView, animation, frame);
+            UpdateModelAnimation(skinnedView, blendedAnimation, 0);
         }
     }
 }
