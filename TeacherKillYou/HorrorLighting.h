@@ -45,5 +45,6 @@ private:
     Shader post_{};
     int timeLocation_ = -1;
     int aspectLocation_ = -1;
+    int texelLocation_ = -1;
     bool flashlightOn_ = true;
 };

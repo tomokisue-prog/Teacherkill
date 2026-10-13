@@ -1,10 +1,12 @@
 #include "GameScene.h"
 #include "SceneManager.h"
+#include "AudioManager.h"
 
 void GameScene::Init()
 {
     finished = false;
     nextScene = nullptr;
+    AM().PlayBgm(BgmId::Game);
 
     // ゲームコンテキスト側の初期化（カメラコントローラーやステージの準備）
     if (gameContext)
@@ -37,6 +39,7 @@ void GameScene::Render() const
 
 void GameScene::End()
 {
+    AM().StopBgm();
     if (gameContext)
     {
         gameContext->End();

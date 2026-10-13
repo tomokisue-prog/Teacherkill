@@ -1,4 +1,5 @@
 ﻿#include "Enemy.h"
+#include "AudioManager.h"
 #include "Player.h"
 #include "Stage.h"
 #include "ResourceManager.h"
@@ -156,6 +157,11 @@ float Enemy::AttackDuration() const {
     return clip.frameCount > 1 ? (clip.frameCount - 1) * AnimationFrameDuration : 0.9f;
 }
 
+float Enemy::DeathDuration() const {
+    const auto clip = RM().GetModelAnimation(ResourceKeys::Animation_EnemyDeath);
+    return clip.frameCount > 1 ? (clip.frameCount - 1) * AnimationFrameDuration : 0.0f;
+}
+
 bool Enemy::CanHitTarget(const TargetInfo& target, const Stage& stage, const BoundingBox* blocker) const {
     if (!target.valid || !target.alive || !IsFinite(target.position)) return false;
     const auto body = GetBodyBounds();
@@ -187,7 +193,9 @@ void Enemy::Update(float dt, const TargetInfo& target, const Stage& stage, const
     if (!std::isfinite(dt) || dt <= 0.0f) return;
     damageFlashTimer_ = (std::max)(0.0f, damageFlashTimer_ - dt);
     if (!IsAlive()) {
-        corpseTimer_ = (std::min)(config_.corpseDuration, corpseTimer_ + dt);
+        const float duration = DeathDuration();
+        corpseTimer_ = (std::min)(duration + config_.corpseDuration, corpseTimer_ + dt);
+        if (duration > 0.0f) animationTime_ = (std::min)(duration, corpseTimer_);
         return;
     }
     // 遅延したフレームで攻撃・衝突を何度も実行しない。
@@ -212,6 +220,7 @@ void Enemy::Update(float dt, const TargetInfo& target, const Stage& stage, const
         // 命中時に再判定するので、振り始めてから逃げれば回避できる。
         if (!attackHitChecked_ && attackTime_ >= duration * config_.attackHitFraction) {
             attackHitChecked_ = true;
+            AM().PlaySe(SeId::EnemyAttack);
             if (CanHitTarget(target, stage, blocker)) pendingAttackDamage_ = config_.attackDamage;
         }
         if (attackTime_ >= duration) {
@@ -340,11 +349,18 @@ EnemyDamageResult Enemy::TakeDamage(int amount) {
     // Deadへの遷移はこの呼び出しで一度だけ報告する。以降の被弾は冒頭で拒否する。
     damageFlashTimer_ = DamageFlashDuration;
     const bool died = hp_ == 0;
+    AM().PlaySe(died ? SeId::EnemyDeath : SeId::EnemyHit);
     if (died) {
         state_ = EnemyState::Dead;
         shouldMove_ = false;
         corpseTimer_ = 0.0f;
         pendingAttackDamage_ = 0;
+        attackCooldown_ = 0.0f;
+        // Restart the death clip once; later hits cannot rewind the corpse.
+        if (RM().GetModelAnimation(ResourceKeys::Animation_EnemyDeath).frameCount > 0) {
+            animationTime_ = 0.0f;
+            attackPose_ = false;
+        }
     }
     return { true, hp_, died };
 }
@@ -354,18 +370,21 @@ BoundingBox Enemy::GetBodyBounds() const {
 }
 
 bool Enemy::IsRemovalReady() const {
-    return !IsAlive() && corpseTimer_ >= config_.corpseDuration;
+    return !IsAlive() && corpseTimer_ >= DeathDuration() + config_.corpseDuration;
 }
 
 void Enemy::Draw() const {
     Model model = RM().GetModel(ResourceKeys::Model_Enemy);
     if (model.meshCount > 0) {
-        const char* clipKey = attackPose_ && RM().GetModelAnimation(ResourceKeys::Animation_EnemyAttack).frameCount > 0 ?
+        const bool deathPose = !IsAlive() && RM().GetModelAnimation(ResourceKeys::Animation_EnemyDeath).frameCount > 0;
+        const char* clipKey = deathPose ? ResourceKeys::Animation_EnemyDeath :
+            attackPose_ && RM().GetModelAnimation(ResourceKeys::Animation_EnemyAttack).frameCount > 0 ?
             ResourceKeys::Animation_EnemyAttack : ResourceKeys::Model_Enemy;
         const ModelAnimation animation = RM().GetModelAnimation(clipKey);
         if (animation.frameCount > 0) {
             const int elapsedFrame = static_cast<int>(animationTime_ / AnimationFrameDuration);
-            const int frame = attackPose_ ? (std::min)(elapsedFrame, animation.frameCount - 1) : elapsedFrame % animation.frameCount;
+            const int frame = deathPose && corpseTimer_ >= DeathDuration() ? animation.frameCount - 1 :
+                deathPose || attackPose_ ? (std::min)(elapsedFrame, animation.frameCount - 1) : elapsedFrame % animation.frameCount;
             // メッシュを共有するため、各敵の描画直前にその敵のポーズを適用する。
             RM().ApplyModelAnimation(clipKey, frame);
         }

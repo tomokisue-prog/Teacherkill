@@ -1,5 +1,6 @@
 ﻿#include "HorrorLighting.h"
 #include "DoorMove.h"
+#include "AudioManager.h"
 #include "Player.h"
 #include "ResourceManager.h"
 #include "ResourceKeys.h"
@@ -19,6 +20,23 @@ void DoorMove::Reset()
     closedPosition_ = position_;
     isOpen_ = false;
     slideProgress_ = 0.0f;
+}
+
+void DoorMove::Open() {
+    if (isOpen_) return;
+    isOpen_ = true;
+    AM().StopSe(SeId::DoorClose);
+    AM().PlaySe(SeId::DoorOpen);
+}
+void DoorMove::Close() {
+    if (!isOpen_) return;
+    isOpen_ = false;
+    AM().StopSe(SeId::DoorOpen);
+    AM().PlaySe(SeId::DoorClose);
+}
+void DoorMove::Toggle() {
+    if (isOpen_) Close();
+    else Open();
 }
 
 void DoorMove::Update(float deltaTime, const Player& player)

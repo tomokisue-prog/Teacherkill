@@ -1,4 +1,5 @@
 ﻿#include "HorrorLighting.h"
+#include "AudioManager.h"
 #include "raymath.h"
 #include "rlgl.h"
 #include <algorithm>
@@ -7,11 +8,13 @@
 #include <unordered_map>
 
 namespace {
-constexpr Color NightBackground{ 2, 4, 4, 255 };
+constexpr Color NightBackground{ 0, 0, 0, 255 };
 // Cold, slightly green fluorescent lamps; a warmer torch keeps the player's focus readable.
 constexpr Vector3 FluorescentTint{ 0.46f, 0.72f, 0.60f };
 constexpr Vector3 FlashlightTint{ 1.0f, 0.95f, 0.82f };
 constexpr float FixtureIntensity = 0.55f;
+// Additional world metres at each cross-section of the flashlight cone.
+constexpr float FlashlightRadiusPadding = 0.5f;
 
 const char* ModelVertex = R"(#version 330
 in vec3 vertexPosition;
@@ -48,6 +51,7 @@ uniform vec3 viewPosition;
 uniform vec3 lightPosition;
 uniform vec3 lightDirection;
 uniform float flashlightEnabled;
+uniform float flashlightRadiusPadding;
 uniform vec3 fluorescentTint;
 uniform vec3 flashlightTint;
 uniform vec4 surface; // roughness, metalness, normal map mode, packed MR enabled
@@ -105,14 +109,22 @@ void main() {
     vec3 toLight = lightPosition - fragPosition;
     float distanceToLight = max(length(toLight), 0.001);
     vec3 lightVector = toLight / distanceToLight;
-    float alignment = dot(-lightVector, lightDirection);
-    float cone = smoothstep(cos(radians(22.0)), cos(radians(12.0)), alignment);
-    float spill = 0.015 * smoothstep(cos(radians(34.0)), cos(radians(22.0)), alignment);
+    vec3 fromLight = -toLight;
+    float forwardDistance = dot(fromLight, lightDirection);
+    float radialDistance = length(fromLight - lightDirection * forwardDistance);
+    float padding = max(flashlightRadiusPadding, 0.0);
+    float coneDistance = max(forwardDistance, 0.01);
+    float innerRadius = coneDistance * tan(radians(12.0)) + padding;
+    float outerRadius = coneDistance * tan(radians(22.0)) + padding;
+    float spillRadius = coneDistance * tan(radians(34.0)) + padding;
+    float cone = forwardDistance > 0.001 ? 1.0 - smoothstep(innerRadius, outerRadius, radialDistance) : 0.0;
+    float spill = forwardDistance > 0.001 ? 0.015 * (1.0 - smoothstep(outerRadius, spillRadius, radialDistance)) : 0.0;
     float attenuation = 1.0 / (1.0 + 0.12 * distanceToLight + 0.06 * distanceToLight * distanceToLight);
     float beam = (cone + spill) * attenuation * (1.0 - smoothstep(12.0, 20.0, distanceToLight)) * flashlightEnabled;
     float distanceToView = length(viewPosition - fragPosition);
     float nearFill = 0.06 * (1.0 - smoothstep(0.15, 0.9, distanceToView)) * flashlightEnabled;
-    vec3 color = base * (vec3(0.003, 0.006, 0.005) + flashlightTint * (0.16 * beam + nearFill));
+    // Ambient light is black: only fixtures, torch and emissive surfaces illuminate the room.
+    vec3 color = base * flashlightTint * (0.16 * beam + nearFill);
     color += reflectedLight(base, normal, view, lightVector, flashlightTint * 7.5 * beam, roughness, metalness);
     for (int i = 0; i < buildingLightCount; ++i) {
         vec3 delta = buildingPositions[i] - fragPosition;
@@ -124,13 +136,13 @@ void main() {
         vec3 radiance = buildingColors[i].rgb * buildingColors[i].a * facing * falloff;
         color += reflectedLight(base, normal, view, l, radiance, roughness, metalness);
     }
-    // White ceiling panels follow the fluorescent palette; coloured signs retain their hue.
+    // Neutral emissive surfaces follow the fluorescent palette; coloured emitters retain their hue.
     float neutralEmission = min(emission.r, min(emission.g, emission.b)) / max(max(emission.r, max(emission.g, emission.b)), 0.001);
     vec3 emitted = emission.rgb * emission.a * mix(vec3(1.0), fluorescentTint * 0.65, neutralEmission);
     if (emissionTextureEnabled > 0.5) emitted *= pow(texture(texture5, fragTexCoord).rgb, vec3(2.2));
     color += emitted;
     float fog = 1.0 - exp(-0.006 * distanceToView * distanceToView);
-    color = mix(color, vec3(0.0015, 0.0035, 0.0030), fog);
+    color *= 1.0 - fog;
     color = color / (vec3(1.0) + color);
     color = pow(color, vec3(1.0 / 2.2));
     // A hit remains visible even where the flashlight does not reach.
@@ -149,9 +161,27 @@ uniform sampler2D texture0;
 uniform vec4 colDiffuse;
 uniform float time;
 uniform float aspect;
+uniform vec2 texelSize;
 out vec4 finalColor;
+vec3 brightSample(vec2 uv) {
+    vec3 value = texture(texture0, clamp(uv, vec2(0.0), vec2(1.0))).rgb;
+    float luma = dot(value, vec3(0.2126, 0.7152, 0.0722));
+    return value * max(luma - 0.62, 0.0) / max(luma, 0.001);
+}
 void main() {
     vec3 color = texture(texture0, fragTexCoord).rgb;
+    // A small single-pass glow avoids another full-size scene buffer.
+    vec2 radius = texelSize * 4.0;
+    vec3 glow = brightSample(fragTexCoord) * 2.0;
+    glow += brightSample(fragTexCoord + vec2(radius.x, 0.0));
+    glow += brightSample(fragTexCoord - vec2(radius.x, 0.0));
+    glow += brightSample(fragTexCoord + vec2(0.0, radius.y));
+    glow += brightSample(fragTexCoord - vec2(0.0, radius.y));
+    glow += brightSample(fragTexCoord + radius);
+    glow += brightSample(fragTexCoord - radius);
+    glow += brightSample(fragTexCoord + vec2(radius.x, -radius.y));
+    glow += brightSample(fragTexCoord + vec2(-radius.x, radius.y));
+    color += glow * 0.022;
     vec2 edge = fragTexCoord * 2.0 - 1.0;
     edge.x *= min(aspect, 1.8) / 1.8;
     float vignette = 1.0 - 0.68 * smoothstep(0.25, 1.5, dot(edge, edge));
@@ -178,6 +208,7 @@ Shader LoadHorrorShader(const char* vertexCode, bool normalMaps) {
     materialLocations[shader.id] = locations;
     SetShaderValue(shader, GetShaderLocation(shader, "fluorescentTint"), &FluorescentTint, SHADER_UNIFORM_VEC3);
     SetShaderValue(shader, GetShaderLocation(shader, "flashlightTint"), &FlashlightTint, SHADER_UNIFORM_VEC3);
+    SetShaderValue(shader, GetShaderLocation(shader, "flashlightRadiusPadding"), &FlashlightRadiusPadding, SHADER_UNIFORM_FLOAT);
     const Vector4 defaults = {0.8f, 0.0f, normalMaps ? 2.0f : 0.0f, 0.0f};
     SetShaderValue(shader, locations.surface, &defaults, SHADER_UNIFORM_VEC4);
     return shader;
@@ -258,7 +289,7 @@ void HorrorLighting::CollectBuildingLights(const Model& model) {
             const float area = Vector3Length(Vector3CrossProduct(Vector3Subtract(positions[1], positions[0]),
                 Vector3Subtract(positions[2], positions[0]))) * 0.5f;
             if (area < 0.00001f) continue;
-            // Sample inside triangles: the centre alone misses lamps embedded in a dark ceiling atlas.
+            // Sample inside triangles: the centre alone can miss an emitter in a dark texture atlas.
             const int steps = pixels ? 16 : 1;
             for (int a = 0; a < steps; ++a) for (int b = 0; b < steps - a; ++b) {
                 const float w0 = (a + 1.0f / 3.0f) / steps, w1 = (b + 1.0f / 3.0f) / steps;
@@ -313,13 +344,17 @@ void HorrorLighting::Init(const std::vector<Shader>& shaders, const Model& build
         if (post_.id) {
             timeLocation_ = GetShaderLocation(post_, "time");
             aspectLocation_ = GetShaderLocation(post_, "aspect");
+            texelLocation_ = GetShaderLocation(post_, "texelSize");
         }
     }
     Reset();
 }
 
 void HorrorLighting::Update() {
-    if (IsKeyPressed(KEY_F)) flashlightOn_ = !flashlightOn_;
+    if (IsKeyPressed(KEY_F)) {
+        flashlightOn_ = !flashlightOn_;
+        AM().PlaySe(SeId::Flashlight);
+    }
 }
 
 void HorrorLighting::BeginFrame(const Camera3D& view, const Camera3D& flashlight, Vector3 stagePosition, float stageScale) {
@@ -377,6 +412,8 @@ void HorrorLighting::EndFrame(bool drawControls) const {
             const float aspect = static_cast<float>(scene_.texture.width) / scene_.texture.height;
             SetShaderValue(post_, timeLocation_, &time, SHADER_UNIFORM_FLOAT);
             SetShaderValue(post_, aspectLocation_, &aspect, SHADER_UNIFORM_FLOAT);
+            const Vector2 texel = {1.0f / scene_.texture.width, 1.0f / scene_.texture.height};
+            SetShaderValue(post_, texelLocation_, &texel, SHADER_UNIFORM_VEC2);
             BeginShaderMode(post_);
         }
         DrawTexturePro(scene_.texture, {0, 0, static_cast<float>(scene_.texture.width), -static_cast<float>(scene_.texture.height)},

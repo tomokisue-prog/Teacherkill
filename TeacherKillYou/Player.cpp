@@ -1,4 +1,5 @@
 #include "Player.h"
+#include "AudioManager.h"
 #include "DamageFlash.h"
 #include "HorrorLighting.h"
 #include "Stage.h"
@@ -223,6 +224,7 @@ void Player::UpdateWeapon(float deltaTime)
         }
 
         isReloading_ = true;
+        AM().PlaySe(SeId::Reload);
         reloadTimer_ = 0.0f;
         ApplyWeaponPose("PlayerReload", 0.0f);
         return;
@@ -240,6 +242,7 @@ void Player::UpdateWeapon(float deltaTime)
         shootTimer_ = 0.0f;
         --currentAmmo_;
         shotPending_ = true;
+        AM().PlaySe(SeId::Shoot);
 
         ApplyWeaponPose("PlayerShoot", 0.0f);
     }
@@ -304,9 +307,11 @@ void Player::TakeDamage(int amount)
     isSprinting_ = false;
     hp_ = amount >= hp_ ? 0 : hp_ - amount;
     damageFlashTimer_ = damageFlashDuration_;
+    AM().PlaySe(SeId::PlayerHit);
 
     if (!IsAlive())
     {
+        AM().StopSe(SeId::Reload);
         isShooting_ = false;
         isReloading_ = false;
         shotPending_ = false;
