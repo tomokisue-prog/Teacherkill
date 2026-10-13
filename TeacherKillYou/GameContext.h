@@ -21,6 +21,9 @@ public:
     void Draw() const;
     void End();
 
+    void SaveScene(const std::string& filepath = "scene.json");
+	void LoadScene(const std::string& filepath = "scene.json");
+
     CameraController& GetCameraController() { return cameraController_; }
     const CameraController& GetCameraController() const { return cameraController_; }
 

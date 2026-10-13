@@ -93,6 +93,9 @@
     <Filter Include="Fade\GameFade">
       <UniqueIdentifier>{31a80382-ce83-45b3-870f-0ed8cafddf3e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Core\Save/Load">
+      <UniqueIdentifier>{e99fc9f7-f8e7-4b71-82f3-f9244d586094}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -149,9 +152,6 @@
     <ClCompile Include="SystemCamera.cpp">
       <Filter>Camera\System</Filter>
     </ClCompile>
-    <ClCompile Include="GameContext.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
     <ClCompile Include="DebugUI.cpp">
       <Filter>Debug\DebugUI</Filter>
     </ClCompile>
@@ -206,6 +206,9 @@
     <ClCompile Include="TeleportPoint.cpp" />
     <ClCompile Include="GameFade.cpp">
       <Filter>Fade\GameFade</Filter>
+    </ClCompile>
+    <ClCompile Include="GameContext.cpp">
+      <Filter>Core</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

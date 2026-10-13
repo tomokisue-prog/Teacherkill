@@ -91,7 +91,18 @@ void DebugUI::DrawHierarchy(GameContext& gameContext)
 
 void DebugUI::DrawInspector(GameContext& gameContext)
 {
+    // 1つのウィンドウ（"Inspector"）の先頭で Begin を1回だけ呼ぶ
     ImGui::Begin("Inspector");
+
+    // --- シーブ・ロード用のボタンをここに配置 ---
+    if (ImGui::Button("Save Scene (JSON)"))
+    {
+		gameContext.SaveScene("scene.json");
+    }
+
+    ImGui::Separator();
+
+    ImGui::Separator();
 
     // ----------------------------------------------------
     // ギズモ操作モード切替 UI（Translate / Rotate / Scale）
