@@ -225,7 +225,7 @@ void Player::Update(float deltaTime, const Stage& stage,
 
 void Player::UpdateWeaponMotion(float deltaTime, bool hasMoveInput)
 {
-    const float blend = 1.0f - std::exp(-12.0f * (std::max)(deltaTime, 0.0f));
+    const float blend = 1.0f - std::exp(-8.0f * (std::max)(deltaTime, 0.0f));
     const bool isWalkingOnGround = hasMoveInput && isGrounded_;
 
     const float targetBob = isWalkingOnGround ? 1.0f : 0.0f;
@@ -236,7 +236,7 @@ void Player::UpdateWeaponMotion(float deltaTime, bool hasMoveInput)
 
     if (isWalkingOnGround)
     {
-        const float bobFrequency = isSprinting_ ? 13.0f : 9.0f;
+        const float bobFrequency = isSprinting_ ? 9.0f : 5.5f;
         weaponBobTime_ += bobFrequency * deltaTime;
     }
     const Vector2 mouseDelta = GetMouseDelta();
@@ -247,8 +247,8 @@ void Player::UpdateWeaponMotion(float deltaTime, bool hasMoveInput)
     weaponSway_.y = Lerp(weaponSway_.y, targetSwayY, blend);
 
     const float bobStrength = 1.0f + weaponSprintBlend_ * 0.55f;
-    const float horizontalBob = std::sin(weaponBobTime_) * 0.012f;
-    const float verticalBob = -std::fabs(std::cos(weaponBobTime_)) * 0.009f;
+    const float horizontalBob = std::sin(weaponBobTime_) * 0.009f;
+    const float verticalBob = -std::fabs(std::cos(weaponBobTime_)) * 0.007f;
 
     weaponMotionOffset_.x =
         horizontalBob * bobStrength * weaponBobBlend_ + weaponSway_.x;

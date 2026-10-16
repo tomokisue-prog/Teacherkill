@@ -60,10 +60,10 @@ private:
     Vector2 weaponSway_{ 0.0f, 0.0f };
     Vector3 weaponMotionOffset_{ 0.0f, 0.0f, 0.0f };
 
-    float moveSpeed_{ 5.0f };
+    float moveSpeed_{ 2.5f };
 
-    float playerRadius_{ 0.4f };
-    float playerHeight_{ 1.8f };
+    float playerRadius_{ 0.3f };
+    float playerHeight_{ 1.5f };
 
     float gravity_{ -9.81f };
     float jumpForce_{ 3.0f };
@@ -91,7 +91,7 @@ private:
     float damageFlashTimer_{ 0.0f };
     float damageFlashDuration_{ 0.6f };
 
-    float sprintSpeed_{ 8.0f };
+    float sprintSpeed_{ 4.5f };
     bool isSprinting_{ false };
     bool sprintExhausted_{ false };
 
