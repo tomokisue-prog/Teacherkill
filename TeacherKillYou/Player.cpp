@@ -518,7 +518,6 @@ Vector3 Player::GetMuzzlePosition(const Camera3D& view) const
     pos = Vector3Add(pos, Vector3Scale(right, 0.18f));
     pos = Vector3Subtract(pos, Vector3Scale(up, 0.17f));
 
-    // Match the same bob/sway transformation used by Draw().
     pos = Vector3Add(pos, Vector3Scale(right, weaponMotionOffset_.x));
     pos = Vector3Add(pos, Vector3Scale(up, weaponMotionOffset_.y));
     pos = Vector3Add(pos, Vector3Scale(forward, weaponMotionOffset_.z));
@@ -596,14 +595,12 @@ void Player::Draw(const PlayerCamera* camera) const
         const Vector3 up = Vector3Normalize(
             Vector3CrossProduct(right, forward));
 
-        // Keep your existing viewmodel offsets.
         Vector3 pos = Vector3Add(
             view.position, Vector3Scale(forward, 0.22f));
 
         pos = Vector3Add(pos, Vector3Scale(right, 0.18f));
         pos = Vector3Subtract(pos, Vector3Scale(up, 0.17f));
 
-        // Add procedural movement on top of idle/shoot/reload GLB poses.
         pos = Vector3Add(pos, Vector3Scale(right, weaponMotionOffset_.x));
         pos = Vector3Add(pos, Vector3Scale(up, weaponMotionOffset_.y));
         pos = Vector3Add(pos, Vector3Scale(forward, weaponMotionOffset_.z));

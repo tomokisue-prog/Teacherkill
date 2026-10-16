@@ -124,10 +124,12 @@ void GameContext::Reset()
     player_.Reset();
     stage_.Reset();
     door_.Reset();
+    inventory_.Reset();
     PlaceCharacters();
     lighting_.Init(RM().GetModelShaders(), RM().GetModel(ResourceKeys::Model_Stage1));
     hitMarkerTimer_ = 0.0f;
     hitMarkerKill_ = false;
+
 
     teleportPoints_.clear();
     TeleportPoint tp1;
@@ -365,6 +367,7 @@ void GameContext::Update(float deltaTime)
     lighting_.Update();
     bool isPlayerCameraActive = (cameraController_.GetActiveType() == CameraType::Player);
 
+
     // 1. プレイヤーの移動入力更新（プレイヤーカメラ使用時のみ移動入力受付）
     if (isPlayerCameraActive)
     {
@@ -446,6 +449,7 @@ void GameContext::Update(float deltaTime)
 
     door_.Update(deltaTime, player_);
 
+
     // 2. ワールドオブジェクト（ステージ・敵）の更新
     const BoundingBox doorBounds = door_.GetBoundingBox();
     enemyManager_.Update(deltaTime, player_, stage_, &doorBounds);
@@ -463,23 +467,49 @@ void GameContext::Update(float deltaTime)
         RM().ApplyModelAnimation(ResourceKeys::Model_Paladin, animFrame_, animIndex_);
     }
 
-    // 3. ギズモ編集結果も含め、常に最新の Player 位置を PlayerCamera へ同期
-    cameraController_.GetPlayerCamera().SetPlayerPosition(player_.GetPosition());
+    // 3. プレイヤー位置をカメラに同期
+    cameraController_.GetPlayerCamera().SetPlayerPosition(
+        player_.GetPosition()
+    );
 
-    // 4. カメラコントローラーの更新
+    // 4. カメラ更新
     cameraController_.Update();
+
+    // 5. インベントリ更新
+    if (isPlayerCameraActive)
+    {
+        Camera3D camera =
+            cameraController_.GetPlayerCamera().GetRaylibCamera();
+
+        inventory_.Update(deltaTime, camera);
+    }
+
+    // 6. プレイヤー射撃処理
     ProcessPlayerShot();
+
 }
+
 
 void GameContext::Draw() const
 {
-    const bool playerView = cameraController_.GetActiveType() == CameraType::Player;
-    lighting_.BeginFrame(cameraController_.GetActiveRaylibCamera(),
-        cameraController_.GetPlayerCamera().GetRaylibCamera(), stage_.GetPosition(), stage_.GetScale());
+    const bool playerView =
+        cameraController_.GetActiveType() == CameraType::Player;
+
+    lighting_.BeginFrame(
+        cameraController_.GetActiveRaylibCamera(),
+        cameraController_.GetPlayerCamera().GetRaylibCamera(),
+        stage_.GetPosition(),
+        stage_.GetScale()
+    );
+
     BeginMode3D(cameraController_.GetActiveRaylibCamera());
 
-    // 編集用グリッドはシステムカメラでだけ表示する。
-    if (!playerView) DrawGrid(20, 1.0f);
+    // 編集用グリッド
+    if (!playerView)
+    {
+        DrawGrid(20, 1.0f);
+    }
+
     stage_.Draw();
 
     if (!playerView)
@@ -490,11 +520,13 @@ void GameContext::Draw() const
         }
     }
 
-    // Player Camera がアクティブな時だけカメラポインタを渡し、一人称用に追従させる
+    // プレイヤーカメラ
     const PlayerCamera* activePlayerCam = nullptr;
-    if (cameraController_.GetActiveType() == CameraType::Player)
+
+    if (playerView)
     {
-        activePlayerCam = &cameraController_.GetPlayerCamera();
+        activePlayerCam =
+            &cameraController_.GetPlayerCamera();
     }
 
     door_.Draw();
@@ -502,16 +534,31 @@ void GameContext::Draw() const
     player_.Draw(activePlayerCam);
     enemyManager_.Draw();
 
-    Model& paladinModel = ResourceManager::GetInstance().GetModelRef(ResourceKeys::Model_Paladin);
-    DrawHorrorModel(paladinModel, paladinPosition_, 1.0f, WHITE);
+    Model& paladinModel =
+        ResourceManager::GetInstance().GetModelRef(
+            ResourceKeys::Model_Paladin
+        );
 
-    // Muzzle flash and bullet tracer must be drawn inside BeginMode3D.
-    // Draw after the world geometry so these effects appear correctly.
+    DrawHorrorModel(
+        paladinModel,
+        paladinPosition_,
+        1.0f,
+        WHITE
+    );
+
+    // Muzzle flash and bullet tracer
     DrawShotEffects();
 
+    //  3Dインベントリアイテム表示
+    inventory_.DrawWorld();
+
     EndMode3D();
+
     lighting_.EndFrame(playerView);
 
+    // ==================================
+    // 2D HUD
+    // ==================================
     if (playerView)
     {
         player_.DrawDamageOverlay();
@@ -526,10 +573,15 @@ void GameContext::Draw() const
         player_.DrawHealthHUD();
         player_.DrawStaminaHUD();
         player_.DrawAmmoHUD();
+
+        // インベントリHUD表示
+        inventory_.DrawHUD();
     }
 
+    // Fade effect stays on top
     gameFade_.Draw();
 }
+
 
 void GameContext::End()
 {
