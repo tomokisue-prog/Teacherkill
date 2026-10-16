@@ -125,6 +125,13 @@ void Player::Reset()
     staminaRecoveryTimer_ = 0.0f;
     isSprinting_ = false;
     sprintExhausted_ = false;
+
+    weaponBobTime_ = 0.0f;
+    weaponBobBlend_ = 0.0f;
+    weaponSprintBlend_ = 0.0f;
+    weaponSway_ = { 0.0f, 0.0f };
+    weaponMotionOffset_ = { 0.0f, 0.0f, 0.0f };
+    weaponRoll_ = 0.0f;
 }
 
 void Player::Update(float deltaTime, const Stage& stage,
@@ -212,7 +219,48 @@ void Player::Update(float deltaTime, const Stage& stage,
     }
 
     UpdateVerticalPhysics(deltaTime, stage);
+
+    UpdateWeaponMotion(deltaTime, hasMoveInput);
 }
+
+void Player::UpdateWeaponMotion(float deltaTime, bool hasMoveInput)
+{
+    const float blend = 1.0f - std::exp(-12.0f * (std::max)(deltaTime, 0.0f));
+    const bool isWalkingOnGround = hasMoveInput && isGrounded_;
+
+    const float targetBob = isWalkingOnGround ? 1.0f : 0.0f;
+    const float targetSprint = (isWalkingOnGround && isSprinting_) ? 1.0f : 0.0f;
+
+    weaponBobBlend_ = Lerp(weaponBobBlend_, targetBob, blend);
+    weaponSprintBlend_ = Lerp(weaponSprintBlend_, targetSprint, blend);
+
+    if (isWalkingOnGround)
+    {
+        const float bobFrequency = isSprinting_ ? 13.0f : 9.0f;
+        weaponBobTime_ += bobFrequency * deltaTime;
+    }
+    const Vector2 mouseDelta = GetMouseDelta();
+    const float targetSwayX = Clamp(mouseDelta.x * 0.0010f, -0.025f, 0.025f);
+    const float targetSwayY = Clamp(mouseDelta.y * 0.0008f, -0.018f, 0.018f);
+
+    weaponSway_.x = Lerp(weaponSway_.x, targetSwayX, blend);
+    weaponSway_.y = Lerp(weaponSway_.y, targetSwayY, blend);
+
+    const float bobStrength = 1.0f + weaponSprintBlend_ * 0.55f;
+    const float horizontalBob = std::sin(weaponBobTime_) * 0.012f;
+    const float verticalBob = -std::fabs(std::cos(weaponBobTime_)) * 0.009f;
+
+    weaponMotionOffset_.x =
+        horizontalBob * bobStrength * weaponBobBlend_ + weaponSway_.x;
+    weaponMotionOffset_.y =
+        verticalBob * bobStrength * weaponBobBlend_ + weaponSway_.y
+        - 0.025f * weaponSprintBlend_;
+    weaponMotionOffset_.z = 0.0f;
+
+    weaponRoll_ = 0.075f * weaponSprintBlend_
+        + 0.010f * std::sin(weaponBobTime_) * weaponBobBlend_;
+}
+
 void Player::UpdateWeapon(float deltaTime)
 {
     if (!IsAlive()) return;
@@ -373,7 +421,7 @@ void Player::DrawDamageOverlay() const
     DrawRectangle(
         0, 0,
         GetScreenWidth(), GetScreenHeight(),
-        Fade(Color{210, 8, 18, 255}, progress * 0.36f));
+        Fade(Color{ 210, 8, 18, 255 }, progress * 0.36f));
 }
 void Player::DrawStaminaHUD() const
 {
@@ -453,13 +501,22 @@ Vector3 Player::GetMuzzlePosition(const Camera3D& view) const
     pos = Vector3Add(pos, Vector3Scale(right, 0.18f));
     pos = Vector3Subtract(pos, Vector3Scale(up, 0.17f));
 
+    // Match the same bob/sway transformation used by Draw().
+    pos = Vector3Add(pos, Vector3Scale(right, weaponMotionOffset_.x));
+    pos = Vector3Add(pos, Vector3Scale(up, weaponMotionOffset_.y));
+    pos = Vector3Add(pos, Vector3Scale(forward, weaponMotionOffset_.z));
+
     const float yaw = atan2f(forward.x, forward.z);
     const float pitch = asinf(Clamp(forward.y, -1.0f, 1.0f));
 
-    const Quaternion rotation = QuaternionNormalize(
+    const Quaternion cameraRotation = QuaternionNormalize(
         QuaternionMultiply(
             QuaternionFromAxisAngle({ 0, 1, 0 }, yaw),
             QuaternionFromAxisAngle({ 1, 0, 0 }, -pitch)));
+
+    const Quaternion rotation = QuaternionNormalize(
+        QuaternionMultiply(cameraRotation,
+            QuaternionFromAxisAngle({ 0, 0, 1 }, weaponRoll_)));
 
     const Vector3 muzzleLocal = { 0.0f, 7.0f, 25.5f };
 
@@ -506,6 +563,11 @@ void Player::Draw(const PlayerCamera* camera) const
         pos = Vector3Add(pos, Vector3Scale(right, 0.18f));
         pos = Vector3Subtract(pos, Vector3Scale(up, 0.17f));
 
+        // Add procedural movement on top of idle/shoot/reload GLB poses.
+        pos = Vector3Add(pos, Vector3Scale(right, weaponMotionOffset_.x));
+        pos = Vector3Add(pos, Vector3Scale(up, weaponMotionOffset_.y));
+        pos = Vector3Add(pos, Vector3Scale(forward, weaponMotionOffset_.z));
+
         const float yaw = atan2f(forward.x, forward.z);
         const float pitch = asinf(Clamp(forward.y, -1.0f, 1.0f));
 
@@ -515,8 +577,13 @@ void Player::Draw(const PlayerCamera* camera) const
         const Quaternion pitchRotation =
             QuaternionFromAxisAngle({ 1.0f, 0.0f, 0.0f }, -pitch);
 
-        const Quaternion rotation = QuaternionNormalize(
+        const Quaternion cameraRotation = QuaternionNormalize(
             QuaternionMultiply(yawRotation, pitchRotation));
+
+        // Local Z roll leaves the camera untouched; only pistol/arms tilt.
+        const Quaternion rotation = QuaternionNormalize(
+            QuaternionMultiply(cameraRotation,
+                QuaternionFromAxisAngle({ 0.0f, 0.0f, 1.0f }, weaponRoll_)));
 
         Vector3 axis = { 0.0f, 1.0f, 0.0f };
         float angle = 0.0f;
