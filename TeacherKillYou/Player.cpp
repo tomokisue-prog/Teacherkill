@@ -132,6 +132,9 @@ void Player::Reset()
     weaponSway_ = { 0.0f, 0.0f };
     weaponMotionOffset_ = { 0.0f, 0.0f, 0.0f };
     weaponRoll_ = 0.0f;
+
+	weaponRecoilBack_ = 0.0f;
+	weaponRecoilPitch_ = 0.0f;
 }
 
 void Player::Update(float deltaTime, const Stage& stage,
@@ -259,6 +262,12 @@ void Player::UpdateWeaponMotion(float deltaTime, bool hasMoveInput)
 
     weaponRoll_ = 0.075f * weaponSprintBlend_
         + 0.010f * std::sin(weaponBobTime_) * weaponBobBlend_;
+
+    const float recoilRecovery =
+        std::exp(-10.0f * (std::max)(deltaTime, 0.0f));
+
+    weaponRecoilBack_ *= recoilRecovery;
+    weaponRecoilPitch_ *= recoilRecovery;
 }
 
 void Player::UpdateWeapon(float deltaTime)
@@ -332,6 +341,13 @@ void Player::UpdateWeapon(float deltaTime)
         --currentAmmo_;
         shotPending_ = true;
         AM().PlaySe(SeId::Shoot);
+
+        // Weapon recoil
+        weaponRecoilBack_ = (std::min)(
+            weaponRecoilBack_ + 0.025f, 0.06f);
+
+        weaponRecoilPitch_ = (std::min)(
+            weaponRecoilPitch_ + 0.040f, 0.10f);
 
         ApplyWeaponPose("PlayerShoot", 0.0f);
     }
@@ -495,6 +511,7 @@ Vector3 Player::GetMuzzlePosition(const Camera3D& view) const
     const Vector3 up = Vector3Normalize(
         Vector3CrossProduct(right, forward));
 
+
     Vector3 pos = Vector3Add(
         view.position, Vector3Scale(forward, 0.22f));
 
@@ -506,6 +523,11 @@ Vector3 Player::GetMuzzlePosition(const Camera3D& view) const
     pos = Vector3Add(pos, Vector3Scale(up, weaponMotionOffset_.y));
     pos = Vector3Add(pos, Vector3Scale(forward, weaponMotionOffset_.z));
 
+    pos = Vector3Subtract(
+        pos,
+        Vector3Scale(forward, weaponRecoilBack_)
+    );
+
     const float yaw = atan2f(forward.x, forward.z);
     const float pitch = asinf(Clamp(forward.y, -1.0f, 1.0f));
 
@@ -514,9 +536,27 @@ Vector3 Player::GetMuzzlePosition(const Camera3D& view) const
             QuaternionFromAxisAngle({ 0, 1, 0 }, yaw),
             QuaternionFromAxisAngle({ 1, 0, 0 }, -pitch)));
 
+    // Recoil pitch
+    const Quaternion recoilRotation =
+        QuaternionFromAxisAngle(
+            { 1.0f, 0.0f, 0.0f },
+            -weaponRecoilPitch_
+        );
+
+    // weapon roll
+    const Quaternion rollRotation =
+        QuaternionFromAxisAngle(
+            { 0.0f, 0.0f, 1.0f },
+            weaponRoll_
+        );
+
+    // Combine camera rotation, recoil, and sway roll
     const Quaternion rotation = QuaternionNormalize(
-        QuaternionMultiply(cameraRotation,
-            QuaternionFromAxisAngle({ 0, 0, 1 }, weaponRoll_)));
+        QuaternionMultiply(
+            cameraRotation,
+            QuaternionMultiply(recoilRotation, rollRotation)
+        )
+    );
 
     const Vector3 muzzleLocal = { 0.0f, 7.0f, 25.5f };
 
@@ -567,6 +607,12 @@ void Player::Draw(const PlayerCamera* camera) const
         pos = Vector3Add(pos, Vector3Scale(right, weaponMotionOffset_.x));
         pos = Vector3Add(pos, Vector3Scale(up, weaponMotionOffset_.y));
         pos = Vector3Add(pos, Vector3Scale(forward, weaponMotionOffset_.z));
+
+        // Recoil: move pistol backward
+        pos = Vector3Subtract(
+            pos,
+            Vector3Scale(forward, weaponRecoilBack_)
+        );
 
         const float yaw = atan2f(forward.x, forward.z);
         const float pitch = asinf(Clamp(forward.y, -1.0f, 1.0f));
