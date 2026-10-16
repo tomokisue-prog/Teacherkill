@@ -54,12 +54,16 @@ private:
     void MoveWithCollision(Vector3 moveAmount, const Stage& stage);
     void UpdateVerticalPhysics(float deltaTime, const Stage& stage);
     void UpdateWeapon(float deltaTime);
+    void UpdateWeaponMotion(float deltaTime, bool hasMoveInput);
 
     Vector3 velocity_{ 0.0f, 0.0f, 0.0f };
-    float moveSpeed_{ 5.0f };
+    Vector2 weaponSway_{ 0.0f, 0.0f };
+    Vector3 weaponMotionOffset_{ 0.0f, 0.0f, 0.0f };
 
-    float playerRadius_{ 0.4f };
-    float playerHeight_{ 1.8f };
+    float moveSpeed_{ 2.5f };
+
+    float playerRadius_{ 0.3f };
+    float playerHeight_{ 1.5f };
 
     float gravity_{ -9.81f };
     float jumpForce_{ 3.0f };
@@ -87,7 +91,7 @@ private:
     float damageFlashTimer_{ 0.0f };
     float damageFlashDuration_{ 0.6f };
 
-    float sprintSpeed_{ 8.0f };
+    float sprintSpeed_{ 4.5f };
     bool isSprinting_{ false };
     bool sprintExhausted_{ false };
 
@@ -98,4 +102,13 @@ private:
     float staminaRegenRate_{ 20.0f };
     float staminaRecoveryDelay_{ 0.75f };
     float staminaRecoveryTimer_{ 0.0f };
+
+    float weaponBobTime_ = 0.0f;
+    float weaponBobBlend_ = 0.0f;
+    float weaponSprintBlend_ = 0.0f;
+    float weaponRoll_ = 0.0f;
+
+	// Weapon recoil 
+    float weaponRecoilBack_ = 0.0f;
+    float weaponRecoilPitch_ = 0.0f;
 };
