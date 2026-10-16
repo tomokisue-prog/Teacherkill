@@ -3,9 +3,10 @@
 #include "GameContext.h"
 #include "TitleScene.h"
 #include "GameScene.h"
+#include "GoalScene.h"
 #include "SystemMode.h"
 
-enum class SceneID { Title, Game };
+enum class SceneID { Title, Game , Goal };
 
 class SceneManager
 {
@@ -35,7 +36,7 @@ public:
         bool enableDebugUI = true;
     };
     void SetRunConfig(const RunConfig& cfg) { runConfig = cfg; }
-
+    void ChangeScene(SceneID id);
 private:
     SceneManager() = default;
     ~SceneManager() = default;
@@ -43,6 +44,7 @@ private:
     GameContext gameContext;
     TitleScene  titleScene{ &gameContext };
     GameScene   gameScene{ &gameContext };
+    GoalScene   goalScene{ &gameContext };
 
     SystemMode systemMode_;
     Scene* currentScene = nullptr;

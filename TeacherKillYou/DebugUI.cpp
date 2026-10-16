@@ -1,6 +1,7 @@
 ﻿#include "DebugUI.h"
 #include "GameContext.h"
 #include "imgui.h"
+#include "SceneManager.h"
 
 void DebugUI::Draw(GameContext& gameContext) {
     auto& cameraController = gameContext.GetCameraController();
@@ -35,6 +36,13 @@ void DebugUI::Draw(GameContext& gameContext) {
 
 void DebugUI::DrawHierarchy(GameContext& gameContext)
 {
+    ImGui::Begin("Scene Next");
+    if (ImGui::Button("Goal Scene"))
+    {
+        SM().ChangeScene(SceneID::Goal);
+    }
+    ImGui::End();
+
     ImGui::Begin("Hierarchy");
 
     if (ImGui::Selectable("Player", selectedObject_ == SelectedObjectType::Player))

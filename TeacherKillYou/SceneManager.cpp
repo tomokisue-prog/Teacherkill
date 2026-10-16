@@ -22,6 +22,7 @@ void SceneManager::Init()
     // 各シーンにコンテキストを伝搬
     titleScene.SetGameContext(&gameContext);
     gameScene.SetGameContext(&gameContext);
+    goalScene.SetGameContext(&gameContext);
 
     systemMode_.Init(&gameContext);
 
@@ -46,8 +47,22 @@ Scene* SceneManager::GetScene(SceneID id)
     {
     case SceneID::Title: return &titleScene;
     case SceneID::Game:  return &gameScene;
+    case SceneID::Goal:  return &goalScene;
     }
     return &titleScene;
+}
+
+void SceneManager::ChangeScene(SceneID id)
+{
+    if (currentScene)
+    {
+        currentScene->End();
+    }
+    currentScene = GetScene(id);
+    if (currentScene)
+    {
+        currentScene->Init();
+    }
 }
 
 void SceneManager::Run()

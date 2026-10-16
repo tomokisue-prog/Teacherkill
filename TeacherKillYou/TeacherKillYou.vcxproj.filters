@@ -96,6 +96,9 @@
     <Filter Include="Core\Save/Load">
       <UniqueIdentifier>{e99fc9f7-f8e7-4b71-82f3-f9244d586094}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Scene\GoalScene">
+      <UniqueIdentifier>{c7db3f3c-b9df-4a84-93cc-ff9d7a7238ab}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="Data\Audio\README.md">
@@ -215,6 +218,9 @@
     </ClCompile>
     <ClCompile Include="GameContext.cpp">
       <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="GoalScene.cpp">
+      <Filter>Scene\GoalScene</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -356,6 +362,9 @@
     </ClInclude>
     <ClInclude Include="GameFade.h">
       <Filter>Fade\GameFade</Filter>
+    </ClInclude>
+    <ClInclude Include="GoalScene.h">
+      <Filter>Scene\GoalScene</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
