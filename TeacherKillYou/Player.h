@@ -108,4 +108,7 @@ private:
     float weaponSprintBlend_ = 0.0f;
     float weaponRoll_ = 0.0f;
 
+	// Weapon recoil 
+    float weaponRecoilBack_ = 0.0f;
+    float weaponRecoilPitch_ = 0.0f;
 };
