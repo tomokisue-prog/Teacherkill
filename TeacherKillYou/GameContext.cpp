@@ -455,6 +455,11 @@ void GameContext::Update(float deltaTime)
     enemyManager_.Update(deltaTime, player_, stage_, &doorBounds);
     enemyManager_.RemoveExpired();
 
+    if (player_.ConsumeDamageImpact())
+    {
+        cameraController_.GetPlayerCamera().StartDamageImpact();
+    }
+
     // パラディンモデルのアニメーション更新
     int animCount = 0;
     ModelAnimation* anims = ResourceManager::GetInstance().GetModelAnimations(ResourceKeys::Model_Paladin, &animCount);

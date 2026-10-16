@@ -32,8 +32,6 @@ void Inventory::Reset()
     message_.clear();
     messageTimer_ = 0.0f;
 
-    // Temporary test items near player spawn
-    // Adjust positions for your stage.
     pickups_ = {
         { ItemType::Medkit,  { 0.0f, 0.35f, 1.8f }, false },
         { ItemType::Battery, { 1.2f, 0.35f, 2.0f }, false },

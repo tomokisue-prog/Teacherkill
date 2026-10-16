@@ -68,7 +68,7 @@ void Stage::Init()
 void Stage::Reset()
 {
     position_ = { 0.0f, 0.0f, 0.0f };
-    scale_ = 1.0f;
+    scale_ = 1.25f;
     cachedMeshes_ = nullptr;
     meshBounds_.clear();
 }

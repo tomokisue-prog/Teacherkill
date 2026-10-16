@@ -135,6 +135,8 @@ void Player::Reset()
 
 	weaponRecoilBack_ = 0.0f;
 	weaponRecoilPitch_ = 0.0f;
+
+    damageImpactPending_ = false;
 }
 
 void Player::Update(float deltaTime, const Stage& stage,
@@ -225,6 +227,7 @@ void Player::Update(float deltaTime, const Stage& stage,
 
     UpdateWeaponMotion(deltaTime, hasMoveInput);
 }
+
 
 void Player::UpdateWeaponMotion(float deltaTime, bool hasMoveInput)
 {
@@ -406,6 +409,17 @@ void Player::UpdateVerticalPhysics(float deltaTime, const Stage& stage)
     }
     isGrounded_ = false;
 }
+bool Player::ConsumeDamageImpact()
+{
+    if (!damageImpactPending_)
+    {
+        return false;
+    }
+
+    damageImpactPending_ = false;
+    return true;
+}
+
 void Player::TakeDamage(int amount)
 {
     if (amount <= 0 || !IsAlive()) return;
@@ -426,6 +440,7 @@ void Player::TakeDamage(int amount)
 
         velocity_ = {};
     }
+	damageImpactPending_ = true;
 }
 
 void Player::DrawDamageOverlay() const

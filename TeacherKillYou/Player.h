@@ -49,6 +49,8 @@ public:
         return fired;
     }
 
+    bool ConsumeDamageImpact();
+
 private:
     Vector3 GetInputMoveDirection(Vector3 forward, Vector3 right) const;
     void MoveWithCollision(Vector3 moveAmount, const Stage& stage);
@@ -62,8 +64,8 @@ private:
 
     float moveSpeed_{ 2.5f };
 
-    float playerRadius_{ 0.3f };
-    float playerHeight_{ 1.5f };
+    float playerRadius_{ 0.15f };
+    float playerHeight_{ .75f };
 
     float gravity_{ -9.81f };
     float jumpForce_{ 3.0f };
@@ -75,6 +77,8 @@ private:
     bool isReloading_{ false };
     bool shotPending_{ false };
 
+	bool damageImpactPending_{ false };
+
     float shootTimer_{ 0.0f };
     float reloadTimer_{ 0.0f };
 
@@ -83,7 +87,7 @@ private:
 
     int magazineCapacity_{ 15 };
     int currentAmmo_{ 15 };
-    int reserveAmmo_{ 90 };
+    int reserveAmmo_{ 30 };
 
     int maxHp_{ 100 };
     int hp_{ 100 };
