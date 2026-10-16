@@ -1,41 +1,118 @@
-﻿#include "PlayerCamera.h"
+﻿
+#include "PlayerCamera.h"
 #include "raymath.h"
+#include <cmath>
 
-PlayerCamera::PlayerCamera() {
+PlayerCamera::PlayerCamera()
+{
     camera_.position = Vector3{ 0.0f, eyeHeight_, 0.0f };
-        camera_.target = Vector3{ 0.0f, eyeHeight_, 1.0f };
-        camera_.up = Vector3{ 0.0f, 1.0f, 0.0f };
-        camera_.fovy = 70.0f;
-        camera_.projection = CAMERA_PERSPECTIVE;
+    camera_.target = Vector3{ 0.0f, eyeHeight_, 1.0f };
+    camera_.up = Vector3{ 0.0f, 1.0f, 0.0f };
+    camera_.fovy = 70.0f;
+    camera_.projection = CAMERA_PERSPECTIVE;
 }
 
-void PlayerCamera::Update() {
+// ============================================
+// 被ダメージ時のカメラシェイク開始
+// ============================================
+void PlayerCamera::StartDamageImpact()
+{
+    damageImpactTimer_ = damageImpactDuration_;
+}
+
+// ============================================
+// カメラ更新
+// ============================================
+void PlayerCamera::Update()
+{
     Vector2 mouseDelta = GetMouseDelta();
 
-        // 1. マウス移動量に合わせて角度（回転）を更新
-        yaw_ -= mouseDelta.x * sensitivity_;
-        pitch_ -= mouseDelta.y * sensitivity_;
+    // 1. マウス入力
+    yaw_ -= mouseDelta.x * sensitivity_;
+    pitch_ -= mouseDelta.y * sensitivity_;
 
-        // 2. 首の可動域制限（上向きと下向きを個別で制限）
-        constexpr float maxUpPitch = 1.40f; // 上向きの限界（約80度）
-    constexpr float maxDownPitch = -0.80f; // 下向きの限界（約-45度で下に向きすぎないように制限）
+    // 2. 上下の視点制限
+    constexpr float maxUpPitch = 1.40f;
+    constexpr float maxDownPitch = -0.80f;
 
-    if (pitch_ > maxUpPitch)   pitch_ = maxUpPitch;
-        if (pitch_ < maxDownPitch) pitch_ = maxDownPitch;
+    if (pitch_ > maxUpPitch)
+        pitch_ = maxUpPitch;
 
-            // 3. 角度（yaw / pitch）から正面方向ベクトル（forward）を算出
-            Vector3 forward = {
-                cosf(pitch_) * sinf(yaw_),
-                sinf(pitch_),
-                cosf(pitch_) * cosf(yaw_)
+    if (pitch_ < maxDownPitch)
+        pitch_ = maxDownPitch;
+
+    // 3. 正面方向
+    Vector3 forward =
+    {
+        cosf(pitch_) * sinf(yaw_),
+        sinf(pitch_),
+        cosf(pitch_) * cosf(yaw_)
+    };
+
+    forward = Vector3Normalize(forward);
+
+    // 4. プレイヤーの頭の位置
+    camera_.position = Vector3Add(
+        playerPosition_,
+        Vector3{ 0.0f, eyeHeight_, 0.0f }
+    );
+
+    // 5. カメラターゲット
+    camera_.target = Vector3Add(
+        camera_.position,
+        forward
+    );
+
+    // ========================================
+    // ★ NEW: Damage Impact Camera Shake
+    // ========================================
+    if (damageImpactTimer_ > 0.0f)
+    {
+        // 経過時間
+        float elapsed =
+            damageImpactDuration_ - damageImpactTimer_;
+
+        // 時間経過で揺れを弱くする
+        float strength =
+            damageImpactTimer_ / damageImpactDuration_;
+
+        // 横方向の揺れ
+        float shakeX =
+            sinf(elapsed * 75.0f) * 0.028f * strength;
+
+        // 縦方向の揺れ
+        float shakeY =
+            cosf(elapsed * 60.0f) * 0.018f * strength;
+
+        // カメラの右方向
+        Vector3 right =
+        {
+            cosf(yaw_),
+            0.0f,
+            -sinf(yaw_)
         };
-            forward = Vector3Normalize(forward);
 
-            // 4. カメラ位置をプレイヤーの頭の高さに同期
-            camera_.position = Vector3Add(playerPosition_, Vector3{ 0.0f, eyeHeight_, 0.0f });
+        // 揺れの位置オフセット
+        Vector3 shakeOffset = Vector3Add(
+            Vector3Scale(right, shakeX),
+            Vector3{ 0.0f, shakeY, 0.0f }
+        );
 
-    // 5. カメラの注視点を設定
-    camera_.target = Vector3Add(camera_.position, forward);
+        // カメラとターゲットを同じ量だけ移動
+        camera_.position = Vector3Add(
+            camera_.position, shakeOffset);
+
+        camera_.target = Vector3Add(
+            camera_.target, shakeOffset);
+
+        // タイマー更新
+        damageImpactTimer_ -= GetFrameTime();
+
+        if (damageImpactTimer_ < 0.0f)
+        {
+            damageImpactTimer_ = 0.0f;
+        }
+    }
 }
 
 void PlayerCamera::OnActivate()
