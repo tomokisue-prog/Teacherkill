@@ -51,6 +51,12 @@ bool SaveSystem::SaveScene(const GameContext& gameContext, const std::string& fi
     }
     root["teleportPoints"] = tpArray;
 
+    const auto& goalPoint = gameContext.GetGoalPoint();
+    root["goalPoint"]["position"] = Vector3ToJson(goalPoint.GetPosition());
+    root["goalPoint"]["rotation"] = Vector3ToJson(goalPoint.GetRotation());
+    root["goalPoint"]["scale"] = Vector3ToJson(goalPoint.GetScale());
+    root["goalPoint"]["radius"] = goalPoint.GetRadius();
+
     std::ofstream file(filepath);
     if (file.is_open())
     {
@@ -122,6 +128,16 @@ bool SaveSystem::LoadScene(GameContext& gameContext, const std::string& filepath
 
             tps.push_back(tp);
         }
+    }
+
+    if (root.contains("goalPoint"))
+    {
+        const auto& g = root["goalPoint"];
+        auto& goalPoint = gameContext.GetGoalPoint();
+        if (g.contains("position")) goalPoint.SetPosition(JsonToVector3(g["position"]));
+        if (g.contains("rotation")) goalPoint.SetRotation(JsonToVector3(g["rotation"]));
+        if (g.contains("scale"))    goalPoint.SetScale(JsonToVector3(g["scale"]));
+        if (g.contains("radius"))   goalPoint.SetRadius(g["radius"].get<float>());
     }
 
     // ínå`í≤êÆÇ»Ç«ÇÃå„èàóù

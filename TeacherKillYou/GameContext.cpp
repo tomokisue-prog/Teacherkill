@@ -10,6 +10,7 @@
 #include "json.hpp"
 #include "rlgl.h"
 #include <algorithm>
+#include "SceneManager.h"
 
 static void DrawCrosshair()
 {
@@ -104,6 +105,9 @@ void GameContext::Init()
     muzzleFlashTimer_ = 0.0f;
     tracerActive_ = false;
     tracerAge_ = 0.0f;
+
+    goalPoint_.Init();
+    goalPoint_.SetPosition({ 5.0f, 0.0f, 5.0f });
 }
 
 void GameContext::Reset()
@@ -135,6 +139,7 @@ void GameContext::Reset()
     muzzleFlashTimer_ = 0.0f;
     tracerActive_ = false;
     tracerAge_ = 0.0f;
+    goalPoint_.Reset();
 }
 
 void GameContext::PlaceCharacters()
@@ -432,6 +437,13 @@ void GameContext::Update(float deltaTime)
             }
         }
 
+        float distToGoal = Vector3Distance(player_.GetPosition(), goalPoint_.GetPosition());
+        if (distToGoal <= goalPoint_.GetRadius())
+        {
+            AM().PlaySe(SeId::Confirm); // 必要に応じて効果音
+            SM().ChangeScene(SceneID::Goal);
+            return; // シーン切り替え時は以降の更新をスキップ
+        }
     }
 
 
@@ -501,6 +513,8 @@ void GameContext::Draw() const
         {
             tp.Draw();
         }
+
+        goalPoint_.Draw();
     }
 
     // プレイヤーカメラ

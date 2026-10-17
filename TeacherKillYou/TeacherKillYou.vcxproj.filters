@@ -99,6 +99,12 @@
     <Filter Include="Scene\GoalScene">
       <UniqueIdentifier>{c7db3f3c-b9df-4a84-93cc-ff9d7a7238ab}</UniqueIdentifier>
     </Filter>
+    <Filter Include="GamePlay\TeleportPoint">
+      <UniqueIdentifier>{9b170575-8d8b-40e7-af0c-1216bc3ce4ba}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GamePlay\GoalPoint">
+      <UniqueIdentifier>{829401ae-0975-4ef6-b2d4-69f337a688fc}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="Data\Audio\README.md">
@@ -212,7 +218,6 @@
     <ClCompile Include="DoorMove.cpp">
       <Filter>GamePlay\Actors\Stage\Door</Filter>
     </ClCompile>
-    <ClCompile Include="TeleportPoint.cpp" />
     <ClCompile Include="GameFade.cpp">
       <Filter>Fade\GameFade</Filter>
     </ClCompile>
@@ -230,6 +235,16 @@
     </ClCompile>
     <ClCompile Include="EnemyMovement.cpp">
       <Filter>GamePlay\Actors\Enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="Inventory.cpp" />
+    <ClCompile Include="TeleportPoint.cpp">
+      <Filter>GamePlay\TeleportPoint</Filter>
+    </ClCompile>
+    <ClCompile Include="SaveSystem.cpp">
+      <Filter>Core\Save/Load</Filter>
+    </ClCompile>
+    <ClCompile Include="GoalPoint.cpp">
+      <Filter>GamePlay\GoalPoint</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -366,9 +381,6 @@
     <ClInclude Include="DoorMove.h">
       <Filter>GamePlay\Actors\Stage\Door</Filter>
     </ClInclude>
-    <ClInclude Include="TeleportPoint.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
     <ClInclude Include="GameFade.h">
       <Filter>Fade\GameFade</Filter>
     </ClInclude>
@@ -383,6 +395,18 @@
     </ClInclude>
     <ClInclude Include="EnemyMovement.h">
       <Filter>GamePlay\Actors\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="Inventory.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="TeleportPoint.h">
+      <Filter>GamePlay\TeleportPoint</Filter>
+    </ClInclude>
+    <ClInclude Include="SaveSystem.h">
+      <Filter>Core\Save/Load</Filter>
+    </ClInclude>
+    <ClInclude Include="GoalPoint.h">
+      <Filter>GamePlay\GoalPoint</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

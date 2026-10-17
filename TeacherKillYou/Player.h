@@ -22,6 +22,7 @@ public:
     void DrawHealthHUD() const;
     void DrawDamageOverlay() const;
     void DrawStaminaHUD() const;
+    void DrawColliderDebug() const;
     void End();
 
     void TakeDamage(int amount);
@@ -32,6 +33,9 @@ public:
 
     float GetRadius() const { return playerRadius_; }
     float GetHeight() const { return playerHeight_; }
+
+    bool IsDebugDrawEnabled() const { return debugDrawEnabled_; }
+    void SetDebugDrawEnabled(bool enabled) { debugDrawEnabled_ = enabled; }
 
     Vector3 GetMuzzlePosition(const Camera3D& view) const;
 
@@ -65,7 +69,7 @@ private:
     float moveSpeed_{ 2.5f };
 
     float playerRadius_{ 0.15f };
-    float playerHeight_{ .75f };
+    float playerHeight_{ 0.75f };
 
     float gravity_{ -9.81f };
     float jumpForce_{ 3.0f };
@@ -115,4 +119,6 @@ private:
 	// Weapon recoil 
     float weaponRecoilBack_ = 0.0f;
     float weaponRecoilPitch_ = 0.0f;
+
+    bool debugDrawEnabled_{ false };
 };

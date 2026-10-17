@@ -28,6 +28,9 @@ void DebugUI::Draw(GameContext& gameContext) {
                 targetObj = &tps[selectedTeleportIndex_]; // 選択中のテレポートポイントをギズモに渡す
             }
         }
+        else if (selectedObject_ == SelectedObjectType::GoalPoint) {
+            targetObj = &gameContext.GetGoalPoint();
+        }
 
         gizmoDrawer_.Draw(gameContext, targetObj);
     }
@@ -69,6 +72,11 @@ void DebugUI::DrawHierarchy(GameContext& gameContext)
     if (ImGui::Selectable("Door", selectedObject_ == SelectedObjectType::Door))
     {
         selectedObject_ = SelectedObjectType::Door;
+    }
+
+    if (ImGui::Selectable("Goal Point", selectedObject_ == SelectedObjectType::GoalPoint))
+    {
+        selectedObject_ = SelectedObjectType::GoalPoint;
     }
 
     auto& tps = gameContext.GetTeleportPoints();
@@ -144,6 +152,8 @@ void DebugUI::DrawInspector(GameContext& gameContext)
         Vector3 rotation = player.GetRotation();
         Vector3 scale = player.GetScale();
 
+        bool debugDraw = player.IsDebugDrawEnabled();
+
         ImGui::Text("Player Transform");
 
         if (ImGui::DragFloat3("Position", &position.x, 0.1f))
@@ -159,6 +169,14 @@ void DebugUI::DrawInspector(GameContext& gameContext)
         if (ImGui::DragFloat3("Scale", &scale.x, 0.05f, 0.1f, 10.0f))
         {
             player.SetScale(scale);
+        }
+
+        ImGui::Separator();
+        ImGui::Text("Debug Settings");
+
+        if (ImGui::Checkbox("Draw Collider Debug", &debugDraw))
+        {
+            player.SetDebugDrawEnabled(debugDraw);
         }
 
         break;
@@ -263,6 +281,25 @@ void DebugUI::DrawInspector(GameContext& gameContext)
                 selectedTeleportIndex_ = 0;
             }
         }
+        break;
+    }
+    case SelectedObjectType::GoalPoint:
+    {
+        GoalPoint& goal = gameContext.GetGoalPoint();
+        Vector3 pos = goal.GetPosition();
+        Vector3 rot = goal.GetRotation();
+        Vector3 scale = goal.GetScale();
+        float radius = goal.GetRadius();
+
+        ImGui::Text("Goal Point Transform");
+        if (ImGui::DragFloat3("Position", &pos.x, 0.1f)) goal.SetPosition(pos);
+        if (ImGui::DragFloat3("Rotation", &rot.x, 1.0f)) goal.SetRotation(rot);
+        if (ImGui::DragFloat3("Scale", &scale.x, 0.05f, 0.1f, 10.0f)) goal.SetScale(scale);
+
+        ImGui::Separator();
+        ImGui::Text("Goal Settings");
+        if (ImGui::DragFloat("Radius", &radius, 0.1f, 0.1f, 10.0f)) goal.SetRadius(radius);
+
         break;
     }
 
