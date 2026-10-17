@@ -8,6 +8,7 @@
 #include <vector>
 #include "TeleportPoint.h"
 #include "GameFade.h"
+#include "Inventory.h"
 
 class GameContext
 {
@@ -56,6 +57,7 @@ private:
     demo::EnemyManager enemyManager_;
 	DoorMove door_;
     GameFade gameFade_;
+    Inventory inventory_;
 
     Vector3 paladinPosition_{ 0.0f, 0.0f, 3.0f };
 
