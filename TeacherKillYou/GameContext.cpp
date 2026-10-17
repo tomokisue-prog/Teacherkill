@@ -451,18 +451,6 @@ void GameContext::Update(float deltaTime)
     enemyManager_.Update(deltaTime, player_, stage_, &doorBounds);
     enemyManager_.RemoveExpired();
 
-    // パラディンモデルのアニメーション更新
-    int animCount = 0;
-    ModelAnimation* anims = ResourceManager::GetInstance().GetModelAnimations(ResourceKeys::Model_Paladin, &animCount);
-    if (anims != nullptr && animCount > 0)
-    {
-        animFrame_++;
-        if (animFrame_ >= anims[animIndex_].frameCount) {
-            animFrame_ = 0;
-        }
-        RM().ApplyModelAnimation(ResourceKeys::Model_Paladin, animFrame_, animIndex_);
-    }
-
     // 3. ギズモ編集結果も含め、常に最新の Player 位置を PlayerCamera へ同期
     cameraController_.GetPlayerCamera().SetPlayerPosition(player_.GetPosition());
 
@@ -501,9 +489,6 @@ void GameContext::Draw() const
 
     player_.Draw(activePlayerCam);
     enemyManager_.Draw();
-
-    Model& paladinModel = ResourceManager::GetInstance().GetModelRef(ResourceKeys::Model_Paladin);
-    DrawHorrorModel(paladinModel, paladinPosition_, 1.0f, WHITE);
 
     // Muzzle flash and bullet tracer must be drawn inside BeginMode3D.
     // Draw after the world geometry so these effects appear correctly.

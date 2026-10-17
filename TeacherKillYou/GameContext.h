@@ -77,7 +77,4 @@ private:
     float tracerDuration_{ 0.05f };
     bool tracerActive_{ false };
 
-    int animFrame_{ 0 };
-    int animIndex_{ 0 };
-
 };

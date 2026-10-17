@@ -26,10 +26,7 @@ void ResourceManager::LoadAll() {
 
 	LoadModel(ResourceKeys::Model_Stage1, "Data/Image/floor 4.glb");
 
-    LoadModel(ResourceKeys::Model_Paladin, "Data/Image/BrainStem.glb");
-
     // アニメーションのロードも行う
-    LoadModelAnimations(ResourceKeys::Model_Paladin, "Data/Image/BrainStem.glb");
 
     LoadModel(ResourceKeys::Model_Enemy, "Data/Image/MONSTER   run.fbx");
     LoadFbxAnimation(ResourceKeys::Animation_EnemyAttack, ResourceKeys::Model_Enemy,

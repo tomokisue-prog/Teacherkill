@@ -222,6 +222,15 @@
     <ClCompile Include="GoalScene.cpp">
       <Filter>Scene\GoalScene</Filter>
     </ClCompile>
+    <ClCompile Include="EnemyAI.cpp">
+      <Filter>GamePlay\Actors\Enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="EnemyConfig.cpp">
+      <Filter>GamePlay\Actors\Enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="EnemyMovement.cpp">
+      <Filter>GamePlay\Actors\Enemy</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="imgui\imconfig.h">
@@ -365,6 +374,15 @@
     </ClInclude>
     <ClInclude Include="GoalScene.h">
       <Filter>Scene\GoalScene</Filter>
+    </ClInclude>
+    <ClInclude Include="EnemyAI.h">
+      <Filter>GamePlay\Actors\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="EnemyConfig.h">
+      <Filter>GamePlay\Actors\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="EnemyMovement.h">
+      <Filter>GamePlay\Actors\Enemy</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
