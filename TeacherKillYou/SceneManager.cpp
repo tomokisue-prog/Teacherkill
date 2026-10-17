@@ -85,10 +85,6 @@ void SceneManager::Run()
                 {
                     currentScene = next;
                     currentScene->Init();
-                    if (!hasLoadedScene_) {
-                        gameContext.LoadScene("scene.json");
-                        hasLoadedScene_ = true;
-                    }
                 }
                 else
                 {

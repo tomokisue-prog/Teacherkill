@@ -2,6 +2,7 @@
 #include "GameContext.h"
 #include "imgui.h"
 #include "SceneManager.h"
+#include "SaveSystem.h"
 
 void DebugUI::Draw(GameContext& gameContext) {
     auto& cameraController = gameContext.GetCameraController();
@@ -105,10 +106,8 @@ void DebugUI::DrawInspector(GameContext& gameContext)
     // --- シーブ・ロード用のボタンをここに配置 ---
     if (ImGui::Button("Save Scene (JSON)"))
     {
-		gameContext.SaveScene("scene.json");
+        SaveSystem::SaveScene(gameContext, "scene.json");
     }
-
-    ImGui::Separator();
 
     ImGui::Separator();
 

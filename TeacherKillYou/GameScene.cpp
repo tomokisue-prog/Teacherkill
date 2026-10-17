@@ -1,6 +1,7 @@
 #include "GameScene.h"
 #include "SceneManager.h"
 #include "AudioManager.h"
+#include "SaveSystem.h"
 
 void GameScene::Init()
 {
@@ -13,6 +14,8 @@ void GameScene::Init()
     {
         gameContext->Init();
     }
+
+    SaveSystem::LoadScene(*gameContext, "scene.json");
 }
 
 void GameScene::Update(float deltaTime)
