@@ -367,20 +367,54 @@ Vector3 Player::GetInputMoveDirection(Vector3 forward, Vector3 right) const
 
 void Player::MoveWithCollision(Vector3 moveAmount, const Stage& stage)
 {
-    Vector3 rayPos = Vector3Add(position_, { 0.0f, 0.8f, 0.0f });
+    // プレイヤーの身長（0.75f）に合わせて、複数の高さ（足元・中央・頭上）で判定を行う
+    float checkHeights[] = { 0.15f, 0.45f, 0.70f };
 
+    // X軸方向の移動判定
     if (moveAmount.x != 0.0f)
     {
         Vector3 dir = { moveAmount.x > 0.0f ? 1.0f : -1.0f, 0.0f, 0.0f };
-        RayCollision hit = stage.Raycast({ rayPos, dir });
-        if (!hit.hit || hit.distance > playerRadius_) position_.x += moveAmount.x;
+        bool hitObstacle = false;
+
+        // すべての高さでレイを飛ばし、どこか1つでも壁にぶつかったら移動を止める
+        for (float h : checkHeights)
+        {
+            Vector3 rayPos = { position_.x, position_.y + h, position_.z };
+            RayCollision hit = stage.Raycast({ rayPos, dir });
+            if (hit.hit && hit.distance <= playerRadius_)
+            {
+                hitObstacle = true;
+                break;
+            }
+        }
+
+        if (!hitObstacle)
+        {
+            position_.x += moveAmount.x;
+        }
     }
 
+    // Z軸方向の移動判定
     if (moveAmount.z != 0.0f)
     {
         Vector3 dir = { 0.0f, 0.0f, moveAmount.z > 0.0f ? 1.0f : -1.0f };
-        RayCollision hit = stage.Raycast({ rayPos, dir });
-        if (!hit.hit || hit.distance > playerRadius_) position_.z += moveAmount.z;
+        bool hitObstacle = false;
+
+        for (float h : checkHeights)
+        {
+            Vector3 rayPos = { position_.x, position_.y + h, position_.z };
+            RayCollision hit = stage.Raycast({ rayPos, dir });
+            if (hit.hit && hit.distance <= playerRadius_)
+            {
+                hitObstacle = true;
+                break;
+            }
+        }
+
+        if (!hitObstacle)
+        {
+            position_.z += moveAmount.z;
+        }
     }
 }
 
@@ -395,6 +429,30 @@ void Player::UpdateVerticalPhysics(float deltaTime, const Stage& stage)
     if (!isGrounded_) velocity_.y += gravity_ * deltaTime;
     const float previousY = position_.y;
     position_.y += velocity_.y * deltaTime;
+
+
+	// 天井の衝突判定
+    if (velocity_.y > 0.0f)
+    {
+        constexpr float headOffset = 0.1f;
+        // プレイヤーの足元から頭のてっぺん付近までの高さを設定
+        Vector3 headRayOrigin = { position_.x, previousY + playerHeight_ - headOffset, position_.z };
+
+        // 1フレーム分の移動量 + 少しの余裕を持たせたプローブ距離
+        float probeDistance = (position_.y - previousY) + headOffset;
+
+        Ray upRay = { headRayOrigin, { 0, 1, 0 } };
+        RayCollision ceilingHit = stage.Raycast(upRay, probeDistance);
+
+        // 天井にヒットした場合、頭が天井にぶつかったとして位置を補正し、上方向の速度をゼロにする
+        if (ceilingHit.hit)
+        {
+            // ヒットした天井の下面あたりに位置を固定
+            position_.y = ceilingHit.point.y - playerHeight_;
+            velocity_.y = 0.0f;
+        }
+    }
+
     // 移動前から落下区間を検査し、天井面の誤判定と床のすり抜けを防ぐ。
     constexpr float probeHeight = 0.25f;
     const Ray downRay = { { position_.x, previousY + probeHeight, position_.z }, { 0, -1, 0 } };
@@ -474,6 +532,31 @@ void Player::DrawStaminaHUD() const
         height, color);
 
     DrawRectangleLines(x, y, width, height, RAYWHITE);
+}
+
+void Player::DrawColliderDebug() const
+{
+    if (!debugDrawEnabled_) return;
+
+    // プレイヤーの足元から頭までの中心位置
+    Vector3 center = {
+        position_.x,
+        position_.y + (playerHeight_ * 0.5f),
+        position_.z
+    };
+
+    // 判定範囲をワイヤーフレームの円柱で描画
+    DrawCylinderWires(
+        { position_.x, position_.y, position_.z }, // 底面の位置
+        playerRadius_,                             // 底面半径
+        playerRadius_,                             // 上面半径
+        playerHeight_,                             // 高さ
+        12,                                        // 分割数
+        YELLOW                                     // 黄色
+    );
+
+    // 足元の当たり判定位置に小さな球を描画
+    DrawSphereWires(center, playerRadius_, 8, 8, ORANGE);
 }
 
 void Player::DrawHealthHUD() const
@@ -656,6 +739,11 @@ void Player::Draw(const PlayerCamera* camera) const
             { viewModelScale_, viewModelScale_, viewModelScale_ },
             WHITE
         );
+    }
+
+    if (camera == nullptr)
+    {
+        DrawColliderDebug();
     }
 }
 

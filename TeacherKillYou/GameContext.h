@@ -9,6 +9,7 @@
 #include "TeleportPoint.h"
 #include "GameFade.h"
 #include "Inventory.h"
+#include "GoalPoint.h"
 
 class GameContext
 {
@@ -37,6 +38,9 @@ public:
     DoorMove& GetDoor() { return door_; }
     const DoorMove& GetDoor() const { return door_; }
 
+    GoalPoint& GetGoalPoint() { return goalPoint_; }
+    const GoalPoint& GetGoalPoint() const { return goalPoint_; }
+
     std::vector<TeleportPoint>& GetTeleportPoints() { return teleportPoints_; }
     const std::vector<TeleportPoint>& GetTeleportPoints() const { return teleportPoints_; }
 
@@ -55,6 +59,7 @@ private:
 	DoorMove door_;
     GameFade gameFade_;
     Inventory inventory_;
+    GoalPoint goalPoint_;
 
     Vector3 paladinPosition_{ 0.0f, 0.0f, 3.0f };
 

@@ -39,6 +39,7 @@
     <ClCompile Include="GameFade.cpp" />
     <ClCompile Include="GameScene.cpp" />
     <ClCompile Include="GizmoDrawer.cpp" />
+    <ClCompile Include="GoalPoint.cpp" />
     <ClCompile Include="GoalScene.cpp" />
     <ClCompile Include="imguizmo\GraphEditor.cpp" />
     <ClCompile Include="imguizmo\ImCurveEdit.cpp" />
@@ -96,6 +97,7 @@
     <ClInclude Include="GameObject.h" />
     <ClInclude Include="GameScene.h" />
     <ClInclude Include="GizmoDrawer.h" />
+    <ClInclude Include="GoalPoint.h" />
     <ClInclude Include="GoalScene.h" />
     <ClInclude Include="ICamera.h" />
     <ClInclude Include="imguizmo\GraphEditor.h" />

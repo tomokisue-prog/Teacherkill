@@ -10,7 +10,8 @@ enum class SelectedObjectType {
     Stage,
     PaladinModel,
     Door,
-    TeleportPoint
+    TeleportPoint,
+    GoalPoint
 };
 
 class GameContext;
