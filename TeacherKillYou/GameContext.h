@@ -22,9 +22,6 @@ public:
     void Draw() const;
     void End();
 
-    void SaveScene(const std::string& filepath = "scene.json");
-	void LoadScene(const std::string& filepath = "scene.json");
-
     CameraController& GetCameraController() { return cameraController_; }
     const CameraController& GetCameraController() const { return cameraController_; }
 
@@ -78,8 +75,5 @@ private:
     float tracerAge_{ 0.0f };
     float tracerDuration_{ 0.05f };
     bool tracerActive_{ false };
-
-    int animFrame_{ 0 };
-    int animIndex_{ 0 };
 
 };

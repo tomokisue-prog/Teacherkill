@@ -31,7 +31,10 @@
     <ClCompile Include="DebugUI.cpp" />
     <ClCompile Include="DoorMove.cpp" />
     <ClCompile Include="Enemy.cpp" />
+    <ClCompile Include="EnemyAI.cpp" />
+    <ClCompile Include="EnemyConfig.cpp" />
     <ClCompile Include="EnemyManager.cpp" />
+    <ClCompile Include="EnemyMovement.cpp" />
     <ClCompile Include="GameContext.cpp" />
     <ClCompile Include="GameFade.cpp" />
     <ClCompile Include="GameScene.cpp" />
@@ -61,6 +64,7 @@
     <ClCompile Include="GltfMaterials.cpp">
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
+    <ClCompile Include="SaveSystem.cpp" />
     <ClCompile Include="TeleportPoint.cpp" />
     <ClCompile Include="third_party\ufbx\ufbx.c">
       <LanguageStandard_C>stdc11</LanguageStandard_C>
@@ -83,7 +87,10 @@
     <ClInclude Include="DoorMove.h" />
     <ClInclude Include="DamageFlash.h" />
     <ClInclude Include="Enemy.h" />
+    <ClInclude Include="EnemyAI.h" />
+    <ClInclude Include="EnemyConfig.h" />
     <ClInclude Include="EnemyManager.h" />
+    <ClInclude Include="EnemyMovement.h" />
     <ClInclude Include="GameContext.h" />
     <ClInclude Include="GameFade.h" />
     <ClInclude Include="GameObject.h" />
@@ -115,6 +122,7 @@
     <ClInclude Include="FbxLoader.h" />
     <ClInclude Include="BakedAnimation.h" />
     <ClInclude Include="GltfMaterials.h" />
+    <ClInclude Include="SaveSystem.h" />
     <ClInclude Include="TeleportPoint.h" />
     <ClInclude Include="third_party\ufbx\ufbx.h" />
     <ClInclude Include="HorrorLighting.h" />

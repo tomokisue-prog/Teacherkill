@@ -1,6 +1,7 @@
 #include "GameScene.h"
 #include "SceneManager.h"
 #include "AudioManager.h"
+#include "SaveSystem.h"
 
 void GameScene::Init()
 {
@@ -8,11 +9,15 @@ void GameScene::Init()
     nextScene = nullptr;
     AM().PlayBgm(BgmId::Game);
 
-    // ゲームコンテキスト側の初期化（カメラコントローラーやステージの準備）
-    if (gameContext)
+    if (!gameContext)
     {
-        gameContext->Init();
+        return;
     }
+    // ゲームコンテキスト側の初期化（カメラコントローラーやステージの準備）
+    
+    gameContext->Init();
+
+    SaveSystem::LoadScene(*gameContext, "scene.json");
 }
 
 void GameScene::Update(float deltaTime)

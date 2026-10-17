@@ -67,4 +67,4 @@ int EnemyManager::AliveCount() const {
         [](const Enemy& enemy) { return enemy.IsAlive(); }));
 }
 
-} // namespace demo
+}
