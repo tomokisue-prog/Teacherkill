@@ -1,53 +1,44 @@
-
 #pragma once
 
 #include "raylib.h"
+#include "Item.h"
+
 #include <array>
 #include <string>
 #include <vector>
 
-// Types of items
-enum class ItemType
-{
-    None,
-    Medkit,
-    Battery,
-    Key
-};
-
-// Item placed in the 3D world
-struct WorldPickup
-{
-    ItemType type = ItemType::None;
-    Vector3 position{ 0, 0, 0 };
-    bool collected = false;
-};
-
 class Inventory
 {
 public:
+    void Init();
     void Reset();
+    void End();
 
     void Update(float deltaTime, const Camera3D& camera);
+    void DrawWorld() const;  // During BeginMode3D/EndMode3D
+    void DrawHUD() const;    // After EndMode3D
 
-    // Call while drawing the 3D world
-    void DrawWorld() const;
-
-    // Call while drawing 2D HUD
-    void DrawHUD() const;
-
-    // Item used during the current frame
     ItemType GetUsedItem() const { return usedItem_; }
 
 private:
     static constexpr int MAX_SLOTS = 4;
 
+    struct ItemModel
+    {
+        Model model{};
+        bool loaded = false;
+        float scale = 1.0f;
+    };
+
+    ItemModel keyCardModel_{};
+    ItemModel medkitModel_{};
+    ItemModel ammoModel_{};
+
     std::array<ItemType, MAX_SLOTS> slots_{};
-    std::vector<WorldPickup> pickups_;
+    std::vector<Item> items_;
 
     int selectedSlot_ = 0;
     int focusedPickup_ = -1;
-
     ItemType usedItem_ = ItemType::None;
 
     std::string message_;
@@ -56,5 +47,9 @@ private:
     bool AddItem(ItemType item);
     int FindFocusedPickup(const Camera3D& camera) const;
 
-    static const char* GetItemName(ItemType item);
+    const ItemModel* GetItemModel(ItemType type) const;
+    static void LoadItemModel(ItemModel& destination,
+        const char* glbPath,
+        float targetSize);
+    static void UnloadItemModel(ItemModel& destination);
 };
