@@ -72,6 +72,7 @@ void GameContext::Init()
     cameraController_.Init();
     player_.Init();
     stage_.Init();
+    inventory_.Init();  // Load item GLB models and spawn items
     PlaceCharacters();
     lighting_.Init(RM().GetModelShaders(), RM().GetModel(ResourceKeys::Model_Stage1));
     hitMarkerTimer_ = 0.0f;
@@ -572,6 +573,7 @@ void GameContext::End()
     AM().StopAllSe();
     enemyManager_.Clear();
     player_.End();
+    inventory_.End();  // Unload item GLB models
     stage_.End();
     lighting_.Shutdown();
 
