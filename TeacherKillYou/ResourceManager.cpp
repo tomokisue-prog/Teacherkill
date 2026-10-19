@@ -36,6 +36,19 @@ void ResourceManager::LoadAll() {
 
 	LoadModel(ResourceKeys::Model_Door, "Data/Image/slide door.glb");
 
+    LoadJapaneseFont();
+}
+
+void ResourceManager::LoadJapaneseFont()
+{
+    japaneseFont_.Load("Data/Font/NotoSansJP-Regular.ttf", 32);
+
+    if (japaneseFont_.IsLoaded()) {
+        TraceLog(LOG_INFO, u8"SUCCESS: 日本語フォントがロードされました");
+    }
+    else {
+        TraceLog(LOG_ERROR, u8"FAILED: 日本語フォントのロードに失敗しました");
+    }
 }
  
 void ResourceManager::LoadModel(const std::string& key, const std::string& path) {
@@ -197,4 +210,5 @@ void ResourceManager::UnloadAll() {
     }
     animations_.clear();
     fbxBindings_.clear();
+    japaneseFont_.Unload();
 }

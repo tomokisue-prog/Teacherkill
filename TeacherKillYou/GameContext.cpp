@@ -233,8 +233,10 @@ void GameContext::ProcessPlayerShot()
 
     if (!foundTarget)
     {
-        TraceLog(LOG_INFO, "SHOT: no enemy hit");
+        if(JPFont){
+        TraceLog(LOG_INFO, "SHOT: “G‚É“–‚½‚ç‚È‚©‚Á‚½");
         return;
+        }
     }
 
     const demo::EnemyDamageResult result =
@@ -244,12 +246,13 @@ void GameContext::ProcessPlayerShot()
     {
         hitMarkerTimer_ = 0.12f;
         hitMarkerKill_ = result.becameDead;
+        if (JPFont) {
+            TraceLog(LOG_INFO, "HIT: “G HP = %d", result.hp);
 
-        TraceLog(LOG_INFO, "HIT: enemy HP = %d", result.hp);
-
-        if (result.becameDead)
-        {
-            TraceLog(LOG_INFO, "Enemy defeated");
+            if (result.becameDead)
+            {
+                TraceLog(LOG_INFO, "“G‚ð“|‚µ‚Ü‚µ‚½");
+            }
         }
     }
 }
@@ -563,7 +566,6 @@ void GameContext::Draw() const
         inventory_.DrawHUD();
     }
 
-    // Fade effect stays on top
     gameFade_.Draw();
 }
 

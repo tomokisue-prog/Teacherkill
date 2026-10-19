@@ -1,19 +1,20 @@
-#include "TitleScene.h"
+ï»¿#include "TitleScene.h"
 #include "SceneManager.h"
 #include "AudioManager.h"
+#include "ResourceManager.h"
 
 void TitleScene::Init()
 {
     finished = false;
     nextScene = nullptr;
     AM().PlayBgm(BgmId::Title);
-    // ƒ^ƒCƒgƒ‹‚Íƒ}ƒEƒXƒJ[ƒ\ƒ‹‚ğ•\¦ó‘Ô‚É‚·‚é
+    // ã‚¿ã‚¤ãƒˆãƒ«æ™‚ã¯ãƒã‚¦ã‚¹ã‚«ãƒ¼ã‚½ãƒ«ã‚’è¡¨ç¤ºçŠ¶æ…‹ã«ã™ã‚‹
     EnableCursor();
 }
 
 void TitleScene::Update(float deltaTime)
 {
-    // ƒXƒy[ƒXƒL[‚Ü‚½‚Í‰æ–ÊƒNƒŠƒbƒN‚ÅƒQ[ƒ€ƒV[ƒ“‚Ö‘JˆÚ
+    // ã‚¹ãƒšãƒ¼ã‚¹ã‚­ãƒ¼ã¾ãŸã¯ç”»é¢ã‚¯ãƒªãƒƒã‚¯ã§ã‚²ãƒ¼ãƒ ã‚·ãƒ¼ãƒ³ã¸é·ç§»
     if (IsKeyPressed(KEY_SPACE))
     {
         AM().PlaySe(SeId::Confirm);
@@ -26,6 +27,13 @@ void TitleScene::Render() const
     ClearBackground({ 3, 5, 8, 255 });
     DrawText("ESCAPE SCHOOL 3D", 750, 400, 40, { 170, 180, 180, 255 });
     DrawText("PRESS SPACE TO START", 780, 500, 20, GRAY);
+
+    const auto& jpFont = JPFont();
+    if (jpFont.IsLoaded())
+    {
+        jpFont.DrawText(u8"å­¦æ ¡è„±å‡º 3D", 780, 320, 58, { 220, 220, 220, 255 });
+        jpFont.DrawText(u8"ã‚¹ãƒšãƒ¼ã‚¹ã‚­ãƒ¼ã‚’æŠ¼ã—ã¦ã‚¹ã‚¿ãƒ¼ãƒˆ", 730, 550, 40, { 150, 150, 150, 255 });
+    }
 }
 
 void TitleScene::End()
