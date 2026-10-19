@@ -5,6 +5,7 @@
 #include "raylib.h"
 #include "ResourceKeys.h"
 #include "FbxLoader.h"
+#include "JapaneseFont.h"
 
 class ResourceManager {
 public:
@@ -41,6 +42,9 @@ public:
     void LoadAll();
     void UnloadAll();
 
+    void LoadJapaneseFont();
+    const JapaneseFont& GetJapaneseFont() const { return japaneseFont_; }
+
 private:
     ResourceManager() = default;
     ~ResourceManager() = default;
@@ -51,6 +55,8 @@ private:
     Shader modelShader_{}; // GLBモデル間で共有。UnloadAllで一度だけ解放する。
     std::unordered_map<std::string, Model> models_;
     std::unordered_map<std::string, BoundingBox> modelBounds_;
+
+	JapaneseFont japaneseFont_;
 
     struct AnimationData {
         ModelAnimation* anims{ nullptr };
@@ -65,4 +71,9 @@ private:
 // ショートカット関数
 inline ResourceManager& RM() {
     return ResourceManager::GetInstance();
+}
+
+// 日本語フォントのショートカット関数
+inline const JapaneseFont& JPFont() {
+    return ResourceManager::GetInstance().GetJapaneseFont();
 }
