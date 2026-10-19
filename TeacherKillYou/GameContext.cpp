@@ -566,7 +566,6 @@ void GameContext::Draw() const
         inventory_.DrawHUD();
     }
 
-    // Fade effect stays on top
     gameFade_.Draw();
 }
 

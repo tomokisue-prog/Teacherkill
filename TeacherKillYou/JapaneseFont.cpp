@@ -12,7 +12,6 @@ bool JapaneseFont::Load(const std::string& fontPath, int fontSize)
     Unload();
 
     std::vector<int> codepoints;
-
     for (int i = 32; i <= 126; ++i) codepoints.push_back(i);
    
     for (int i = 0x3000; i <= 0x9FFF; ++i) {
@@ -27,7 +26,7 @@ bool JapaneseFont::Load(const std::string& fontPath, int fontSize)
         return false;
     }
 
-    // テクスチャーのフィルタリング設定（文字をクッキリさせる）
+    // テクスチャーのフィルタリング設定
     SetTextureFilter(font_.texture, TEXTURE_FILTER_BILINEAR);
 
     TraceLog(LOG_INFO, "JAPANESE_FONT: Loaded successfully from %s", fontPath.c_str());
