@@ -13,6 +13,40 @@
 #include <cmath>
 namespace
 {
+    float HudScale()
+    {
+        return Clamp((std::min)(GetScreenWidth() / 1920.0f, GetScreenHeight() / 1080.0f), 0.45f, 1.5f);
+    }
+
+    void LoadHudTexture(const char* path, Texture2D& texture, Rectangle& source, const char* fallback = nullptr)
+    {
+        if (texture.id) return;
+        Image image = LoadImage(path);
+        if (!image.data && fallback) image = LoadImage(fallback);
+        if (!image.data) return;
+        // 透明な余白だけを除き、画像自体の縦横比とデザインは維持する。
+        source = GetImageAlphaBorder(image, 0.05f);
+        texture = LoadTextureFromImage(image);
+        UnloadImage(image);
+        if (texture.id) SetTextureFilter(texture, TEXTURE_FILTER_BILINEAR);
+    }
+
+    Rectangle HealthHudPanel(Rectangle source)
+    {
+        const float scale = HudScale();
+        const float width = 360.0f * scale;
+        const float height = source.width > 0 && source.height > 0 ? width * source.height / source.width : 72.0f * scale;
+        // 下部の懐中電灯キー表示との間隔を確保する。
+        return {24.0f * scale, GetScreenHeight() - height - 48.0f, width, height};
+    }
+
+    void DrawHudText(const char* text, int x, int y, int size, Color color)
+    {
+        const int offset = (std::max)(1, static_cast<int>(2 * HudScale()));
+        DrawText(text, x + offset, y + offset, size, Color{12, 16, 16, 230});
+        DrawText(text, x, y, size, color);
+    }
+
     bool HasWeaponAnimation(const char* key)
     {
         int count = 0;
@@ -99,7 +133,12 @@ namespace
     }
 }
 
-void Player::Init() { Reset(); }
+void Player::Init()
+{
+    Reset();
+    LoadHudTexture("Data/Image/GunUI.png", ammoHudTexture_, ammoHudSource_, "Data/Image/PistolUI.png");
+    LoadHudTexture("Data/Image/HPBackUI.png", healthHudTexture_, healthHudSource_);
+}
 
 void Player::Reset()
 {
@@ -331,8 +370,14 @@ void Player::UpdateWeapon(float deltaTime)
         return;
     }
 
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && currentAmmo_ > 0)
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
+        // 空撃ちはSEだけを鳴らし、弾・マズルフラッシュ・命中処理を生成しない。
+        if (currentAmmo_ <= 0)
+        {
+            AM().PlaySe(SeId::DryFire);
+            return;
+        }
         if (!HasWeaponAnimation("PlayerShoot"))
         {
             TraceLog(LOG_WARNING, "Player shoot model/animation unavailable");
@@ -514,24 +559,12 @@ void Player::DrawDamageOverlay() const
 }
 void Player::DrawStaminaHUD() const
 {
-    const int x = 24;
-    const int y = GetScreenHeight() - 58;
-    const int width = 200;
-    const int height = 8;
-
-    const float ratio = Clamp(
-        stamina_ / maxStamina_, 0.0f, 1.0f);
-
-    const Color color = sprintExhausted_ ? ORANGE : SKYBLUE;
-
-    DrawRectangle(x, y, width, height, DARKGRAY);
-
-    DrawRectangle(
-        x, y,
-        static_cast<int>(width * ratio),
-        height, color);
-
-    DrawRectangleLines(x, y, width, height, RAYWHITE);
+    const Rectangle panel = HealthHudPanel(healthHudSource_);
+    const int value = static_cast<int>(std::round(Clamp(stamina_, 0.0f, maxStamina_)));
+    // HPBackUIの横線より下に、毎フレームのスタミナ残量を整数で表示する。
+    DrawHudText(TextFormat("STAMINA %d / %d", value, static_cast<int>(maxStamina_)),
+        static_cast<int>(panel.x + panel.width * 0.1f), static_cast<int>(panel.y + panel.height * 0.56f),
+        static_cast<int>(24 * HudScale()), sprintExhausted_ ? ORANGE : SKYBLUE);
 }
 
 void Player::DrawColliderDebug() const
@@ -561,43 +594,16 @@ void Player::DrawColliderDebug() const
 
 void Player::DrawHealthHUD() const
 {
-    const int x = 24;
-    const int y = GetScreenHeight() - 110;
-    const int width = 200;
-    const int height = 18;
+    const Rectangle panel = HealthHudPanel(healthHudSource_);
+    if (healthHudTexture_.id && healthHudSource_.width > 0 && healthHudSource_.height > 0)
+        DrawTexturePro(healthHudTexture_, healthHudSource_, panel, {0, 0}, 0.0f, WHITE);
 
-    const float ratio = Clamp(
-        static_cast<float>(hp_) / maxHp_, 0.0f, 1.0f);
-
-    Color color = GREEN;
-
-    if (hp_ <= 25)
-    {
-        color = RED;
-    }
-    else if (hp_ <= 50)
-    {
-        color = ORANGE;
-    }
-
-    DrawRectangle(
-        x - 12, y - 12,
-        width + 24, 72,
-        Fade(BLACK, 0.65f));
-
-    DrawText(
-        TextFormat("HP %d / %d", hp_, maxHp_),
-        x, y, 20, RAYWHITE);
-
-    DrawRectangle(x, y + 30, width, height, DARKGRAY);
-
-    DrawRectangle(
-        x, y + 30,
-        static_cast<int>(width * ratio),
-        height, color);
-
-    DrawRectangleLines(x, y + 30, width, height, RAYWHITE);
+    // 上段はHP、下段はDrawStaminaHUDが担当する。危険なHPは数値の色で伝える。
+    const Color color = hp_ <= 25 ? RED : hp_ <= 50 ? ORANGE : RAYWHITE;
+    DrawHudText(TextFormat("HP %d / %d", hp_, maxHp_), static_cast<int>(panel.x + panel.width * 0.1f),
+        static_cast<int>(panel.y + panel.height * 0.04f), static_cast<int>(24 * HudScale()), color);
 }
+
 Vector3 Player::GetMuzzlePosition(const Camera3D& view) const
 {
     const Vector3 forward = Vector3Normalize(
@@ -750,19 +756,44 @@ void Player::Draw(const PlayerCamera* camera) const
 
 void Player::DrawAmmoHUD() const
 {
+    if (ammoHudTexture_.id && ammoHudSource_.width > 0 && ammoHudSource_.height > 0)
+    {
+        const float uiScale = HudScale();
+        const float width = 480.0f * uiScale;
+        const float height = width * ammoHudSource_.height / ammoHudSource_.width;
+        const float margin = 24.0f * uiScale;
+        const Rectangle panel{ GetScreenWidth() - width - margin, GetScreenHeight() - height - margin, width, height };
+        DrawTexturePro(ammoHudTexture_, ammoHudSource_, panel, {0, 0}, 0.0f, WHITE);
+
+        // 銃と弾のイラストの右側へ、実際の残弾を表示する。
+        const int currentSize = static_cast<int>(36 * uiScale);
+        const int reserveSize = static_cast<int>(24 * uiScale);
+        const int x = static_cast<int>(panel.x + width * 0.66f);
+        const int y = static_cast<int>(panel.y + height * 0.53f);
+        const char* current = TextFormat("%02d", currentAmmo_);
+        const int currentWidth = MeasureText(current, currentSize);
+        DrawHudText(current, x, y, currentSize, currentAmmo_ > 0 ? RAYWHITE : RED);
+        DrawHudText(TextFormat(" / %02d", reserveAmmo_), x + currentWidth + static_cast<int>(4 * uiScale),
+            y + currentSize - reserveSize, reserveSize, RAYWHITE);
+        if (isReloading_)
+            DrawText("RELOADING", x, static_cast<int>(panel.y - 24 * uiScale), static_cast<int>(18 * uiScale), YELLOW);
+        return;
+    }
+
+    // 画像がない環境でも、従来の数字表示で残弾を確認できる。
     const int x = GetScreenWidth() - 210;
     const int y = GetScreenHeight() - 70;
-
     DrawRectangle(x - 15, y - 12, 195, 60, Fade(BLACK, 0.65f));
-
-    DrawText(
-        TextFormat("%02d / %02d", currentAmmo_, reserveAmmo_),
-        x, y, 30, RAYWHITE);
-
-    if (isReloading_)
-    {
-        DrawText("RELOADING", x, y - 35, 18, YELLOW);
-    }
+    DrawText(TextFormat("%02d / %02d", currentAmmo_, reserveAmmo_), x, y, 30, RAYWHITE);
+    if (isReloading_) DrawText("RELOADING", x, y - 35, 18, YELLOW);
 }
 
-void Player::End() {}
+void Player::End()
+{
+    if (ammoHudTexture_.id) UnloadTexture(ammoHudTexture_);
+    ammoHudTexture_ = {};
+    ammoHudSource_ = {};
+    if (healthHudTexture_.id) UnloadTexture(healthHudTexture_);
+    healthHudTexture_ = {};
+    healthHudSource_ = {};
+}

@@ -89,6 +89,12 @@ private:
     float shootDuration_{ 0.417f };
     float reloadDuration_{ 2.291667f };
 
+    // HUD画像はInitで読み込み、Resetでは再利用し、Endで解放する。
+    Texture2D ammoHudTexture_{};
+    Rectangle ammoHudSource_{};
+    Texture2D healthHudTexture_{};
+    Rectangle healthHudSource_{};
+
     int magazineCapacity_{ 15 };
     int currentAmmo_{ 15 };
     int reserveAmmo_{ 30 };

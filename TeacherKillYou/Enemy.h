@@ -53,6 +53,7 @@ namespace demo {
         bool CanHitTarget(const TargetInfo& target, const Stage& stage, const BoundingBox* blocker) const;
         float AttackDuration() const;
         float DeathDuration() const;
+        float HitDuration() const;
 
         EnemyId id_;
         EnemyConfig config_;
@@ -61,6 +62,7 @@ namespace demo {
         float yaw_ = 0.0f;
         int hp_ = 100;
         float corpseTimer_ = 0.0f;
+        float hitTime_ = -1.0f;        // 負値は未再生。終端姿勢を1フレーム描画してから解除する。
         float attackTime_ = 0.0f;
         bool attackHitChecked_ = false;
         int pendingAttackDamage_ = 0;

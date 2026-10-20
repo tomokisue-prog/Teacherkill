@@ -8,6 +8,7 @@ namespace ResourceKeys {
     constexpr const char* Model_FemaleZombie = "Model_FemaleZombie";
     constexpr const char* Animation_FemaleZombieAttack = "FemaleZombieAttack";
     constexpr const char* Animation_FemaleZombieDeath = "FemaleZombieDeath";
+    constexpr const char* Animation_FemaleZombieHit = "FemaleZombieHit";
     constexpr const char* Model_Stage = "Model_Stage";
 
 	//Player�̃��f��(FPS hand and gun)

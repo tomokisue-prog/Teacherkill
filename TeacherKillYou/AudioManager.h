@@ -7,7 +7,7 @@
 // AudioManager.cppのファイル名一覧と同じ順番で定義する。
 enum class BgmId { Title, Game, Count };
 enum class SeId { Shoot, Reload, PlayerHit, EnemyHit, EnemyAttack, EnemyDeath,
-                  DoorOpen, DoorClose, Flashlight, Teleport, Confirm, Count };
+                  DoorOpen, DoorClose, Flashlight, Teleport, Confirm, DryFire, Count };
 
 // BGMはストリーム再生、SEは起動時に読み込む。更新・解放はSceneManagerが担当する。
 class AudioManager {

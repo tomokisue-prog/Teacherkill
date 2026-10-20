@@ -14,10 +14,10 @@ namespace {
     constexpr float ContactEpsilon = 0.001f;
     constexpr float AnimationFrameDuration = 0.017f;
 
-    struct EnemyAssets { const char* model; const char* attack; const char* death; };
+    struct EnemyAssets { const char* model; const char* attack; const char* death; const char* hit; };
     const EnemyAssets& AssetsFor(demo::EnemyType type) {
-        static constexpr EnemyAssets monster{ ResourceKeys::Model_Enemy, ResourceKeys::Animation_EnemyAttack, ResourceKeys::Animation_EnemyDeath };
-        static constexpr EnemyAssets female{ ResourceKeys::Model_FemaleZombie, ResourceKeys::Animation_FemaleZombieAttack, ResourceKeys::Animation_FemaleZombieDeath };
+        static constexpr EnemyAssets monster{ ResourceKeys::Model_Enemy, ResourceKeys::Animation_EnemyAttack, ResourceKeys::Animation_EnemyDeath, nullptr };
+        static constexpr EnemyAssets female{ ResourceKeys::Model_FemaleZombie, ResourceKeys::Animation_FemaleZombieAttack, ResourceKeys::Animation_FemaleZombieDeath, ResourceKeys::Animation_FemaleZombieHit };
         return type == demo::EnemyType::FemaleZombie ? female : monster;
     }
 
@@ -60,6 +60,7 @@ namespace demo {
         hp_ = config_.maxHp;
         ai_.Reset();
         corpseTimer_ = 0.0f;
+        hitTime_ = -1.0f;
         animationTime_ = 0.0f;
         attackTime_ = 0.0f;
         attackHitChecked_ = false;
@@ -69,12 +70,19 @@ namespace demo {
 
     float Enemy::AttackDuration() const {
         const auto clip = RM().GetModelAnimation(AssetsFor(config_.type).attack);
-        return clip.frameCount > 1 ? (clip.frameCount - 1) * AnimationFrameDuration : 0.9f;
+        return (clip.frameCount > 1 ? (clip.frameCount - 1) * AnimationFrameDuration : 0.9f) / config_.animationSpeed;
     }
 
     float Enemy::DeathDuration() const {
         const auto clip = RM().GetModelAnimation(AssetsFor(config_.type).death);
-        return clip.frameCount > 1 ? (clip.frameCount - 1) * AnimationFrameDuration : 0.0f;
+        return clip.frameCount > 1 ? (clip.frameCount - 1) * AnimationFrameDuration / config_.animationSpeed : 0.0f;
+    }
+
+    float Enemy::HitDuration() const {
+        const char* key = AssetsFor(config_.type).hit;
+        if (!key) return 0.0f;
+        const auto clip = RM().GetModelAnimation(key);
+        return clip.frameCount > 1 ? (clip.frameCount - 1) * AnimationFrameDuration / config_.animationSpeed : 0.0f;
     }
 
     bool Enemy::CanHitTarget(const TargetInfo& target, const Stage& stage, const BoundingBox* blocker) const {
@@ -125,6 +133,15 @@ namespace demo {
             animationTime_ = 0.0f;
         }
 
+        if (hitTime_ >= 0.0f && hitTime_ < HitDuration()) {
+            // 被弾中は追跡と攻撃を止める。地面との接触と重力は更新を続ける。
+            hitTime_ = (std::min)(HitDuration(), hitTime_ + dt);
+            ai_.SetShouldMove(false);
+            movement_.Update(dt, {}, validTarget ? &target.bodyBounds : nullptr, stage, config_);
+            return;
+        }
+        hitTime_ = -1.0f;
+
         const bool attacking = ai_.GetState() == EnemyState::Attack;
         const Vector3 previousPosition = movement_.GetPosition();
 
@@ -173,7 +190,7 @@ namespace demo {
         if (IsMoving() && moved && animation.frameCount > 0) {
             // 時間を進めてループ再生させる
             animationTime_ += dt;
-            const float totalDuration = animation.frameCount * AnimationFrameDuration;
+            const float totalDuration = animation.frameCount * AnimationFrameDuration / config_.animationSpeed;
             if (animationTime_ >= totalDuration) {
                 animationTime_ = std::fmod(animationTime_, totalDuration);
             }
@@ -200,6 +217,21 @@ namespace demo {
         hp_ = amount >= hp_ ? 0 : hp_ - amount;
         const bool died = hp_ == 0;
         AM().PlaySe(died ? SeId::EnemyDeath : SeId::EnemyHit);
+        const bool startHit = !died && hitTime_ < 0.0f && HitDuration() > 0.0f;
+        if (died) hitTime_ = -1.0f;
+        // 再被弾でもHPとSEは反映するが、再生中の被弾クリップは巻き戻さない。
+        else if (startHit) hitTime_ = 0.0f;
+        if (startHit) {
+            // 途中の攻撃を中断し、被弾姿勢のまま攻撃判定だけが出ることを防ぐ。
+            pendingAttackDamage_ = 0;
+            attackPose_ = false;
+            attackTime_ = 0.0f;
+            animationTime_ = 0.0f;
+            if (ai_.GetState() == EnemyState::Attack) {
+                ai_.SetState(EnemyState::Chase);
+                ai_.SetAttackCooldown(config_.attackRecovery);
+            }
+        }
         if (died) {
             ai_.SetState(EnemyState::Dead);
             ai_.SetShouldMove(false);
@@ -224,13 +256,15 @@ namespace demo {
         const Vector3 position = movement_.GetPosition();
         if (model.meshCount > 0) {
             const bool deathPose = !IsAlive() && RM().GetModelAnimation(assets.death).frameCount > 0;
-            const char* clipKey = deathPose ? assets.death :
+            const bool hitPose = IsAlive() && hitTime_ >= 0.0f && assets.hit;
+            const char* clipKey = deathPose ? assets.death : hitPose ? assets.hit :
                 attackPose_ && RM().GetModelAnimation(assets.attack).frameCount > 0 ? assets.attack : assets.model;
             const ModelAnimation animation = RM().GetModelAnimation(clipKey);
             if (animation.frameCount > 0) {
-                const int elapsedFrame = static_cast<int>(animationTime_ / AnimationFrameDuration);
+                const float poseTime = hitPose ? hitTime_ : animationTime_;
+                const int elapsedFrame = static_cast<int>(poseTime * config_.animationSpeed / AnimationFrameDuration);
                 const int frame = deathPose && corpseTimer_ >= DeathDuration() ? animation.frameCount - 1 :
-                    deathPose || attackPose_ ? (std::min)(elapsedFrame, animation.frameCount - 1) : elapsedFrame % animation.frameCount;
+                    deathPose || hitPose || attackPose_ ? (std::min)(elapsedFrame, animation.frameCount - 1) : elapsedFrame % animation.frameCount;
                 RM().ApplyModelAnimation(clipKey, frame);
             }
             const BoundingBox bounds = RM().GetModelBounds(assets.model);
