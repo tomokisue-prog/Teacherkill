@@ -37,6 +37,10 @@ public:
     bool IsDebugDrawEnabled() const { return debugDrawEnabled_; }
     void SetDebugDrawEnabled(bool enabled) { debugDrawEnabled_ = enabled; }
 
+    // Item effects
+    void Heal(int amount);
+    void AddReserveAmmo(int amount);
+
     Vector3 GetMuzzlePosition(const Camera3D& view) const;
 
 

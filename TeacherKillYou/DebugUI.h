@@ -1,9 +1,11 @@
 #pragma once
+
 #include "CameraController.h"
 #include "GizmoDrawer.h"
 #include "DoorMove.h"
 
-enum class SelectedObjectType {
+enum class SelectedObjectType
+{
     None,
     Player,
     EnemyManager,
@@ -11,12 +13,14 @@ enum class SelectedObjectType {
     PaladinModel,
     Door,
     TeleportPoint,
-    GoalPoint
+    GoalPoint,
+    Items
 };
 
 class GameContext;
 
-class DebugUI {
+class DebugUI
+{
 public:
     void Draw(GameContext& gameContext);
 
@@ -25,9 +29,14 @@ private:
     void DrawInspector(GameContext& gameContext);
     void DrawCameraController(CameraController& cameraController);
 
-    SelectedObjectType selectedObject_{ SelectedObjectType::None };
+    SelectedObjectType selectedObject_{
+        SelectedObjectType::None
+    };
+
     GizmoDrawer gizmoDrawer_;
     DoorMove door_;
 
     int selectedTeleportIndex_{ 0 };
+
+    int selectedItemIndex_{ 0 };
 };
