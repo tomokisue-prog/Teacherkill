@@ -31,6 +31,7 @@
     <ClCompile Include="DebugUI.cpp" />
     <ClCompile Include="DoorMove.cpp" />
     <ClCompile Include="Enemy.cpp" />
+    <ClCompile Include="BloodEffect.cpp" />
     <ClCompile Include="EnemyAI.cpp" />
     <ClCompile Include="EnemyConfig.cpp" />
     <ClCompile Include="EnemyManager.cpp" />
@@ -93,6 +94,7 @@
     <ClInclude Include="DoorMove.h" />
     <ClInclude Include="DamageFlash.h" />
     <ClInclude Include="Enemy.h" />
+    <ClInclude Include="BloodEffect.h" />
     <ClInclude Include="EnemyAI.h" />
     <ClInclude Include="EnemyConfig.h" />
     <ClInclude Include="EnemyManager.h" />

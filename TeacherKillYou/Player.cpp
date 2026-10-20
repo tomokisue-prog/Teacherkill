@@ -731,13 +731,14 @@ void Player::Draw(const PlayerCamera* camera) const
 
         QuaternionToAxisAngle(rotation, &axis, &angle);
 
-        DrawModelEx(
+        // Apply the FPS lighting profile to the gun and arms in every animation pose.
+        DrawHorrorModelEx(
             handGun,
             pos,
             axis,
             angle * RAD2DEG,
             { viewModelScale_, viewModelScale_, viewModelScale_ },
-            WHITE
+            WHITE, 0.0f, true
         );
     }
 

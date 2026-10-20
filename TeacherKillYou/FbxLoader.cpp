@@ -1,5 +1,6 @@
 ﻿#include "FbxLoader.h"
 #include "HorrorLighting.h"
+#include "GltfMaterials.h"
 #include "third_party/ufbx/ufbx.h"
 #include "raymath.h"
 #include "rlgl.h"
@@ -33,6 +34,21 @@ std::string Text(ufbx_string value) { return std::string(value.data, value.lengt
 std::string Lower(std::string value) {
     for (char& ch : value) if (ch >= 'A' && ch <= 'Z') ch += 'a' - 'A';
     return value;
+}
+std::vector<const ufbx_anim_stack*> OrderedClips(const ufbx_scene& scene, bool preferWalk) {
+    std::vector<const ufbx_anim_stack*> clips(scene.anim_stacks.begin(), scene.anim_stacks.end());
+    // 書き出し時の静止takeも保持するが、既定再生には時間のあるクリップを先に置く。
+    const auto animatedEnd = std::stable_partition(clips.begin(), clips.end(), [](const auto* clip) {
+        return clip->time_end > clip->time_begin;
+    });
+    if (preferWalk) {
+        const auto walk = std::find_if(clips.begin(), animatedEnd, [](const auto* clip) {
+            const auto name = Lower(Text(clip->name));
+            return name.find("walk") != std::string::npos || name.find("run") != std::string::npos;
+        });
+        if (walk != animatedEnd) std::rotate(clips.begin(), walk, walk + 1);
+    }
+    return clips;
 }
 std::string PathText(ufbx_string value) {
     auto result = Text(value);
@@ -261,13 +277,25 @@ void PrepareSkinFallbacks(MeshSource& source) {
     if (repaired) TraceLog(LOG_INFO, "FBX: [%s] Bound %zu unweighted vertices to nearby bones", source.node->name.data, repaired);
 }
 
-Vertex ReadVertex(const MeshSource& source, uint32_t corner) {
+const ufbx_vertex_vec2& MaterialCoordinates(const ufbx_mesh& mesh, const ufbx_material* material, int companionUV) {
+    if (companionUV >= 0) {
+        for (const auto& uv : mesh.uv_sets) if (uv.index == static_cast<uint32_t>(companionUV)) return uv.vertex_uv;
+    } else if (material) {
+        const auto* texture = material->pbr.base_color.texture ? material->pbr.base_color.texture : material->fbx.diffuse_color.texture;
+        if (texture && texture->uv_set.length) {
+            for (const auto& uv : mesh.uv_sets) if (Text(uv.name) == Text(texture->uv_set)) return uv.vertex_uv;
+        }
+    }
+    return mesh.vertex_uv;
+}
+
+Vertex ReadVertex(const MeshSource& source, uint32_t corner, const ufbx_vertex_vec2& coordinates) {
     const auto* mesh = source.node->mesh;
     Vertex result{};
     result.position = Vector(ufbx_transform_position(&source.node->geometry_to_world, mesh->vertex_position[corner]));
     result.normal = Vector3Normalize(Vector(ufbx_transform_direction(&source.normalMatrix, mesh->vertex_normal[corner])));
-    if (mesh->vertex_uv.exists) {
-        const ufbx_vec2 uv = mesh->vertex_uv[corner];
+    if (coordinates.exists) {
+        const ufbx_vec2 uv = coordinates[corner];
         result.uv = { static_cast<float>(uv.x), 1.0f - static_cast<float>(uv.y) };
     }
     float weightSum = 0;
@@ -290,10 +318,10 @@ Vertex ReadVertex(const MeshSource& source, uint32_t corner) {
     return result;
 }
 
-void BuildMesh(Mesh& mesh, const MeshPart& part, int bones, bool gpu) {
+void BuildMesh(Mesh& mesh, const MeshPart& part, int bones, bool gpu, const ufbx_vertex_vec2& coordinates) {
     std::vector<Vertex> vertices;
     vertices.reserve(part.corners.size());
-    for (uint32_t corner : part.corners) vertices.push_back(ReadVertex(*part.source, corner));
+    for (uint32_t corner : part.corners) vertices.push_back(ReadVertex(*part.source, corner, coordinates));
     std::vector<uint32_t> indices(vertices.size());
     const ufbx_vertex_stream stream{ vertices.data(), vertices.size(), sizeof(Vertex) };
     ufbx_error error{};
@@ -327,7 +355,7 @@ void BuildMesh(Mesh& mesh, const MeshPart& part, int bones, bool gpu) {
 }
 }
 
-FbxModelData LoadFbxModel(const std::string& path) {
+FbxModelData LoadFbxModel(const std::string& path, bool inPlaceLocomotion) {
     FbxModelData data;
     try {
         ScenePtr scene = ReadScene(path);
@@ -401,6 +429,7 @@ FbxModelData LoadFbxModel(const std::string& path) {
         Image flatImage = GenImageColor(1, 1, {128, 128, 255, 255});
         const Texture2D flatNormal = LoadTextureFromImage(flatImage);
         UnloadImage(flatImage);
+        std::vector<std::string> materialNames(data.model.materialCount);
         for (int m = 0; m < data.model.materialCount; ++m) {
             Material& material = data.model.materials[m];
             material = LoadMaterialDefault();
@@ -410,6 +439,7 @@ FbxModelData LoadFbxModel(const std::string& path) {
             material.maps[MATERIAL_MAP_ROUGHNESS].value = 0.72f;
             if (m == 0) continue;
             const auto* source = scene->materials[m - 1];
+            materialNames[m] = Text(source->name);
             if (source->pbr.roughness.has_value)
                 material.maps[MATERIAL_MAP_ROUGHNESS].value = static_cast<float>(source->pbr.roughness.value_real);
             if (source->pbr.metalness.has_value)
@@ -424,6 +454,18 @@ FbxModelData LoadFbxModel(const std::string& path) {
             const double opacity = source->pbr.opacity.has_value ? source->pbr.opacity.value_real
                 : ufbx_find_real(&source->props, "Opacity", 1.0);
             material.maps[MATERIAL_MAP_ALBEDO].color.a = static_cast<unsigned char>(Clamp(static_cast<float>(opacity), 0, 1) * 255);
+        }
+        // 小さな材質専用GLBを優先し、なければ従来の同名GLBから補完する。
+        // 形状・骨格・アニメーションはFBXを使うため、補助GLBにメッシュは不要。
+        const std::string stem = path.substr(0, path.find_last_of('.'));
+        const std::string compactPath = stem + ".materials.glb";
+        const std::string companionPath = FileExists(compactPath.c_str()) ? compactPath : stem + ".glb";
+        const auto companionUVs = ApplyGlbMaterialCompanion(data.model, companionPath, materialNames);
+        for (int m = 1; m < data.model.materialCount; ++m) {
+            if (companionUVs[m] >= 0) continue;
+            Material& material = data.model.materials[m];
+            const auto* source = scene->materials[m - 1];
+            const auto& base = source->pbr.base_color;
             const auto* texture = base.texture ? base.texture : source->fbx.diffuse_color.texture;
             if (texture) {
                 auto loaded = textures.find(texture);
@@ -439,15 +481,26 @@ FbxModelData LoadFbxModel(const std::string& path) {
         }
         for (std::size_t m = 0; m < parts.size(); ++m) {
             data.model.meshMaterial[m] = parts[m].material;
-            BuildMesh(data.model.meshes[m], parts[m], data.model.boneCount, gpu);
+            const auto* material = parts[m].material > 0 ? scene->materials[parts[m].material - 1] : nullptr;
+            const auto& coordinates = MaterialCoordinates(*parts[m].source->node->mesh, material, companionUVs[parts[m].material]);
+            BuildMesh(data.model.meshes[m], parts[m], data.model.boneCount, gpu, coordinates);
         }
-        std::vector<const ufbx_anim_stack*> clips(scene->anim_stacks.begin(), scene->anim_stacks.end());
-        // 複数のアクションがあるとき、Enemy用の歩行を先頭にする。他のクリップも保持する。
-        const auto walk = std::find_if(clips.begin(), clips.end(), [](const auto* clip) { return Lower(Text(clip->name)).find("walk") != std::string::npos; });
-        if (walk != clips.end()) std::rotate(clips.begin(), walk, walk + 1);
+        const auto clips = OrderedClips(*scene, true);
         data.animations = Allocate<ModelAnimation>(clips.size());
         data.animationCount = static_cast<int>(clips.size());
         data.bakedFrames.resize(clips.size());
+        const ufbx_node* motionRoot = nullptr;
+        for (const auto& binding : bindings) {
+            if (binding.rigid) continue;
+            const auto* node = scene->nodes[binding.node];
+            if (!motionRoot) { motionRoot = node; continue; }
+            for (;;) {
+                const ufbx_node* ancestor = node;
+                while (ancestor && ancestor != motionRoot) ancestor = ancestor->parent;
+                if (ancestor || !motionRoot->parent) break;
+                motionRoot = motionRoot->parent;
+            }
+        }
         for (std::size_t clip = 0; clip < clips.size(); ++clip) {
             const auto* source = clips[clip];
             const double duration = source->time_end - source->time_begin;
@@ -462,6 +515,15 @@ FbxModelData LoadFbxModel(const std::string& path) {
             animation.frameCount = frameCount;
             auto& frames = data.bakedFrames[clip];
             frames.reserve(static_cast<std::size_t>(animation.frameCount) * bindings.size());
+            Vector3 travel{};
+            if (inPlaceLocomotion && motionRoot && duration > 0) {
+                ScenePtr first(ufbx_evaluate_scene(scene.get(), source->anim, source->time_begin, nullptr, &error), ufbx_free_scene);
+                ScenePtr last(ufbx_evaluate_scene(scene.get(), source->anim, source->time_end, nullptr, &error), ufbx_free_scene);
+                if (!first || !last) throw std::runtime_error(ErrorText(error));
+                const auto& a = first->nodes[motionRoot->typed_id]->node_to_world;
+                const auto& b = last->nodes[motionRoot->typed_id]->node_to_world;
+                travel = {static_cast<float>(b.m03 - a.m03), 0, static_cast<float>(b.m23 - a.m23)};
+            }
             for (int frame = 0; frame < animation.frameCount; ++frame) {
                 const double time = source->time_begin + (std::min)(duration, frame * FrameDuration);
                 ScenePtr evaluated(ufbx_evaluate_scene(scene.get(), source->anim, time, nullptr, &error), ufbx_free_scene);
@@ -471,7 +533,11 @@ FbxModelData LoadFbxModel(const std::string& path) {
                     const auto& binding = bindings[bone];
                     const auto* node = evaluated->nodes[binding.node];
                     const ufbx_matrix toWorld = binding.rigid ? node->geometry_to_world : ufbx_matrix_mul(&node->node_to_world, &binding.toBone);
-                    const Matrix matrix = MatrixFrom(ufbx_matrix_mul(&toWorld, &binding.fromWorld));
+                    Matrix matrix = MatrixFrom(ufbx_matrix_mul(&toWorld, &binding.fromWorld));
+                    // AIが位置を動かすため、歩行takeの水平な移動量だけを取り除く。上下動と骨の動きは残す。
+                    const float progress = duration > 0 ? static_cast<float>((time - source->time_begin) / duration) : 0;
+                    matrix.m12 -= travel.x * progress;
+                    matrix.m14 -= travel.z * progress;
                     frames.push_back(matrix);
                     Transform& pose = animation.framePoses[frame][bone];
                     MatrixDecompose(matrix, &pose.translation, &pose.rotation, &pose.scale);
@@ -506,11 +572,12 @@ FbxAnimationData LoadFbxAnimations(const std::string& path, const Model& model,
             if (found == nodes.end()) throw std::runtime_error("Animation rig does not match the model");
             boneNodes.push_back(found->second);
         }
-        data.animations = Allocate<ModelAnimation>(scene->anim_stacks.count);
-        data.animationCount = static_cast<int>(scene->anim_stacks.count);
+        const auto clips = OrderedClips(*scene, false);
+        data.animations = Allocate<ModelAnimation>(clips.size());
+        data.animationCount = static_cast<int>(clips.size());
         data.bakedFrames.resize(data.animationCount);
         for (int clip = 0; clip < data.animationCount; ++clip) {
-            const auto* source = scene->anim_stacks[clip];
+            const auto* source = clips[clip];
             const double duration = source->time_end - source->time_begin;
             // A zero-length take is a valid static pose, not a reason to reject the other clips.
             if (!std::isfinite(duration) || duration < 0 || duration / FrameDuration > (std::numeric_limits<int>::max)() - 1)
