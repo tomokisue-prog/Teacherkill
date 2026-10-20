@@ -9,9 +9,6 @@
 #include <algorithm>
 #include <cstring>
 
-// ==========================================
-// Existing GameObject Gizmo
-// ==========================================
 void GizmoDrawer::Draw(
     GameContext& gameContext,
     GameObject* targetObj)
