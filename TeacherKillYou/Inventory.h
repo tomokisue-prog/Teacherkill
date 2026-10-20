@@ -1,3 +1,4 @@
+
 #pragma once
 
 #include "raylib.h"
@@ -15,10 +16,26 @@ public:
     void End();
 
     void Update(float deltaTime, const Camera3D& camera);
-    void DrawWorld() const;  // During BeginMode3D/EndMode3D
-    void DrawHUD() const;    // After EndMode3D
+    void DrawWorld() const;
+    void DrawHUD() const;
 
-    ItemType GetUsedItem() const { return usedItem_; }
+    ItemType GetUsedItem() const
+    {
+        return usedItem_;
+    }
+
+    // =====================================
+    // DebugUI - World Item Access
+    // =====================================
+    std::vector<Item>& GetWorldItems()
+    {
+        return items_;
+    }
+
+    const std::vector<Item>& GetWorldItems() const
+    {
+        return items_;
+    }
 
 private:
     static constexpr int MAX_SLOTS = 4;
@@ -48,8 +65,11 @@ private:
     int FindFocusedPickup(const Camera3D& camera) const;
 
     const ItemModel* GetItemModel(ItemType type) const;
-    static void LoadItemModel(ItemModel& destination,
+
+    static void LoadItemModel(
+        ItemModel& destination,
         const char* glbPath,
         float targetSize);
+
     static void UnloadItemModel(ItemModel& destination);
 };
