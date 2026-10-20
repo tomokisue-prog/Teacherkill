@@ -24,7 +24,7 @@ void ResourceManager::LoadAll() {
     LoadModelAnimations("PlayerReload", "Data/Image/HandPov/reload_raylib.glb");
    
 
-	LoadModel(ResourceKeys::Model_Stage1, "Data/Image/floor 4.glb");
+	LoadModel(ResourceKeys::Model_Stage1, "Data/Image/floor 4 uv warp all.glb");
 
     // アニメーションのロードも行う
 
@@ -34,11 +34,13 @@ void ResourceManager::LoadAll() {
     LoadFbxAnimation(ResourceKeys::Animation_EnemyDeath, ResourceKeys::Model_Enemy,
                      "Data/Image/Monster_final_animations/MONSTER_dead_final.fbx");
 
-    LoadModel(ResourceKeys::Model_FemaleZombie, "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie_female_walk.fbx");
+    LoadModel(ResourceKeys::Model_FemaleZombie, "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 running.fbx");
     LoadFbxAnimation(ResourceKeys::Animation_FemaleZombieAttack, ResourceKeys::Model_FemaleZombie,
-                     "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/Zombie_female_Attack.fbx");
+                     "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 attack.fbx");
     LoadFbxAnimation(ResourceKeys::Animation_FemaleZombieDeath, ResourceKeys::Model_FemaleZombie,
-                     "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/Zombie_Female_death.fbx");
+                     "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 death.fbx");
+    LoadFbxAnimation(ResourceKeys::Animation_FemaleZombieHit, ResourceKeys::Model_FemaleZombie,
+                     "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 hit.fbx");
 
 	LoadModel(ResourceKeys::Model_Door, "Data/Image/slide door.glb");
 

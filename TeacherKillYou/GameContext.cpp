@@ -161,6 +161,10 @@ void GameContext::PlaceCharacters()
     enemyManager_.Spawn(stage_.FindGroundPosition({ 0.9f, 0.0f, 2.5f }), {});
     demo::EnemyConfig femaleConfig;
     femaleConfig.type = demo::EnemyType::FemaleZombie;
+    // このステージの戸口（幅約0.78・高さ約1.71）を通れる寸法。
+    // Enemyの描画倍率と移動・被弾判定は、同じbodyHeight/bodyRadiusを使う。
+    femaleConfig.bodyHeight = 1.45f;
+    femaleConfig.bodyRadius = 0.25f;
     enemyManager_.Spawn(stage_.FindGroundPosition({ -0.9f, 0.0f, 2.5f }), femaleConfig);
     paladinPosition_ = stage_.FindGroundPosition({ 0.0f, 0.0f, 3.0f });
     cameraController_.GetPlayerCamera().SetPlayerPosition(player_.GetPosition());
@@ -578,7 +582,8 @@ void GameContext::Draw() const
         cameraController_.GetActiveRaylibCamera(),
         cameraController_.GetPlayerCamera().GetRaylibCamera(),
         stage_.GetPosition(),
-        stage_.GetScale()
+        stage_.GetScale(),
+        !playerView
     );
 
     BeginMode3D(cameraController_.GetActiveRaylibCamera());

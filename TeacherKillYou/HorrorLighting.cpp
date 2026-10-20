@@ -55,6 +55,7 @@ uniform vec3 lightDirection;
 uniform float flashlightEnabled;
 uniform float flashlightRadiusPadding;
 uniform float viewModelLighting;
+uniform float editorLighting;
 uniform vec3 fluorescentTint;
 uniform vec3 flashlightTint;
 uniform vec4 surface; // 粗さ、金属度、法線マップの種類、MRテクスチャの使用フラグ
@@ -101,6 +102,14 @@ void main() {
         vec3 mapped = texture(texture2, fragTexCoord).rgb * 2.0 - 1.0;
         if (surface.z > 1.5) mapped.y = -mapped.y;
         if (length2 > 1e-12) normal = normalize(mat3(tangent, bitangent, normal * sqrt(length2)) * mapped);
+    }
+    // Neutral, even lighting for the editor; keep textures and skinned geometry.
+    if (editorLighting > 0.5) {
+        float diffuse = max(dot(normal, normalize(vec3(-0.35, 0.8, -0.45))), 0.0);
+        vec3 base = pow(max(albedo.rgb, vec3(0.0)), vec3(2.2));
+        finalColor = vec4(pow(base * (0.55 + 0.30 * diffuse), vec3(1.0 / 2.2)), albedo.a);
+        focusColor = vec4(1.0, 0.0, 0.0, albedo.a);
+        return;
     }
     float roughness = surface.x, metalness = surface.y;
     if (surface.w > 0.5) {
@@ -394,7 +403,7 @@ void HorrorLighting::Init(const std::vector<Shader>& shaders, const Model& build
         const int enabled = GetShaderLocation(shader, "flashlightEnabled");
         if (enabled >= 0) modelLights_.push_back({shader,
             GetShaderLocation(shader, "viewPosition"), GetShaderLocation(shader, "lightPosition"),
-            GetShaderLocation(shader, "lightDirection"), enabled,
+            GetShaderLocation(shader, "lightDirection"), enabled, GetShaderLocation(shader, "editorLighting"),
             GetShaderLocation(shader, "buildingLightCount"), GetShaderLocation(shader, "buildingPositions[0]"),
             GetShaderLocation(shader, "buildingColors[0]"), GetShaderLocation(shader, "buildingDirections[0]")});
     }
@@ -419,7 +428,8 @@ void HorrorLighting::Update() {
     }
 }
 
-void HorrorLighting::BeginFrame(const Camera3D& view, const Camera3D& flashlight, Vector3 stagePosition, float stageScale) {
+void HorrorLighting::BeginFrame(const Camera3D& view, const Camera3D& flashlight, Vector3 stagePosition, float stageScale, bool editorView) {
+    editorView_ = editorView;
     // 表示用カメラとは別にプレイヤーの視線から光源を置き、手で持つ位置へ少しずらす。
     const Vector3 direction = Vector3Normalize(Vector3Subtract(flashlight.target, flashlight.position));
     const Vector3 right = Vector3Normalize(Vector3CrossProduct(direction, flashlight.up));
@@ -427,6 +437,7 @@ void HorrorLighting::BeginFrame(const Camera3D& view, const Camera3D& flashlight
     position = Vector3Add(position, Vector3Scale(right, 0.10f));
     position = Vector3Subtract(position, Vector3Scale(flashlight.up, 0.09f));
     const float enabled = flashlightOn_ ? 1.0f : 0.0f;
+    const float editor = editorView_ ? 1.0f : 0.0f;
     // ステージの移動・拡縮に追従し、表示カメラに近い8灯だけをGPUへ送る。
     std::vector<BuildingLight> nearest = buildingLights_;
     for (auto& light : nearest) light.position = Vector3Add(stagePosition, Vector3Scale(light.position, stageScale));
@@ -446,6 +457,7 @@ void HorrorLighting::BeginFrame(const Camera3D& view, const Camera3D& flashlight
         SetShaderValue(light.shader, light.lightPosition, &position, SHADER_UNIFORM_VEC3);
         SetShaderValue(light.shader, light.lightDirection, &direction, SHADER_UNIFORM_VEC3);
         SetShaderValue(light.shader, light.enabled, &enabled, SHADER_UNIFORM_FLOAT);
+        SetShaderValue(light.shader, light.editorView, &editor, SHADER_UNIFORM_FLOAT);
         SetShaderValue(light.shader, light.buildingCount, &count, SHADER_UNIFORM_INT);
         if (count > 0) {
             SetShaderValueV(light.shader, light.buildingPositions, positions.data(), SHADER_UNIFORM_VEC3, count);
@@ -454,6 +466,11 @@ void HorrorLighting::BeginFrame(const Camera3D& view, const Camera3D& flashlight
         }
     }
     // リサイズ時だけバッファを再確保する。画面効果の描画解像度は最大1920×1080に抑える。
+    if (editorView_) {
+        // 編集中は中立色の背景へ直接描画し、暗い霧・緑の色調補正・周辺ぼかしを通さない。
+        ClearBackground({48, 54, 62, 255});
+        return;
+    }
     const int screenWidth = (std::max)(GetScreenWidth(), 1);
     const int screenHeight = (std::max)(GetScreenHeight(), 1);
 
@@ -513,6 +530,7 @@ void HorrorLighting::BeginFrame(const Camera3D& view, const Camera3D& flashlight
 }
 
 void HorrorLighting::EndFrame(bool drawControls) const {
+    if (editorView_) return;
     // 3D描画を終了し、照射範囲の外だけをぼかして緑のグラデーションを重ねる。HUDはこの後。
     if (scene_.id) {
         rlDrawRenderBatchActive();
@@ -547,4 +565,5 @@ void HorrorLighting::Shutdown() {
     post_ = {};
     modelLights_.clear();
     buildingLights_.clear();
+    editorView_ = false;
 }

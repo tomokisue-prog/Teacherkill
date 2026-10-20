@@ -18,7 +18,7 @@
 namespace {
 constexpr double FrameDuration = 0.017;
 constexpr std::size_t ChunkVertices = 65535; // raylibの16bitインデックスに収める。
-constexpr int GpuBones = 128;
+constexpr int GpuBones = 256; // 頂点のボーンIDはunsigned char。端末のuniform容量はシェーダー生成時に確認する。
 using ScenePtr = std::unique_ptr<ufbx_scene, decltype(&ufbx_free_scene)>;
 
 template<class T> T* Allocate(std::size_t count) {
@@ -118,10 +118,31 @@ struct Binding {
     ufbx_matrix fromWorld;
     bool rigid;
 };
+
+bool SameMatrix(const ufbx_matrix& a, const ufbx_matrix& b) {
+    for (int i = 0; i < 12; ++i) {
+        const double scale = (std::max)({1.0, std::fabs(a.v[i]), std::fabs(b.v[i])});
+        if (std::fabs(a.v[i] - b.v[i]) > 1e-9 * scale) return false;
+    }
+    return true;
+}
+
+int AddBinding(std::vector<Binding>& bindings, const Binding& candidate) {
+    // 同じ骨でも逆バインドが異なる場合は別の結合を保持する。
+    for (std::size_t i = 0; i < bindings.size(); ++i) {
+        const auto& binding = bindings[i];
+        if (binding.node == candidate.node && binding.rigid == candidate.rigid &&
+            SameMatrix(binding.toBone, candidate.toBone) && SameMatrix(binding.fromWorld, candidate.fromWorld))
+            return static_cast<int>(i);
+    }
+    bindings.push_back(candidate);
+    return static_cast<int>(bindings.size() - 1);
+}
+
 struct MeshSource {
     const ufbx_node* node;
     const ufbx_skin_deformer* skin;
-    int firstBone;
+    std::vector<int> bones; // メッシュ内のクラスタ番号から共有結合番号への対応。
     int rigidBone;
     ufbx_matrix normalMatrix;
     std::vector<int> fallbackBones; // Missing skin weights are repaired once at import.
@@ -182,8 +203,11 @@ Texture2D ReadTexture(const ufbx_texture* texture, const std::string& directory)
 }
 
 // CPU・GPUの両方で同じ陰影を使う。法線は面の内側で補間してから照明を計算する。
-Shader LoadFbxShader(bool gpu) {
-    const std::string vertex = std::string("#version 330\n") + (gpu ? "#define GPU_SKINNING\n" : "") + R"(
+Shader LoadFbxShader(int boneCount) {
+    const bool gpu = boneCount > 0;
+    // 必要な本数だけ宣言し、骨の少ない既存モデルまでGPUのuniform上限を圧迫しない。
+    const std::string defines = gpu ? "#define GPU_SKINNING\n#define SKIN_BONES " + std::to_string(boneCount) + "\n" : "";
+    const std::string vertex = std::string("#version 330\n") + defines + R"(
 layout(location=0) in vec3 vertexPosition;
 layout(location=1) in vec2 vertexTexCoord;
 layout(location=2) in vec3 vertexNormal;
@@ -195,7 +219,7 @@ uniform mat4 matNormal;
 // raylib自身の属性配置に合わせる。配布ライブラリで番号が異なるため固定しない。
 in vec4 vertexBoneIds;
 in vec4 vertexBoneWeights;
-uniform mat4 boneMatrices[128];
+uniform mat4 boneMatrices[SKIN_BONES];
 #endif
 out vec2 fragTexCoord;
 out vec4 fragColor;
@@ -268,7 +292,7 @@ void PrepareSkinFallbacks(MeshSource& source) {
             const float distance = Vector3DistanceSqr(position, boneCenters[bone]);
             if (distance < nearest) {
                 nearest = distance;
-                source.fallbackBones[v] = source.firstBone + static_cast<int>(bone);
+                source.fallbackBones[v] = source.bones[bone];
             }
         }
         ++repaired;
@@ -303,7 +327,7 @@ Vertex ReadVertex(const MeshSource& source, uint32_t corner, const ufbx_vertex_v
         const auto vertex = source.skin->vertices[mesh->vertex_indices[corner]];
         for (std::size_t i = 0; i < (std::min)(vertex.num_weights, uint32_t(4)); ++i) {
             const auto weight = source.skin->weights[vertex.weight_begin + i];
-            result.bones[i] = static_cast<unsigned char>(source.firstBone + weight.cluster_index);
+            result.bones[i] = static_cast<unsigned char>(source.bones[weight.cluster_index]);
             result.weights[i] = static_cast<float>(weight.weight);
             weightSum += result.weights[i];
         }
@@ -367,13 +391,15 @@ FbxModelData LoadFbxModel(const std::string& path, bool inPlaceLocomotion) {
             if (!node->mesh || node->mesh->num_triangles == 0) continue;
             const auto* skin = node->mesh->skin_deformers.count ? node->mesh->skin_deformers[0] : nullptr;
             const ufbx_matrix inverseGeometry = ufbx_matrix_invert(&node->geometry_to_world);
-            const int firstBone = static_cast<int>(bindings.size());
+            std::vector<int> meshBones;
             if (skin) for (const auto* cluster : skin->clusters) {
-                bindings.push_back({ cluster->bone_node->typed_id, cluster->geometry_to_bone, inverseGeometry, false });
+                // 頂点と同じワールド座標系へ逆バインドを揃え、等価な結合だけを共有する。
+                // 複数メッシュで同じ65本の骨を使うモデルも、重複で256上限に達しない。
+                const auto worldToBone = ufbx_matrix_mul(&cluster->geometry_to_bone, &inverseGeometry);
+                meshBones.push_back(AddBinding(bindings, {cluster->bone_node->typed_id, worldToBone, ufbx_identity_matrix, false}));
             }
-            const int rigidBone = static_cast<int>(bindings.size());
-            bindings.push_back({ node->typed_id, ufbx_identity_matrix, inverseGeometry, true });
-            sources.push_back({ node, skin, firstBone, rigidBone, ufbx_matrix_for_normals(&node->geometry_to_world) });
+            const int rigidBone = AddBinding(bindings, {node->typed_id, ufbx_identity_matrix, inverseGeometry, true});
+            sources.push_back({ node, skin, std::move(meshBones), rigidBone, ufbx_matrix_for_normals(&node->geometry_to_world) });
             PrepareSkinFallbacks(sources.back());
         }
         if (sources.empty()) throw std::runtime_error("FBX has no triangle mesh");
@@ -422,8 +448,8 @@ FbxModelData LoadFbxModel(const std::string& path, bool inPlaceLocomotion) {
         std::unordered_map<const ufbx_texture*, Texture2D> textures;
         const std::string directory = GetDirectoryPath(path.c_str());
         bool gpu = data.model.boneCount <= GpuBones && scene->anim_stacks.count;
-        Shader shader = LoadFbxShader(gpu);
-        if (!shader.id && gpu) { gpu = false; shader = LoadFbxShader(false); }
+        Shader shader = LoadFbxShader(gpu ? data.model.boneCount : 0);
+        if (!shader.id && gpu) { gpu = false; shader = LoadFbxShader(0); }
         gpu = gpu && shader.id != 0;
         // 法線マップがない材質には平坦な法線を使い、シェーダーを材質間で共有する。
         Image flatImage = GenImageColor(1, 1, {128, 128, 255, 255});

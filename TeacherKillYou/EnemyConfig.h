@@ -21,6 +21,8 @@ namespace demo {
         float attackHitFraction = 0.4f;
         float attackRecovery = 0.65f;
         EnemyType type = EnemyType::Monster;
+        // クリップの再生倍率。攻撃判定と死亡・被弾の終了時刻もこの倍率に合わせる。
+        float animationSpeed = 1.5f;
 
         // 不正な値が入らないように自動で調整する関数
         void Validate();
