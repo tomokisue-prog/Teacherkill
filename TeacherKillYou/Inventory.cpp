@@ -87,7 +87,7 @@ void Inventory::Reset()
     items_.clear();
 
     // World-space positions. Adjust these to match your school map.
-    items_.emplace_back(ItemType::KeyCard, Vector3{ -1.2f, 0.35f, 2.0f });
+    items_.emplace_back(ItemType::KeyCard, Vector3{ 7.11f, 5.64f, 1.15f });
     items_.emplace_back(ItemType::Medkit, Vector3{ 0.0f, 0.35f, 1.8f });
     items_.emplace_back(ItemType::Ammo, Vector3{ 1.2f, 0.35f, 2.0f });
 }

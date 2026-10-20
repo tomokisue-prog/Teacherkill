@@ -787,6 +787,27 @@ void Player::DrawAmmoHUD() const
     DrawText(TextFormat("%02d / %02d", currentAmmo_, reserveAmmo_), x, y, 30, RAYWHITE);
     if (isReloading_) DrawText("RELOADING", x, y - 35, 18, YELLOW);
 }
+// =======================================
+// Med Kit - Restore HP
+// =======================================
+void Player::Heal(int amount)
+{
+    if (amount <= 0 || !IsAlive())
+        return;
+
+    hp_ = (std::min)(hp_ + amount, maxHp_);
+}
+
+// =======================================
+// Ammo - Add Reserve Bullets
+// =======================================
+void Player::AddReserveAmmo(int amount)
+{
+    if (amount <= 0)
+        return;
+
+    reserveAmmo_ += amount;
+}
 
 void Player::End()
 {

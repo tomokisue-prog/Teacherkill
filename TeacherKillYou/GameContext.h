@@ -45,6 +45,11 @@ public:
     std::vector<TeleportPoint>& GetTeleportPoints() { return teleportPoints_; }
     const std::vector<TeleportPoint>& GetTeleportPoints() const { return teleportPoints_; }
 
+    Inventory& GetInventory()
+    {
+        return inventory_;
+    }
+
 private:
     void PlaceCharacters();
     void ProcessPlayerShot();

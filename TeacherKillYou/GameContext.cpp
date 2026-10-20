@@ -67,6 +67,12 @@ static void DrawHitMarker(bool isKill)
         thickness, color);
 }
 
+namespace
+{
+    constexpr int MEDKIT_HEAL_AMOUNT = 50;
+    constexpr int AMMO_PICKUP_AMOUNT = 30;
+}
+
 void GameContext::Init()
 {
     cameraController_.Init();
@@ -488,15 +494,37 @@ void GameContext::Update(float deltaTime)
     // 4. カメラ更新
     cameraController_.Update();
 
-    // 5. インベントリ更新
+    // =======================================
+    // 5. Inventory Update + Item Effects
+    // =======================================
     if (isPlayerCameraActive)
     {
         Camera3D camera =
             cameraController_.GetPlayerCamera().GetRaylibCamera();
 
         inventory_.Update(deltaTime, camera);
-    }
 
+        // Check whether an item was used
+        ItemType usedItem = inventory_.GetUsedItem();
+
+        switch (usedItem)
+        {
+        case ItemType::Medkit:
+        {
+            player_.Heal(MEDKIT_HEAL_AMOUNT);
+            break;
+        }
+
+        case ItemType::Ammo:
+        {
+            player_.AddReserveAmmo(AMMO_PICKUP_AMOUNT);
+            break;
+        }
+
+        default:
+            break;
+        }
+    }
     // 6. プレイヤー射撃処理
     ProcessPlayerShot();
 

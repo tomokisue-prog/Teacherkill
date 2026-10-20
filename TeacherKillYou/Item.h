@@ -20,6 +20,10 @@ public:
 
     ItemType GetType() const { return type_; }
     Vector3 GetPosition() const { return position_; }
+    void SetPosition(Vector3 position)
+    {
+        position_ = position;
+    }
     bool IsCollected() const { return collected_; }
     void Collect() { collected_ = true; }
 
@@ -32,6 +36,8 @@ public:
         float& forwardDistance) const;
 
     static const char* GetName(ItemType type);
+
+
 
 private:
     ItemType type_ = ItemType::None;
