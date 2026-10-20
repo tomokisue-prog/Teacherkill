@@ -3,6 +3,8 @@
 
 namespace demo {
 
+    enum class EnemyType { Monster, FemaleZombie };
+
     struct EnemyConfig {
         int maxHp = 100;
         float moveSpeed = 3.0f;
@@ -18,6 +20,7 @@ namespace demo {
         float attackRange = 1.6f;
         float attackHitFraction = 0.4f;
         float attackRecovery = 0.65f;
+        EnemyType type = EnemyType::Monster;
 
         // •s³‚È’l‚ª“ü‚ç‚È‚¢‚æ‚¤‚É©“®‚Å’²®‚·‚éŠÖ”
         void Validate();

@@ -3,7 +3,6 @@
 #include "Player.h"
 #include "Stage.h"
 #include "ResourceManager.h"
-#include "DamageFlash.h"
 #include "HorrorLighting.h"
 #include "raymath.h"
 
@@ -14,7 +13,13 @@ namespace {
 
     constexpr float ContactEpsilon = 0.001f;
     constexpr float AnimationFrameDuration = 0.017f;
-    constexpr float DamageFlashDuration = 0.6f;
+
+    struct EnemyAssets { const char* model; const char* attack; const char* death; };
+    const EnemyAssets& AssetsFor(demo::EnemyType type) {
+        static constexpr EnemyAssets monster{ ResourceKeys::Model_Enemy, ResourceKeys::Animation_EnemyAttack, ResourceKeys::Animation_EnemyDeath };
+        static constexpr EnemyAssets female{ ResourceKeys::Model_FemaleZombie, ResourceKeys::Animation_FemaleZombieAttack, ResourceKeys::Animation_FemaleZombieDeath };
+        return type == demo::EnemyType::FemaleZombie ? female : monster;
+    }
 
     bool IsFinite(Vector3 value) {
         return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z);
@@ -60,16 +65,15 @@ namespace demo {
         attackHitChecked_ = false;
         attackPose_ = false;
         pendingAttackDamage_ = 0;
-        damageFlashTimer_ = 0.0f;
     }
 
     float Enemy::AttackDuration() const {
-        const auto clip = RM().GetModelAnimation(ResourceKeys::Animation_EnemyAttack);
+        const auto clip = RM().GetModelAnimation(AssetsFor(config_.type).attack);
         return clip.frameCount > 1 ? (clip.frameCount - 1) * AnimationFrameDuration : 0.9f;
     }
 
     float Enemy::DeathDuration() const {
-        const auto clip = RM().GetModelAnimation(ResourceKeys::Animation_EnemyDeath);
+        const auto clip = RM().GetModelAnimation(AssetsFor(config_.type).death);
         return clip.frameCount > 1 ? (clip.frameCount - 1) * AnimationFrameDuration : 0.0f;
     }
 
@@ -102,7 +106,6 @@ namespace demo {
     void Enemy::Update(float dt, const TargetInfo& target, const Stage& stage, const BoundingBox* blocker) {
         pendingAttackDamage_ = 0;
         if (!std::isfinite(dt) || dt <= 0.0f) return;
-        damageFlashTimer_ = (std::max)(0.0f, damageFlashTimer_ - dt);
 
         if (!IsAlive()) {
             const float duration = DeathDuration();
@@ -164,7 +167,7 @@ namespace demo {
         attackPose_ = false;
         const Vector3 currentPos = movement_.GetPosition();
         const bool moved = currentPos.x != previousPosition.x || currentPos.z != previousPosition.z;
-        const char* walkAnimKey = ResourceKeys::Model_Enemy;
+        const char* walkAnimKey = AssetsFor(config_.type).model;
         const ModelAnimation animation = RM().GetModelAnimation(walkAnimKey);
 
         if (IsMoving() && moved && animation.frameCount > 0) {
@@ -188,13 +191,13 @@ namespace demo {
     }
 
     float Enemy::GetDamageFlashStrength() const {
-        return DamageFlashStrength(damageFlashTimer_, DamageFlashDuration);
+        // 呼び出し側との互換性を保つ。被弾表示は命中位置の血しぶきに置き換えた。
+        return 0.0f;
     }
 
     EnemyDamageResult Enemy::TakeDamage(int amount) {
         if (amount <= 0 || !IsAlive()) return { false, hp_, false };
         hp_ = amount >= hp_ ? 0 : hp_ - amount;
-        damageFlashTimer_ = DamageFlashDuration;
         const bool died = hp_ == 0;
         AM().PlaySe(died ? SeId::EnemyDeath : SeId::EnemyHit);
         if (died) {
@@ -203,7 +206,7 @@ namespace demo {
             corpseTimer_ = 0.0f;
             pendingAttackDamage_ = 0;
             ai_.SetAttackCooldown(0.0f);
-            if (RM().GetModelAnimation(ResourceKeys::Animation_EnemyDeath).frameCount > 0) {
+            if (RM().GetModelAnimation(AssetsFor(config_.type).death).frameCount > 0) {
                 animationTime_ = 0.0f;
                 attackPose_ = false;
             }
@@ -216,13 +219,13 @@ namespace demo {
     }
 
     void Enemy::Draw() const {
-        Model model = RM().GetModel(ResourceKeys::Model_Enemy);
+        const auto& assets = AssetsFor(config_.type);
+        Model model = RM().GetModel(assets.model);
         const Vector3 position = movement_.GetPosition();
         if (model.meshCount > 0) {
-            const bool deathPose = !IsAlive() && RM().GetModelAnimation(ResourceKeys::Animation_EnemyDeath).frameCount > 0;
-            const char* clipKey = deathPose ? ResourceKeys::Animation_EnemyDeath :
-                attackPose_ && RM().GetModelAnimation(ResourceKeys::Animation_EnemyAttack).frameCount > 0 ?
-                ResourceKeys::Animation_EnemyAttack : ResourceKeys::Model_Enemy;
+            const bool deathPose = !IsAlive() && RM().GetModelAnimation(assets.death).frameCount > 0;
+            const char* clipKey = deathPose ? assets.death :
+                attackPose_ && RM().GetModelAnimation(assets.attack).frameCount > 0 ? assets.attack : assets.model;
             const ModelAnimation animation = RM().GetModelAnimation(clipKey);
             if (animation.frameCount > 0) {
                 const int elapsedFrame = static_cast<int>(animationTime_ / AnimationFrameDuration);
@@ -230,23 +233,19 @@ namespace demo {
                     deathPose || attackPose_ ? (std::min)(elapsedFrame, animation.frameCount - 1) : elapsedFrame % animation.frameCount;
                 RM().ApplyModelAnimation(clipKey, frame);
             }
-            const BoundingBox bounds = RM().GetModelBounds(ResourceKeys::Model_Enemy);
+            const BoundingBox bounds = RM().GetModelBounds(assets.model);
             const float height = bounds.max.y - bounds.min.y;
             const float scale = height > ContactEpsilon ? config_.bodyHeight / height : 1.0f;
             model.transform = MatrixTranslate(-(bounds.min.x + bounds.max.x) * 0.5f,
                 -bounds.min.y, -(bounds.min.z + bounds.max.z) * 0.5f);
             const Color tint = IsAlive() ? WHITE : Color{ 110, 110, 110, 255 };
-            DrawHorrorModelEx(model, position, { 0, 1, 0 }, 180.0f - yaw_ * RAD2DEG, { scale, scale, scale }, tint, GetDamageFlashStrength());
+            DrawHorrorModelEx(model, position, { 0, 1, 0 }, 180.0f - yaw_ * RAD2DEG, { scale, scale, scale }, tint);
             return;
         }
         Color color = { 57, 187, 173, 255 };
         if (!IsAlive()) color = { 91, 99, 110, 255 };
         else if (ai_.GetState() == EnemyState::Chase) color = { 242, 146, 65, 255 };
 
-        const float flash = GetDamageFlashStrength();
-        color = { static_cast<unsigned char>(color.r + (255 - color.r) * flash),
-                  static_cast<unsigned char>(color.g * (1.0f - flash)),
-                  static_cast<unsigned char>(color.b * (1.0f - flash)), 255 };
         const float radius = config_.bodyRadius;
         const Vector3 center = Vector3Add(position, { 0, config_.bodyHeight * 0.5f, 0 });
         const Vector3 size = { radius * 2, config_.bodyHeight, radius * 2 };

@@ -73,6 +73,7 @@ void GameContext::Init()
     player_.Init();
     stage_.Init();
     inventory_.Init();  // Load item GLB models and spawn items
+    bloodEffect_.Init();
     PlaceCharacters();
     lighting_.Init(RM().GetModelShaders(), RM().GetModel(ResourceKeys::Model_Stage1));
     hitMarkerTimer_ = 0.0f;
@@ -118,6 +119,7 @@ void GameContext::Reset()
     stage_.Reset();
     door_.Reset();
     inventory_.Reset();
+    bloodEffect_.Reset();
     PlaceCharacters();
     lighting_.Init(RM().GetModelShaders(), RM().GetModel(ResourceKeys::Model_Stage1));
     hitMarkerTimer_ = 0.0f;
@@ -149,6 +151,9 @@ void GameContext::PlaceCharacters()
     player_.SetPosition(stage_.FindGroundPosition(player_.GetPosition()));
     enemyManager_.Clear();
     enemyManager_.Spawn(stage_.FindGroundPosition({ 0.9f, 0.0f, 2.5f }), {});
+    demo::EnemyConfig femaleConfig;
+    femaleConfig.type = demo::EnemyType::FemaleZombie;
+    enemyManager_.Spawn(stage_.FindGroundPosition({ -0.9f, 0.0f, 2.5f }), femaleConfig);
     paladinPosition_ = stage_.FindGroundPosition({ 0.0f, 0.0f, 3.0f });
     cameraController_.GetPlayerCamera().SetPlayerPosition(player_.GetPosition());
     cameraController_.GetPlayerCamera().Update();
@@ -185,6 +190,7 @@ void GameContext::ProcessPlayerShot()
 
     demo::EnemyId targetId = 0;
     bool foundTarget = false;
+    Vector3 impactNormal = Vector3Negate(ray.direction);
 
     for (const auto& enemy : enemyManager_.GetEnemies())
     {
@@ -214,6 +220,7 @@ void GameContext::ProcessPlayerShot()
             closestDistance = hit.distance;
             targetId = enemy.GetId();
             foundTarget = true;
+            impactNormal = inside ? Vector3Negate(ray.direction) : hit.normal;
         }
     }
 
@@ -242,6 +249,8 @@ void GameContext::ProcessPlayerShot()
 
     if (result.applied)
     {
+        // 命中判定と同じ位置から出血。空振り・壁越し・死亡済みの敵には生成しない。
+        bloodEffect_.Spawn(tracerEnd_, impactNormal);
         hitMarkerTimer_ = 0.12f;
         hitMarkerKill_ = result.becameDead;
 
@@ -255,6 +264,7 @@ void GameContext::ProcessPlayerShot()
 }
 void GameContext::UpdateShotEffects(float deltaTime)
 {
+    bloodEffect_.Update(deltaTime);
     muzzleFlashTimer_ = (std::max)(
         0.0f, muzzleFlashTimer_ - deltaTime);
 
@@ -537,6 +547,9 @@ void GameContext::Draw() const
     //  3Dインベントリアイテム表示
     inventory_.DrawWorld();
 
+    // 深度テストを維持し、壁や敵の背後の血しぶきを隠す。
+    bloodEffect_.Draw(cameraController_.GetActiveRaylibCamera());
+
     EndMode3D();
 
     lighting_.EndFrame(playerView);
@@ -575,6 +588,7 @@ void GameContext::End()
     player_.End();
     inventory_.End();  // Unload item GLB models
     stage_.End();
+    bloodEffect_.Shutdown();
     lighting_.Shutdown();
 
     if (muzzleFlashTexture_.id != 0)

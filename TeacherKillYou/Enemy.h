@@ -39,6 +39,7 @@ namespace demo {
         void Draw() const;
 
         EnemyId GetId() const { return id_; }
+        EnemyType GetType() const { return config_.type; }
         Vector3 GetPosition() const { return movement_.GetPosition(); }
         float GetYaw() const { return yaw_; }
         BoundingBox GetBodyBounds() const { return movement_.GetBodyBounds(config_); }
@@ -63,7 +64,6 @@ namespace demo {
         float attackTime_ = 0.0f;
         bool attackHitChecked_ = false;
         int pendingAttackDamage_ = 0;
-        float damageFlashTimer_ = 0.0f;
         bool attackPose_ = false;
         float animationTime_ = 0.0f;
     };

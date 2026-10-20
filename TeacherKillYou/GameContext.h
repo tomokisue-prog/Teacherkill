@@ -4,6 +4,7 @@
 #include "Stage.h"
 #include "EnemyManager.h"
 #include "HorrorLighting.h"
+#include "BloodEffect.h"
 #include "DoorMove.h"
 #include <vector>
 #include "TeleportPoint.h"
@@ -52,6 +53,7 @@ private:
 
 
     mutable HorrorLighting lighting_;
+    BloodEffect bloodEffect_;
     CameraController cameraController_;
     Player player_;
     Stage stage_;

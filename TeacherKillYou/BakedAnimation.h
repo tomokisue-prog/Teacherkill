@@ -6,3 +6,5 @@
 using BakedAnimationFrames = std::vector<std::vector<Matrix>>;
 
 void ApplyBakedAnimation(Model model, const std::vector<Matrix>& matrices, int frame);
+// Compute the first animated pose once at import; bind meshes may not be upright.
+BoundingBox GetBakedModelBounds(Model model, const std::vector<Matrix>& matrices);

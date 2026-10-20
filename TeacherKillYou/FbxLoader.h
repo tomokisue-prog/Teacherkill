@@ -25,7 +25,7 @@ struct FbxModelData {
     std::vector<FbxSkinBinding> bindings;
 };
 
-FbxModelData LoadFbxModel(const std::string& path);
+FbxModelData LoadFbxModel(const std::string& path, bool inPlaceLocomotion = false);
 
 // Reuse the existing mesh/rig; no textures, geometry or GPU buffers are reloaded.
 FbxAnimationData LoadFbxAnimations(const std::string& path, const Model& model,
