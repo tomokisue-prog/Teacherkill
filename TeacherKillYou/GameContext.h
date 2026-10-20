@@ -1,4 +1,5 @@
 #pragma once
+
 #include "CameraController.h"
 #include "Player.h"
 #include "Stage.h"
@@ -6,11 +7,12 @@
 #include "HorrorLighting.h"
 #include "BloodEffect.h"
 #include "DoorMove.h"
-#include <vector>
 #include "TeleportPoint.h"
 #include "GameFade.h"
 #include "Inventory.h"
 #include "GoalPoint.h"
+
+#include <vector>
 
 class GameContext
 {
@@ -45,17 +47,14 @@ public:
     std::vector<TeleportPoint>& GetTeleportPoints() { return teleportPoints_; }
     const std::vector<TeleportPoint>& GetTeleportPoints() const { return teleportPoints_; }
 
-    Inventory& GetInventory()
-    {
-        return inventory_;
-    }
+    Inventory& GetInventory() { return inventory_; }
 
 private:
     void PlaceCharacters();
     void ProcessPlayerShot();
     void UpdateShotEffects(float deltaTime);
     void DrawShotEffects() const;
-
+    void DrawBulletMarks() const;
 
     mutable HorrorLighting lighting_;
     BloodEffect bloodEffect_;
@@ -63,29 +62,36 @@ private:
     Player player_;
     Stage stage_;
     demo::EnemyManager enemyManager_;
-	DoorMove door_;
+    DoorMove door_;
     GameFade gameFade_;
     Inventory inventory_;
     GoalPoint goalPoint_;
 
     Vector3 paladinPosition_{ 0.0f, 0.0f, 3.0f };
-
     std::vector<TeleportPoint> teleportPoints_;
 
     float hitMarkerTimer_{ 0.0f };
     bool hitMarkerKill_{ false };
 
-  
     Texture2D muzzleFlashTexture_{};
-
     float muzzleFlashTimer_{ 0.0f };
     int muzzleFlashFrame_{ 0 };
 
     Vector3 tracerStart_{};
     Vector3 tracerEnd_{};
-
     float tracerAge_{ 0.0f };
     float tracerDuration_{ 0.05f };
     bool tracerActive_{ false };
 
+    // Small, temporary bullet-hole marks on stage walls.
+    struct BulletMark
+    {
+        Vector3 position{};
+        Vector3 normal{};
+        float remainingTime = 0.0f;
+    };
+
+    std::vector<BulletMark> bulletMarks_;
+    static constexpr float bulletMarkLifetime_ = 2.0f;
+    static constexpr int maxBulletMarks_ = 40;
 };

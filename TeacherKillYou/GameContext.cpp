@@ -11,6 +11,7 @@
 #include "rlgl.h"
 #include <algorithm>
 #include "SceneManager.h"
+#include <cmath>
 
 static void DrawCrosshair()
 {
@@ -98,6 +99,8 @@ void GameContext::Init()
     tp2.SetTeleportType(TeleportType::Destination);
     teleportPoints_.push_back(tp2);
 
+    bulletMarks_.clear();
+
     if (muzzleFlashTexture_.id == 0)
     {
         muzzleFlashTexture_ =
@@ -130,8 +133,7 @@ void GameContext::Reset()
     lighting_.Init(RM().GetModelShaders(), RM().GetModel(ResourceKeys::Model_Stage1));
     hitMarkerTimer_ = 0.0f;
     hitMarkerKill_ = false;
-
-
+    bulletMarks_.clear();
     teleportPoints_.clear();
     TeleportPoint tp1;
     tp1.SetPosition({ 3.0f, 0.0f, 0.0f });
@@ -244,12 +246,36 @@ void GameContext::ProcessPlayerShot()
     tracerAge_ = 0.0f;
     tracerActive_ = true;
 
+    // =====================================
+    // Spawn a temporary mark on the wall.
+    // No mark if an enemy was hit before the wall.
+    // =====================================
+    if (wallHit.hit && !foundTarget)
+    {
+        // Only vertical-ish surfaces
+        if (std::fabs(wallHit.normal.y) < 0.65f &&
+            Vector3LengthSqr(wallHit.normal) > 0.0001f)
+        {
+            BulletMark mark;
+
+            mark.position = wallHit.point;
+            mark.normal = wallHit.normal;
+            mark.remainingTime = bulletMarkLifetime_;
+
+            if (bulletMarks_.size() >=
+                static_cast<std::vector<BulletMark>::size_type>(maxBulletMarks_))
+            {
+                bulletMarks_.erase(bulletMarks_.begin());
+            }
+
+            bulletMarks_.push_back(mark);
+        }
+    }
+
     if (!foundTarget)
     {
-        if(JPFont){
-        TraceLog(LOG_INFO, "SHOT: 敵に当たらなかった");
+        TraceLog(LOG_INFO, "SHOT: No enemy hit");
         return;
-        }
     }
 
     const demo::EnemyDamageResult result =
@@ -257,17 +283,15 @@ void GameContext::ProcessPlayerShot()
 
     if (result.applied)
     {
-        // 命中判定と同じ位置から出血。空振り・壁越し・死亡済みの敵には生成しない。
+        // Spawn blood only when the shot hits a living enemy.
         bloodEffect_.Spawn(tracerEnd_, impactNormal);
         hitMarkerTimer_ = 0.12f;
         hitMarkerKill_ = result.becameDead;
-        if (JPFont) {
-            TraceLog(LOG_INFO, "HIT: 敵 HP = %d", result.hp);
 
-            if (result.becameDead)
-            {
-                TraceLog(LOG_INFO, "敵を倒しました");
-            }
+        TraceLog(LOG_INFO, "HIT: Enemy HP = %d", result.hp);
+        if (result.becameDead)
+        {
+            TraceLog(LOG_INFO, "Enemy defeated");
         }
     }
 }
@@ -291,6 +315,26 @@ void GameContext::UpdateShotEffects(float deltaTime)
     {
         muzzleFlashTimer_ = 0.0f;
     }
+    // =====================================
+    // Update the lifetime of bullet marks.
+    // =====================================
+    for (BulletMark& mark : bulletMarks_)
+    {
+        mark.remainingTime -= deltaTime;
+    }
+
+    // Remove expired marks
+    bulletMarks_.erase(
+        std::remove_if(
+            bulletMarks_.begin(),
+            bulletMarks_.end(),
+            [](const BulletMark& mark)
+            {
+                return mark.remainingTime <= 0.0f;
+            }
+        ),
+        bulletMarks_.end()
+    );
 }
 void GameContext::DrawShotEffects() const
 {
@@ -490,9 +534,7 @@ void GameContext::Update(float deltaTime)
     // 4. カメラ更新
     cameraController_.Update();
 
-    // =======================================
-    // 5. Inventory Update + Item Effects
-    // =======================================
+    // 5. インベントリ更新（プレイヤーカメラ使用時のみ）
     if (isPlayerCameraActive)
     {
         Camera3D camera =
@@ -572,17 +614,11 @@ void GameContext::Draw() const
 
     player_.Draw(activePlayerCam);
     enemyManager_.Draw();
-
+    DrawBulletMarks();
     DrawShotEffects();
-
-    //  3Dインベントリアイテム表示
     inventory_.DrawWorld();
-
-    // 深度テストを維持し、壁や敵の背後の血しぶきを隠す。
     bloodEffect_.Draw(cameraController_.GetActiveRaylibCamera());
-
     EndMode3D();
-
     lighting_.EndFrame(playerView);
 
     // ==================================
@@ -629,4 +665,72 @@ void GameContext::End()
 
     muzzleFlashTimer_ = 0.0f;
     tracerActive_ = false;
+    bulletMarks_.clear();
+}
+
+
+// ================================================
+// Draw 2-second bullet holes on the stage surface.
+// This is geometry only: no texture/model needed.
+// ================================================
+void GameContext::DrawBulletMarks() const
+{
+    constexpr int segments = 16;
+    constexpr float outerRadius = 0.075f;
+    constexpr float innerRadius = 0.038f;
+
+    for (const BulletMark& mark : bulletMarks_)
+    {
+        const float fade = Clamp(
+            mark.remainingTime / bulletMarkLifetime_,
+            0.0f, 1.0f);
+
+        if (fade <= 0.0f)
+            continue;
+
+        if (Vector3LengthSqr(mark.normal) < 0.0001f)
+            continue;
+
+        const Vector3 normal = Vector3Normalize(mark.normal);
+
+        // Build a local plane parallel to the impact surface.
+        const Vector3 reference = std::fabs(normal.y) > 0.9f
+            ? Vector3{ 1.0f, 0.0f, 0.0f }
+        : Vector3{ 0.0f, 1.0f, 0.0f };
+
+        const Vector3 tangent = Vector3Normalize(
+            Vector3CrossProduct(reference, normal));
+        const Vector3 bitangent = Vector3CrossProduct(normal, tangent);
+
+        // Slightly offset the discs to prevent wall Z-fighting.
+        auto drawDisc = [&](float radius, float offset, Color color)
+            {
+                const Vector3 center = Vector3Add(
+                    mark.position, Vector3Scale(normal, offset));
+
+                for (int i = 0; i < segments; ++i)
+                {
+                    const float angleA = 2.0f * PI * i / segments;
+                    const float angleB = 2.0f * PI * (i + 1) / segments;
+
+                    const Vector3 pointA = Vector3Add(
+                        center,
+                        Vector3Add(
+                            Vector3Scale(tangent, std::cos(angleA) * radius),
+                            Vector3Scale(bitangent, std::sin(angleA) * radius)));
+
+                    const Vector3 pointB = Vector3Add(
+                        center,
+                        Vector3Add(
+                            Vector3Scale(tangent, std::cos(angleB) * radius),
+                            Vector3Scale(bitangent, std::sin(angleB) * radius)));
+
+                    DrawTriangle3D(center, pointA, pointB, color);
+                }
+            };
+
+        // Outer gray impact edge, followed by a smaller black center.
+        drawDisc(outerRadius, 0.008f, Fade(DARKGRAY, 0.65f * fade));
+        drawDisc(innerRadius, 0.011f, Fade(BLACK, 0.95f * fade));
+    }
 }
