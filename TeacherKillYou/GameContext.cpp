@@ -538,34 +538,31 @@ void GameContext::Update(float deltaTime)
     // 4. カメラ更新
     cameraController_.Update();
 
-    // 5. インベントリ更新（プレイヤーカメラ使用時のみ）
-    if (isPlayerCameraActive)
+    // 5. Inventory: precise pickups, instant reserve ammo and hold-to-heal.
+    if (isPlayerCameraActive && player_.IsAlive())
     {
-        Camera3D camera =
+        const Camera3D camera =
             cameraController_.GetPlayerCamera().GetRaylibCamera();
 
-        inventory_.Update(deltaTime, camera);
+        // Passing the Stage prevents picking up through stage walls.
+        inventory_.Update(deltaTime, camera, &stage_);
 
-        // Check whether an item was used
-        ItemType usedItem = inventory_.GetUsedItem();
-
-        switch (usedItem)
-        {
-        case ItemType::Medkit:
-        {
-            player_.Heal(MEDKIT_HEAL_AMOUNT);
-            break;
-        }
-
-        case ItemType::Ammo:
+        // World ammo pickups never occupy an inventory slot.
+        if (inventory_.GetPickedUpItem() == ItemType::Ammo)
         {
             player_.AddReserveAmmo(AMMO_PICKUP_AMOUNT);
-            break;
         }
 
-        default:
-            break;
+        // This event occurs only after holding E for 3 uninterrupted seconds.
+        if (inventory_.GetUsedItem() == ItemType::Medkit)
+        {
+            player_.Heal(MEDKIT_HEAL_AMOUNT);
         }
+    }
+    else
+    {
+        // Camera switch or death interrupts any ongoing healing.
+        inventory_.CancelHealing();
     }
     // 6. プレイヤー射撃処理
     ProcessPlayerShot();
