@@ -12,8 +12,8 @@ const char* Item::GetName(ItemType type)
     case ItemType::Medkit:  return "MEDKIT";
     case ItemType::Ammo:    return "AMMO";
     case ItemType::KeyCard: return "KEY CARD";
-    case ItemType::Battery: return "BATTERY"; 
-    case ItemType::Key:     return "KEY";     
+    case ItemType::Battery: return "BATTERY";
+    case ItemType::Key:     return "KEY";
     default:                return "EMPTY";
     }
 }
@@ -34,23 +34,29 @@ bool Item::IsAimedAt(const Camera3D& camera,
     float aimRadius,
     float& forwardDistance) const
 {
+    forwardDistance = 0.0f;
     if (collected_ || type_ == ItemType::None)
         return false;
 
     Vector3 forward = Vector3Subtract(camera.target, camera.position);
-    if (Vector3Length(forward) < 0.0001f)
+    if (Vector3LengthSqr(forward) < 0.000001f)
         return false;
 
     forward = Vector3Normalize(forward);
-
     const Vector3 toItem = Vector3Subtract(position_, camera.position);
-    forwardDistance = Vector3DotProduct(toItem, forward);
 
-    if (forwardDistance <= 0.0f || forwardDistance > pickupRange)
+    // True three-dimensional range, not just distance along the ray.
+    if (Vector3Length(toItem) > pickupRange)
         return false;
 
-    const Vector3 perpendicular = Vector3Subtract(
-        toItem, Vector3Scale(forward, forwardDistance));
+    forwardDistance = Vector3DotProduct(toItem, forward);
+    if (forwardDistance <= 0.0f)
+        return false;
 
-    return Vector3Length(perpendicular) <= aimRadius;
+    const Vector3 closestPoint = Vector3Add(
+        camera.position,
+        Vector3Scale(forward, forwardDistance));
+
+    // World-space radius surrounding the item's origin.
+    return Vector3Distance(closestPoint, position_) <= aimRadius;
 }

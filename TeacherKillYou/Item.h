@@ -2,7 +2,7 @@
 
 #include "raylib.h"
 
-// Keep the old Battery/Key values for compatibility with other game code.
+// Keep enum names/order for compatibility with existing code.
 enum class ItemType
 {
     None,
@@ -20,24 +20,21 @@ public:
 
     ItemType GetType() const { return type_; }
     Vector3 GetPosition() const { return position_; }
-    void SetPosition(Vector3 position)
-    {
-        position_ = position;
-    }
+    void SetPosition(Vector3 position) { position_ = position; }
+
     bool IsCollected() const { return collected_; }
     void Collect() { collected_ = true; }
 
-    // Actual 3D model only: NO temporary colored cubes.
+    // World model (no placeholder colored cubes).
     void Draw(const Model* model, float scale) const;
 
+    // Returns true only when close AND under the crosshair.
     bool IsAimedAt(const Camera3D& camera,
         float pickupRange,
         float aimRadius,
         float& forwardDistance) const;
 
     static const char* GetName(ItemType type);
-
-
 
 private:
     ItemType type_ = ItemType::None;
