@@ -337,8 +337,8 @@ void Inventory::DrawHealingHUD() const
         return;
 
     const float progress = GetHealingProgress();
-    const float hudWidth = 460.0f;   // CHANGE: healing bar width
-    const float hudHeight = 54.0f;   // CHANGE: healing bar height
+    const float hudWidth = 600.0f;   // CHANGE: healing bar width
+    const float hudHeight = 144.0f;   // CHANGE: healing bar height
     const float x = (GetScreenWidth() - hudWidth) * 0.5f;
     const float y = GetScreenHeight() - 195.0f; // CHANGE: vertical position
 
@@ -383,10 +383,10 @@ void Inventory::DrawHealingHUD() const
             static_cast<int>(hudWidth * progress), 20, GREEN);
     }
 
-    const char* timer = TextFormat("HEALING   %.1f / 3.0s", (std::min)(healTimer_, HEAL_DURATION));
-    DrawText(timer,
-        static_cast<int>((GetScreenWidth() - MeasureText(timer, 18)) / 2.0f),
-        static_cast<int>(y - 24.0f), 18, WHITE);
+    //const char* timer = TextFormat("HEALING   %.1f / 3.0s", (std::min)(healTimer_, HEAL_DURATION));
+    //DrawText(timer,
+    //    static_cast<int>((GetScreenWidth() - MeasureText(timer, 18)) / 2.0f),
+    //    static_cast<int>(y - 24.0f), 18, WHITE);
 }
 
 void Inventory::DrawHUD() const
