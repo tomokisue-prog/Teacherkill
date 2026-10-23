@@ -10,6 +10,7 @@
 #include "GameFade.h"
 #include "Inventory.h"
 #include "GoalPoint.h"
+#include "MessageWindow.h"
 
 class GameContext
 {
@@ -44,6 +45,12 @@ public:
     std::vector<TeleportPoint>& GetTeleportPoints() { return teleportPoints_; }
     const std::vector<TeleportPoint>& GetTeleportPoints() const { return teleportPoints_; }
 
+    // IDを指定して1行でセリフを呼び出す関数
+    void ShowDialogue(const std::string& dialogueId);
+
+    // メッセージウィンドウが開いている最中かどうか
+    bool IsMessageActive() const { return messageWindow_.IsOpen(); }
+
 private:
     void PlaceCharacters();
     void ProcessPlayerShot();
@@ -60,6 +67,7 @@ private:
     GameFade gameFade_;
     Inventory inventory_;
     GoalPoint goalPoint_;
+	MessageWindow messageWindow_;
 
     Vector3 paladinPosition_{ 0.0f, 0.0f, 3.0f };
 

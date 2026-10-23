@@ -29,6 +29,7 @@
     <ClCompile Include="AudioManager.cpp" />
     <ClCompile Include="CameraController.cpp" />
     <ClCompile Include="DebugUI.cpp" />
+    <ClCompile Include="DialogueManager.cpp" />
     <ClCompile Include="DoorMove.cpp" />
     <ClCompile Include="Enemy.cpp" />
     <ClCompile Include="EnemyAI.cpp" />
@@ -56,6 +57,7 @@
     <ClCompile Include="Item.cpp" />
     <ClCompile Include="JapaneseFont.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="MessageWindow.cpp" />
     <ClCompile Include="Player.cpp" />
     <ClCompile Include="PlayerCamera.cpp" />
     <ClCompile Include="FbxLoader.cpp">
@@ -90,6 +92,8 @@
     <ClInclude Include="AudioManager.h" />
     <ClInclude Include="CameraController.h" />
     <ClInclude Include="DebugUI.h" />
+    <ClInclude Include="DialogueEntry.h" />
+    <ClInclude Include="DialogueManager.h" />
     <ClInclude Include="DoorMove.h" />
     <ClInclude Include="DamageFlash.h" />
     <ClInclude Include="Enemy.h" />
@@ -123,6 +127,7 @@
     <ClInclude Include="Inventory.h" />
     <ClInclude Include="Item.h" />
     <ClInclude Include="JapaneseFont.h" />
+    <ClInclude Include="MessageWindow.h" />
     <ClInclude Include="nlohmann\json.hpp" />
     <ClInclude Include="nlohmann\json_fwd.hpp" />
     <ClInclude Include="Player.h" />

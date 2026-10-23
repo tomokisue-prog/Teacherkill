@@ -119,9 +119,8 @@ void DebugUI::DrawInspector(GameContext& gameContext)
 
     ImGui::Separator();
 
-    // ----------------------------------------------------
-    // ギズモ操作モード切替 UI（Translate / Rotate / Scale）
-    // ----------------------------------------------------
+    // ギズモ操作モード切替 UI
+
     ImGui::Text("Gizmo Mode");
     ImGuizmo::OPERATION currentOp = gizmoDrawer_.GetOperation();
 
