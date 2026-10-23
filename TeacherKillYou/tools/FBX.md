@@ -9,7 +9,7 @@ GLBへの変換や外部の変換ツールは不要。
 RM().LoadModel(ResourceKeys::Model_Enemy, "Data/Image/Monster_final_animations/MONSTER_run_final.fbx");
 ```
 
-Enemyを差し替えるときは、ResourceManager.cpp の LoadAll() 内にある
+Enemyを差し替えるときは、Source/Resources/ResourceManager.cpp の GameResources 一覧にある
 Model_Enemy のパス1か所を変更する。同じキーを繰り返し読み込んでも解析は一度だけ。
 FBXでは LoadModelAnimations() の追加呼び出しは不要だが、既存の呼び出しにも対応する。
 読み込み失敗時は理由をログへ出し、モデルを登録しないため再試行できる。
