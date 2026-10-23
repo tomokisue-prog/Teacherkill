@@ -3,7 +3,6 @@
 #include "Player.h"
 #include "Stage.h"
 #include "ResourceManager.h"
-#include "DamageFlash.h"
 #include "HorrorLighting.h"
 #include "raymath.h"
 
@@ -14,7 +13,13 @@ namespace {
 
     constexpr float ContactEpsilon = 0.001f;
     constexpr float AnimationFrameDuration = 0.017f;
-    constexpr float DamageFlashDuration = 0.6f;
+
+    struct EnemyAssets { const char* model; const char* attack; const char* death; const char* hit; };
+    const EnemyAssets& AssetsFor(demo::EnemyType type) {
+        static constexpr EnemyAssets monster{ ResourceKeys::Model_Enemy, ResourceKeys::Animation_EnemyAttack, ResourceKeys::Animation_EnemyDeath, nullptr };
+        static constexpr EnemyAssets female{ ResourceKeys::Model_FemaleZombie, ResourceKeys::Animation_FemaleZombieAttack, ResourceKeys::Animation_FemaleZombieDeath, ResourceKeys::Animation_FemaleZombieHit };
+        return type == demo::EnemyType::FemaleZombie ? female : monster;
+    }
 
     bool IsFinite(Vector3 value) {
         return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z);
@@ -55,22 +60,29 @@ namespace demo {
         hp_ = config_.maxHp;
         ai_.Reset();
         corpseTimer_ = 0.0f;
+        hitTime_ = -1.0f;
         animationTime_ = 0.0f;
         attackTime_ = 0.0f;
         attackHitChecked_ = false;
         attackPose_ = false;
         pendingAttackDamage_ = 0;
-        damageFlashTimer_ = 0.0f;
     }
 
     float Enemy::AttackDuration() const {
-        const auto clip = RM().GetModelAnimation(ResourceKeys::Animation_EnemyAttack);
-        return clip.frameCount > 1 ? (clip.frameCount - 1) * AnimationFrameDuration : 0.9f;
+        const auto clip = RM().GetModelAnimation(AssetsFor(config_.type).attack);
+        return (clip.frameCount > 1 ? (clip.frameCount - 1) * AnimationFrameDuration : 0.9f) / config_.animationSpeed;
     }
 
     float Enemy::DeathDuration() const {
-        const auto clip = RM().GetModelAnimation(ResourceKeys::Animation_EnemyDeath);
-        return clip.frameCount > 1 ? (clip.frameCount - 1) * AnimationFrameDuration : 0.0f;
+        const auto clip = RM().GetModelAnimation(AssetsFor(config_.type).death);
+        return clip.frameCount > 1 ? (clip.frameCount - 1) * AnimationFrameDuration / config_.animationSpeed : 0.0f;
+    }
+
+    float Enemy::HitDuration() const {
+        const char* key = AssetsFor(config_.type).hit;
+        if (!key) return 0.0f;
+        const auto clip = RM().GetModelAnimation(key);
+        return clip.frameCount > 1 ? (clip.frameCount - 1) * AnimationFrameDuration / config_.animationSpeed : 0.0f;
     }
 
     bool Enemy::CanHitTarget(const TargetInfo& target, const Stage& stage, const BoundingBox* blocker) const {
@@ -102,7 +114,6 @@ namespace demo {
     void Enemy::Update(float dt, const TargetInfo& target, const Stage& stage, const BoundingBox* blocker) {
         pendingAttackDamage_ = 0;
         if (!std::isfinite(dt) || dt <= 0.0f) return;
-        damageFlashTimer_ = (std::max)(0.0f, damageFlashTimer_ - dt);
 
         if (!IsAlive()) {
             const float duration = DeathDuration();
@@ -121,6 +132,15 @@ namespace demo {
             attackPose_ = false;
             animationTime_ = 0.0f;
         }
+
+        if (hitTime_ >= 0.0f && hitTime_ < HitDuration()) {
+            // 被弾中は追跡と攻撃を止める。地面との接触と重力は更新を続ける。
+            hitTime_ = (std::min)(HitDuration(), hitTime_ + dt);
+            ai_.SetShouldMove(false);
+            movement_.Update(dt, {}, validTarget ? &target.bodyBounds : nullptr, stage, config_);
+            return;
+        }
+        hitTime_ = -1.0f;
 
         const bool attacking = ai_.GetState() == EnemyState::Attack;
         const Vector3 previousPosition = movement_.GetPosition();
@@ -164,13 +184,13 @@ namespace demo {
         attackPose_ = false;
         const Vector3 currentPos = movement_.GetPosition();
         const bool moved = currentPos.x != previousPosition.x || currentPos.z != previousPosition.z;
-        const char* walkAnimKey = ResourceKeys::Model_Enemy;
+        const char* walkAnimKey = AssetsFor(config_.type).model;
         const ModelAnimation animation = RM().GetModelAnimation(walkAnimKey);
 
         if (IsMoving() && moved && animation.frameCount > 0) {
             // 時間を進めてループ再生させる
             animationTime_ += dt;
-            const float totalDuration = animation.frameCount * AnimationFrameDuration;
+            const float totalDuration = animation.frameCount * AnimationFrameDuration / config_.animationSpeed;
             if (animationTime_ >= totalDuration) {
                 animationTime_ = std::fmod(animationTime_, totalDuration);
             }
@@ -188,22 +208,37 @@ namespace demo {
     }
 
     float Enemy::GetDamageFlashStrength() const {
-        return DamageFlashStrength(damageFlashTimer_, DamageFlashDuration);
+        // 呼び出し側との互換性を保つ。被弾表示は命中位置の血しぶきに置き換えた。
+        return 0.0f;
     }
 
     EnemyDamageResult Enemy::TakeDamage(int amount) {
         if (amount <= 0 || !IsAlive()) return { false, hp_, false };
         hp_ = amount >= hp_ ? 0 : hp_ - amount;
-        damageFlashTimer_ = DamageFlashDuration;
         const bool died = hp_ == 0;
         AM().PlaySe(died ? SeId::EnemyDeath : SeId::EnemyHit);
+        const bool startHit = !died && hitTime_ < 0.0f && HitDuration() > 0.0f;
+        if (died) hitTime_ = -1.0f;
+        // 再被弾でもHPとSEは反映するが、再生中の被弾クリップは巻き戻さない。
+        else if (startHit) hitTime_ = 0.0f;
+        if (startHit) {
+            // 途中の攻撃を中断し、被弾姿勢のまま攻撃判定だけが出ることを防ぐ。
+            pendingAttackDamage_ = 0;
+            attackPose_ = false;
+            attackTime_ = 0.0f;
+            animationTime_ = 0.0f;
+            if (ai_.GetState() == EnemyState::Attack) {
+                ai_.SetState(EnemyState::Chase);
+                ai_.SetAttackCooldown(config_.attackRecovery);
+            }
+        }
         if (died) {
             ai_.SetState(EnemyState::Dead);
             ai_.SetShouldMove(false);
             corpseTimer_ = 0.0f;
             pendingAttackDamage_ = 0;
             ai_.SetAttackCooldown(0.0f);
-            if (RM().GetModelAnimation(ResourceKeys::Animation_EnemyDeath).frameCount > 0) {
+            if (RM().GetModelAnimation(AssetsFor(config_.type).death).frameCount > 0) {
                 animationTime_ = 0.0f;
                 attackPose_ = false;
             }
@@ -216,37 +251,35 @@ namespace demo {
     }
 
     void Enemy::Draw() const {
-        Model model = RM().GetModel(ResourceKeys::Model_Enemy);
+        const auto& assets = AssetsFor(config_.type);
+        Model model = RM().GetModel(assets.model);
         const Vector3 position = movement_.GetPosition();
         if (model.meshCount > 0) {
-            const bool deathPose = !IsAlive() && RM().GetModelAnimation(ResourceKeys::Animation_EnemyDeath).frameCount > 0;
-            const char* clipKey = deathPose ? ResourceKeys::Animation_EnemyDeath :
-                attackPose_ && RM().GetModelAnimation(ResourceKeys::Animation_EnemyAttack).frameCount > 0 ?
-                ResourceKeys::Animation_EnemyAttack : ResourceKeys::Model_Enemy;
+            const bool deathPose = !IsAlive() && RM().GetModelAnimation(assets.death).frameCount > 0;
+            const bool hitPose = IsAlive() && hitTime_ >= 0.0f && assets.hit;
+            const char* clipKey = deathPose ? assets.death : hitPose ? assets.hit :
+                attackPose_ && RM().GetModelAnimation(assets.attack).frameCount > 0 ? assets.attack : assets.model;
             const ModelAnimation animation = RM().GetModelAnimation(clipKey);
             if (animation.frameCount > 0) {
-                const int elapsedFrame = static_cast<int>(animationTime_ / AnimationFrameDuration);
+                const float poseTime = hitPose ? hitTime_ : animationTime_;
+                const int elapsedFrame = static_cast<int>(poseTime * config_.animationSpeed / AnimationFrameDuration);
                 const int frame = deathPose && corpseTimer_ >= DeathDuration() ? animation.frameCount - 1 :
-                    deathPose || attackPose_ ? (std::min)(elapsedFrame, animation.frameCount - 1) : elapsedFrame % animation.frameCount;
+                    deathPose || hitPose || attackPose_ ? (std::min)(elapsedFrame, animation.frameCount - 1) : elapsedFrame % animation.frameCount;
                 RM().ApplyModelAnimation(clipKey, frame);
             }
-            const BoundingBox bounds = RM().GetModelBounds(ResourceKeys::Model_Enemy);
+            const BoundingBox bounds = RM().GetModelBounds(assets.model);
             const float height = bounds.max.y - bounds.min.y;
             const float scale = height > ContactEpsilon ? config_.bodyHeight / height : 1.0f;
             model.transform = MatrixTranslate(-(bounds.min.x + bounds.max.x) * 0.5f,
                 -bounds.min.y, -(bounds.min.z + bounds.max.z) * 0.5f);
             const Color tint = IsAlive() ? WHITE : Color{ 110, 110, 110, 255 };
-            DrawHorrorModelEx(model, position, { 0, 1, 0 }, 180.0f - yaw_ * RAD2DEG, { scale, scale, scale }, tint, GetDamageFlashStrength());
+            DrawHorrorModelEx(model, position, { 0, 1, 0 }, 180.0f - yaw_ * RAD2DEG, { scale, scale, scale }, tint);
             return;
         }
         Color color = { 57, 187, 173, 255 };
         if (!IsAlive()) color = { 91, 99, 110, 255 };
         else if (ai_.GetState() == EnemyState::Chase) color = { 242, 146, 65, 255 };
 
-        const float flash = GetDamageFlashStrength();
-        color = { static_cast<unsigned char>(color.r + (255 - color.r) * flash),
-                  static_cast<unsigned char>(color.g * (1.0f - flash)),
-                  static_cast<unsigned char>(color.b * (1.0f - flash)), 255 };
         const float radius = config_.bodyRadius;
         const Vector3 center = Vector3Add(position, { 0, config_.bodyHeight * 0.5f, 0 });
         const Vector3 size = { radius * 2, config_.bodyHeight, radius * 2 };

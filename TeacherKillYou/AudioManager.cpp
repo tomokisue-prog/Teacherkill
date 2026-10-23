@@ -6,7 +6,7 @@ namespace {
 // 音を追加するときはAudioManager.hのIDとこの一覧を同時に追加する。
 constexpr const char* BgmFiles[] = { "title", "game" };
 constexpr const char* SeFiles[] = { "shoot", "reload", "player_hit", "enemy_hit", "enemy_attack", "enemy_death",
-                                   "door_open", "door_close", "flashlight", "teleport", "confirm" };
+                                   "door_open", "door_close", "flashlight", "teleport", "confirm", "dry_fire" };
 static_assert(sizeof(BgmFiles) / sizeof(BgmFiles[0]) == static_cast<std::size_t>(BgmId::Count), "BGM IDs and files must match");
 static_assert(sizeof(SeFiles) / sizeof(SeFiles[0]) == static_cast<std::size_t>(SeId::Count), "SE IDs and files must match");
 

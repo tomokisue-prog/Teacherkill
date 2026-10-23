@@ -3,6 +3,35 @@
 #include "rlgl.h"
 
 #include <cmath>
+#include <limits>
+
+BoundingBox GetBakedModelBounds(Model model, const std::vector<Matrix>& matrices) {
+    if (model.boneCount <= 0 || matrices.size() < static_cast<std::size_t>(model.boneCount))
+        return GetModelBoundingBox(model);
+    const float limit = (std::numeric_limits<float>::max)();
+    BoundingBox bounds{{limit, limit, limit}, {-limit, -limit, -limit}};
+    bool found = false;
+    for (int m = 0; m < model.meshCount; ++m) {
+        const Mesh& mesh = model.meshes[m];
+        for (int v = 0; v < mesh.vertexCount; ++v) {
+            const Vector3 original{mesh.vertices[v * 3], mesh.vertices[v * 3 + 1], mesh.vertices[v * 3 + 2]};
+            Vector3 position{}; float total = 0;
+            if (mesh.boneIds && mesh.boneWeights) for (int i = 0; i < 4; ++i) {
+                const int bone = mesh.boneIds[v * 4 + i];
+                const float weight = mesh.boneWeights[v * 4 + i];
+                if (bone >= model.boneCount || weight <= 0) continue;
+                position = Vector3Add(position, Vector3Scale(Vector3Transform(original, matrices[bone]), weight));
+                total += weight;
+            }
+            position = Vector3Transform(total > 0 ? Vector3Scale(position, 1.0f / total) : original, model.transform);
+            if (!std::isfinite(position.x) || !std::isfinite(position.y) || !std::isfinite(position.z)) continue;
+            bounds.min = Vector3Min(bounds.min, position);
+            bounds.max = Vector3Max(bounds.max, position);
+            found = true;
+        }
+    }
+    return found ? bounds : GetModelBoundingBox(model);
+}
 
 void ApplyBakedAnimation(Model model, const std::vector<Matrix>& matrices, int frame) {
     if (model.boneCount <= 0 || matrices.empty()) return;

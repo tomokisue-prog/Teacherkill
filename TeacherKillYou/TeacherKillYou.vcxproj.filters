@@ -203,6 +203,9 @@
     <ClCompile Include="Stage.cpp">
       <Filter>GamePlay\Actors\Stage</Filter>
     </ClCompile>
+    <ClCompile Include="BloodEffect.cpp">
+      <Filter>GamePlay\Actors\Enemy</Filter>
+    </ClCompile>
     <ClCompile Include="Enemy.cpp">
       <Filter>GamePlay\Actors\Enemy</Filter>
     </ClCompile>
@@ -370,6 +373,9 @@
       <Filter>GamePlay\Actors\Stage</Filter>
     </ClInclude>
     <ClInclude Include="DamageFlash.h" />
+    <ClInclude Include="BloodEffect.h">
+      <Filter>GamePlay\Actors\Enemy</Filter>
+    </ClInclude>
     <ClInclude Include="Enemy.h">
       <Filter>GamePlay\Actors\Enemy</Filter>
     </ClInclude>

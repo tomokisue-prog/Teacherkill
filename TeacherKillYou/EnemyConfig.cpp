@@ -13,8 +13,10 @@ namespace demo {
 
     void EnemyConfig::Validate() {
         const EnemyConfig defaults;
+        if (type != EnemyType::Monster && type != EnemyType::FemaleZombie) type = defaults.type;
         maxHp = (std::max)(1, maxHp);
         moveSpeed = AtLeast(moveSpeed, 0.0f, defaults.moveSpeed);
+        animationSpeed = Clamp(AtLeast(animationSpeed, 0.1f, defaults.animationSpeed), 0.1f, 4.0f);
         turnSpeed = AtLeast(turnSpeed, 0.0f, defaults.turnSpeed);
         bodyRadius = AtLeast(bodyRadius, 0.01f, defaults.bodyRadius);
         bodyHeight = AtLeast(bodyHeight, 0.01f, defaults.bodyHeight);

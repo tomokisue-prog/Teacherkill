@@ -12,6 +12,7 @@
 #include <algorithm>
 #include "SceneManager.h"
 #include "DialogueManager.h"
+#include <cmath>
 
 static void DrawCrosshair()
 {
@@ -68,12 +69,19 @@ static void DrawHitMarker(bool isKill)
         thickness, color);
 }
 
+namespace
+{
+    constexpr int MEDKIT_HEAL_AMOUNT = 50;
+    constexpr int AMMO_PICKUP_AMOUNT = 30;
+}
+
 void GameContext::Init()
 {
     cameraController_.Init();
     player_.Init();
     stage_.Init();
     inventory_.Init();  // Load item GLB models and spawn items
+    bloodEffect_.Init();
     PlaceCharacters();
     lighting_.Init(RM().GetModelShaders(), RM().GetModel(ResourceKeys::Model_Stage1));
     hitMarkerTimer_ = 0.0f;
@@ -91,6 +99,8 @@ void GameContext::Init()
     tp2.SetPointNumber(1);
     tp2.SetTeleportType(TeleportType::Destination);
     teleportPoints_.push_back(tp2);
+
+    bulletMarks_.clear();
 
     if (muzzleFlashTexture_.id == 0)
     {
@@ -122,12 +132,12 @@ void GameContext::Reset()
     stage_.Reset();
     door_.Reset();
     inventory_.Reset();
+    bloodEffect_.Reset();
     PlaceCharacters();
     lighting_.Init(RM().GetModelShaders(), RM().GetModel(ResourceKeys::Model_Stage1));
     hitMarkerTimer_ = 0.0f;
     hitMarkerKill_ = false;
-
-
+    bulletMarks_.clear();
     teleportPoints_.clear();
     TeleportPoint tp1;
     tp1.SetPosition({ 3.0f, 0.0f, 0.0f });
@@ -162,6 +172,13 @@ void GameContext::PlaceCharacters()
     player_.SetPosition(stage_.FindGroundPosition(player_.GetPosition()));
     enemyManager_.Clear();
     enemyManager_.Spawn(stage_.FindGroundPosition({ 0.9f, 0.0f, 2.5f }), {});
+    demo::EnemyConfig femaleConfig;
+    femaleConfig.type = demo::EnemyType::FemaleZombie;
+    // このステージの戸口（幅約0.78・高さ約1.71）を通れる寸法。
+    // Enemyの描画倍率と移動・被弾判定は、同じbodyHeight/bodyRadiusを使う。
+    femaleConfig.bodyHeight = 1.45f;
+    femaleConfig.bodyRadius = 0.25f;
+    enemyManager_.Spawn(stage_.FindGroundPosition({ -0.9f, 0.0f, 2.5f }), femaleConfig);
     paladinPosition_ = stage_.FindGroundPosition({ 0.0f, 0.0f, 3.0f });
     cameraController_.GetPlayerCamera().SetPlayerPosition(player_.GetPosition());
     cameraController_.GetPlayerCamera().Update();
@@ -198,6 +215,7 @@ void GameContext::ProcessPlayerShot()
 
     demo::EnemyId targetId = 0;
     bool foundTarget = false;
+    Vector3 impactNormal = Vector3Negate(ray.direction);
 
     for (const auto& enemy : enemyManager_.GetEnemies())
     {
@@ -227,6 +245,7 @@ void GameContext::ProcessPlayerShot()
             closestDistance = hit.distance;
             targetId = enemy.GetId();
             foundTarget = true;
+            impactNormal = inside ? Vector3Negate(ray.direction) : hit.normal;
         }
     }
 
@@ -244,12 +263,36 @@ void GameContext::ProcessPlayerShot()
     tracerAge_ = 0.0f;
     tracerActive_ = true;
 
+    // =====================================
+    // Spawn a temporary mark on the wall.
+    // No mark if an enemy was hit before the wall.
+    // =====================================
+    if (wallHit.hit && !foundTarget)
+    {
+        // Only vertical-ish surfaces
+        if (std::fabs(wallHit.normal.y) < 0.65f &&
+            Vector3LengthSqr(wallHit.normal) > 0.0001f)
+        {
+            BulletMark mark;
+
+            mark.position = wallHit.point;
+            mark.normal = wallHit.normal;
+            mark.remainingTime = bulletMarkLifetime_;
+
+            if (bulletMarks_.size() >=
+                static_cast<std::vector<BulletMark>::size_type>(maxBulletMarks_))
+            {
+                bulletMarks_.erase(bulletMarks_.begin());
+            }
+
+            bulletMarks_.push_back(mark);
+        }
+    }
+
     if (!foundTarget)
     {
-        if(JPFont){
-        TraceLog(LOG_INFO, "SHOT: 敵に当たらなかった");
+        TraceLog(LOG_INFO, "SHOT: No enemy hit");
         return;
-        }
     }
 
     const demo::EnemyDamageResult result =
@@ -257,20 +300,21 @@ void GameContext::ProcessPlayerShot()
 
     if (result.applied)
     {
+        // Spawn blood only when the shot hits a living enemy.
+        bloodEffect_.Spawn(tracerEnd_, impactNormal);
         hitMarkerTimer_ = 0.12f;
         hitMarkerKill_ = result.becameDead;
-        if (JPFont) {
-            TraceLog(LOG_INFO, "HIT: 敵 HP = %d", result.hp);
 
-            if (result.becameDead)
-            {
-                TraceLog(LOG_INFO, "敵を倒しました");
-            }
+        TraceLog(LOG_INFO, "HIT: Enemy HP = %d", result.hp);
+        if (result.becameDead)
+        {
+            TraceLog(LOG_INFO, "Enemy defeated");
         }
     }
 }
 void GameContext::UpdateShotEffects(float deltaTime)
 {
+    bloodEffect_.Update(deltaTime);
     muzzleFlashTimer_ = (std::max)(
         0.0f, muzzleFlashTimer_ - deltaTime);
 
@@ -288,6 +332,26 @@ void GameContext::UpdateShotEffects(float deltaTime)
     {
         muzzleFlashTimer_ = 0.0f;
     }
+    // =====================================
+    // Update the lifetime of bullet marks.
+    // =====================================
+    for (BulletMark& mark : bulletMarks_)
+    {
+        mark.remainingTime -= deltaTime;
+    }
+
+    // Remove expired marks
+    bulletMarks_.erase(
+        std::remove_if(
+            bulletMarks_.begin(),
+            bulletMarks_.end(),
+            [](const BulletMark& mark)
+            {
+                return mark.remainingTime <= 0.0f;
+            }
+        ),
+        bulletMarks_.end()
+    );
 }
 void GameContext::DrawShotEffects() const
 {
@@ -493,15 +557,32 @@ void GameContext::Update(float deltaTime)
     // 4. カメラ更新
     cameraController_.Update();
 
-    // 5. インベントリ更新
-    if (isPlayerCameraActive)
+    // 5. Inventory: precise pickups, instant reserve ammo and hold-to-heal.
+    if (isPlayerCameraActive && player_.IsAlive())
     {
-        Camera3D camera =
+        const Camera3D camera =
             cameraController_.GetPlayerCamera().GetRaylibCamera();
 
-        inventory_.Update(deltaTime, camera);
-    }
+        // Passing the Stage prevents picking up through stage walls.
+        inventory_.Update(deltaTime, camera, &stage_);
 
+        // World ammo pickups never occupy an inventory slot.
+        if (inventory_.GetPickedUpItem() == ItemType::Ammo)
+        {
+            player_.AddReserveAmmo(AMMO_PICKUP_AMOUNT);
+        }
+
+        // This event occurs only after holding E for 3 uninterrupted seconds.
+        if (inventory_.GetUsedItem() == ItemType::Medkit)
+        {
+            player_.Heal(MEDKIT_HEAL_AMOUNT);
+        }
+    }
+    else
+    {
+        // Camera switch or death interrupts any ongoing healing.
+        inventory_.CancelHealing();
+    }
     // 6. プレイヤー射撃処理
     ProcessPlayerShot();
 
@@ -517,7 +598,8 @@ void GameContext::Draw() const
         cameraController_.GetActiveRaylibCamera(),
         cameraController_.GetPlayerCamera().GetRaylibCamera(),
         stage_.GetPosition(),
-        stage_.GetScale()
+        stage_.GetScale(),
+        !playerView
     );
 
     BeginMode3D(cameraController_.GetActiveRaylibCamera());
@@ -553,14 +635,11 @@ void GameContext::Draw() const
 
     player_.Draw(activePlayerCam);
     enemyManager_.Draw();
-
+    DrawBulletMarks();
     DrawShotEffects();
-
-    //  3Dインベントリアイテム表示
     inventory_.DrawWorld();
-
+    bloodEffect_.Draw(cameraController_.GetActiveRaylibCamera());
     EndMode3D();
-
     lighting_.EndFrame(playerView);
 
     // ==================================
@@ -601,6 +680,7 @@ void GameContext::End()
     player_.End();
     inventory_.End();  // Unload item GLB models
     stage_.End();
+    bloodEffect_.Shutdown();
     lighting_.Shutdown();
 
     if (muzzleFlashTexture_.id != 0)
@@ -611,4 +691,72 @@ void GameContext::End()
 
     muzzleFlashTimer_ = 0.0f;
     tracerActive_ = false;
+    bulletMarks_.clear();
+}
+
+
+// ================================================
+// Draw 2-second bullet holes on the stage surface.
+// This is geometry only: no texture/model needed.
+// ================================================
+void GameContext::DrawBulletMarks() const
+{
+    constexpr int segments = 16;
+    constexpr float outerRadius = 0.075f;
+    constexpr float innerRadius = 0.038f;
+
+    for (const BulletMark& mark : bulletMarks_)
+    {
+        const float fade = Clamp(
+            mark.remainingTime / bulletMarkLifetime_,
+            0.0f, 1.0f);
+
+        if (fade <= 0.0f)
+            continue;
+
+        if (Vector3LengthSqr(mark.normal) < 0.0001f)
+            continue;
+
+        const Vector3 normal = Vector3Normalize(mark.normal);
+
+        // Build a local plane parallel to the impact surface.
+        const Vector3 reference = std::fabs(normal.y) > 0.9f
+            ? Vector3{ 1.0f, 0.0f, 0.0f }
+        : Vector3{ 0.0f, 1.0f, 0.0f };
+
+        const Vector3 tangent = Vector3Normalize(
+            Vector3CrossProduct(reference, normal));
+        const Vector3 bitangent = Vector3CrossProduct(normal, tangent);
+
+        // Slightly offset the discs to prevent wall Z-fighting.
+        auto drawDisc = [&](float radius, float offset, Color color)
+            {
+                const Vector3 center = Vector3Add(
+                    mark.position, Vector3Scale(normal, offset));
+
+                for (int i = 0; i < segments; ++i)
+                {
+                    const float angleA = 2.0f * PI * i / segments;
+                    const float angleB = 2.0f * PI * (i + 1) / segments;
+
+                    const Vector3 pointA = Vector3Add(
+                        center,
+                        Vector3Add(
+                            Vector3Scale(tangent, std::cos(angleA) * radius),
+                            Vector3Scale(bitangent, std::sin(angleA) * radius)));
+
+                    const Vector3 pointB = Vector3Add(
+                        center,
+                        Vector3Add(
+                            Vector3Scale(tangent, std::cos(angleB) * radius),
+                            Vector3Scale(bitangent, std::sin(angleB) * radius)));
+
+                    DrawTriangle3D(center, pointA, pointB, color);
+                }
+            };
+
+        // Outer gray impact edge, followed by a smaller black center.
+        drawDisc(outerRadius, 0.008f, Fade(DARKGRAY, 0.65f * fade));
+        drawDisc(innerRadius, 0.011f, Fade(BLACK, 0.95f * fade));
+    }
 }

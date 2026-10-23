@@ -24,15 +24,23 @@ void ResourceManager::LoadAll() {
     LoadModelAnimations("PlayerReload", "Data/Image/HandPov/reload_raylib.glb");
    
 
-	LoadModel(ResourceKeys::Model_Stage1, "Data/Image/floor 4.glb");
+	LoadModel(ResourceKeys::Model_Stage1, "Data/Image/floor 4 uv warp all.glb");
 
     // アニメーションのロードも行う
 
-    LoadModel(ResourceKeys::Model_Enemy, "Data/Image/MONSTER   run.fbx");
+    LoadModel(ResourceKeys::Model_Enemy, "Data/Image/Monster_final_animations/MONSTER_run_final.fbx");
     LoadFbxAnimation(ResourceKeys::Animation_EnemyAttack, ResourceKeys::Model_Enemy,
-                     "Data/Image/MONSTER  attack.fbx");
+                     "Data/Image/Monster_final_animations/MONSTER _attack_final.fbx");
     LoadFbxAnimation(ResourceKeys::Animation_EnemyDeath, ResourceKeys::Model_Enemy,
-                     "Data/Image/MONSTER dead.fbx");
+                     "Data/Image/Monster_final_animations/MONSTER_dead_final.fbx");
+
+    LoadModel(ResourceKeys::Model_FemaleZombie, "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 running.fbx");
+    LoadFbxAnimation(ResourceKeys::Animation_FemaleZombieAttack, ResourceKeys::Model_FemaleZombie,
+                     "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 attack.fbx");
+    LoadFbxAnimation(ResourceKeys::Animation_FemaleZombieDeath, ResourceKeys::Model_FemaleZombie,
+                     "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 death.fbx");
+    LoadFbxAnimation(ResourceKeys::Animation_FemaleZombieHit, ResourceKeys::Model_FemaleZombie,
+                     "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 hit.fbx");
 
 	LoadModel(ResourceKeys::Model_Door, "Data/Image/slide door.glb");
 
@@ -58,10 +66,20 @@ void ResourceManager::LoadModel(const std::string& key, const std::string& path)
     }
 
     if (IsFileExtension(path.c_str(), ".fbx")) {
-        FbxModelData data = LoadFbxModel(path);
+        const bool enemyModel = key == ResourceKeys::Model_Enemy || key == ResourceKeys::Model_FemaleZombie;
+        FbxModelData data = LoadFbxModel(path, enemyModel);
         if (data.model.meshCount == 0) return;
+        if (enemyModel) {
+            // 敵は自己発光させず、ステージ照明と懐中電灯で照らす。
+            for (int i = 0; i < data.model.materialCount; ++i) {
+                auto& material = data.model.materials[i];
+                material.maps[MATERIAL_MAP_EMISSION].value = 0.0f;
+                material.params[2] = 0.0f;
+            }
+        }
         models_[key] = data.model;
-        modelBounds_[key] = GetModelBoundingBox(data.model);
+        modelBounds_[key] = !data.bakedFrames.empty() ?
+            GetBakedModelBounds(data.model, data.bakedFrames[0]) : GetModelBoundingBox(data.model);
         fbxBindings_[key] = std::move(data.bindings);
         if (data.animationCount > 0) {
             animations_[key] = { data.animations, data.animationCount, std::move(data.bakedFrames) };

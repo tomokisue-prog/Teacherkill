@@ -4,35 +4,70 @@
 #include "SceneManager.h"
 #include "SaveSystem.h"
 
-void DebugUI::Draw(GameContext& gameContext) {
-    auto& cameraController = gameContext.GetCameraController();
 
-    if (cameraController.GetActiveType() == CameraType::System) {
+void DebugUI::Draw(GameContext& gameContext)
+{
+    auto& cameraController =
+        gameContext.GetCameraController();
+
+    if (cameraController.GetActiveType() == CameraType::System)
+    {
         ImGuizmo::BeginFrame();
 
         DrawHierarchy(gameContext);
         DrawInspector(gameContext);
 
-        // 選択対象のポインタをギズモに渡す
         GameObject* targetObj = nullptr;
-        if (selectedObject_ == SelectedObjectType::Player) {
+
+        if (selectedObject_ == SelectedObjectType::Player)
+        {
             targetObj = &gameContext.GetPlayer();
         }
-        else if (selectedObject_ == SelectedObjectType::Door) {
-            targetObj = &gameContext.GetDoor(); // GameContext に Door の getter を用意
+        else if (selectedObject_ == SelectedObjectType::Door)
+        {
+            targetObj = &gameContext.GetDoor();
         }
-
-        else if (selectedObject_ == SelectedObjectType::TeleportPoint) {
+        else if (selectedObject_ == SelectedObjectType::TeleportPoint)
+        {
             auto& tps = gameContext.GetTeleportPoints();
-            if (!tps.empty() && selectedTeleportIndex_ >= 0 && selectedTeleportIndex_ < tps.size()) {
-                targetObj = &tps[selectedTeleportIndex_]; // 選択中のテレポートポイントをギズモに渡す
+
+            if (selectedTeleportIndex_ >= 0 &&
+                selectedTeleportIndex_ < static_cast<int>(tps.size()))
+            {
+                targetObj = &tps[selectedTeleportIndex_];
             }
         }
-        else if (selectedObject_ == SelectedObjectType::GoalPoint) {
+        else if (selectedObject_ == SelectedObjectType::GoalPoint)
+        {
             targetObj = &gameContext.GetGoalPoint();
         }
 
-        gizmoDrawer_.Draw(gameContext, targetObj);
+        if (selectedObject_ == SelectedObjectType::Items)
+        {
+            auto& items =
+                gameContext.GetInventory().GetWorldItems();
+
+            if (selectedItemIndex_ >= 0 &&
+                selectedItemIndex_ < static_cast<int>(items.size()))
+            {
+                Item& selectedItem = items[selectedItemIndex_];
+
+                if (!selectedItem.IsCollected())
+                {
+                    gizmoDrawer_.DrawItem(
+                        gameContext,
+                        &selectedItem
+                    );
+                }
+            }
+        }
+        else
+        {
+            gizmoDrawer_.Draw(
+                gameContext,
+                targetObj
+            );
+        }
     }
 
     DrawCameraController(cameraController);
@@ -103,6 +138,42 @@ void DebugUI::DrawHierarchy(GameContext& gameContext)
         selectedTeleportIndex_ = static_cast<int>(tps.size()) - 1;
     }
 
+	// --- World Items ---
+    if (ImGui::TreeNode("Items"))
+    {
+        auto& items =
+            gameContext.GetInventory().GetWorldItems();
+
+        if (items.empty())
+        {
+            ImGui::TextDisabled("No world items");
+        }
+
+        for (int i = 0;
+            i < static_cast<int>(items.size());
+            ++i)
+        {
+            Item& item = items[i];
+
+            ImGui::PushID(i);
+
+            const bool selected =
+                selectedObject_ == SelectedObjectType::Items &&
+                selectedItemIndex_ == i;
+
+            if (ImGui::Selectable(
+                Item::GetName(item.GetType()),
+                selected))
+            {
+                selectedObject_ = SelectedObjectType::Items;
+                selectedItemIndex_ = i;
+            }
+
+            ImGui::PopID();
+        }
+
+        ImGui::TreePop();
+    }
     ImGui::End();
 }
 
@@ -301,7 +372,46 @@ void DebugUI::DrawInspector(GameContext& gameContext)
 
         break;
     }
+    case SelectedObjectType::Items:
+    {
+        auto& items =
+            gameContext.GetInventory().GetWorldItems();
 
+        if (selectedItemIndex_ < 0 ||
+            selectedItemIndex_ >= static_cast<int>(items.size()) ||
+            items[selectedItemIndex_].IsCollected())
+        {
+            ImGui::Text("No item selected.");
+            break;
+        }
+
+        Item& item = items[selectedItemIndex_];
+
+        Vector3 position = item.GetPosition();
+
+        ImGui::Text("Item: %s",
+            Item::GetName(item.GetType()));
+
+        ImGui::Separator();
+        ImGui::Text("Transform");
+
+        if (ImGui::DragFloat3(
+            "Position", &position.x, 0.05f))
+        {
+            item.SetPosition(position);
+        }
+
+        if (ImGui::Button("Move To Player"))
+        {
+            Vector3 pos =
+                gameContext.GetPlayer().GetPosition();
+
+            pos.y += 0.5f;
+            item.SetPosition(pos);
+        }
+
+        break;
+    }
     default:
         ImGui::Text("No object selected.");
         break;

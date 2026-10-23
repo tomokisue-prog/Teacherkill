@@ -1,4 +1,4 @@
-ï»¿#include "HorrorLighting.h"
+#include "HorrorLighting.h"
 #include "AudioManager.h"
 #include "raymath.h"
 #include "rlgl.h"
@@ -8,13 +8,15 @@
 #include <unordered_map>
 
 namespace {
-constexpr Color NightBackground{ 0, 0, 0, 255 };
-// Cold, slightly green fluorescent lamps; a warmer torch keeps the player's focus readable.
+// –¢•`‰æ‚Ì”wŒi‚É‚à—Î‚ğc‚µAÆË”ÍˆÍ‚ÌŠO‚ğ^‚Á•‚Èƒ}ƒXƒN‚É‚µ‚È‚¢B
+constexpr Color NightBackground{ 15, 26, 17, 255 };
+// ‰ù’†“d“”‚Í—Î‚ğ‹­‚ß‚éBÔEÂ‚Ì¬•ª‚àc‚µA’PF‚ÌˆÃ‹‰f‘œ‚É‚È‚ç‚È‚¢‚æ‚¤‚É‚·‚éB
+// RGB‚Í0`1‚ÌŒõ—ÊŒW”BFixtureIntensity‚ÍŒš•¨‚ÌŒõ—Ê‚ğ‚Ü‚Æ‚ß‚Ä’²®‚·‚éB
 constexpr Vector3 FluorescentTint{ 0.46f, 0.72f, 0.60f };
-constexpr Vector3 FlashlightTint{ 1.0f, 0.95f, 0.82f };
+constexpr Vector3 FlashlightTint{ 0.32f, 0.82f, 0.38f };
 constexpr float FixtureIntensity = 0.55f;
-// Additional world metres at each cross-section of the flashlight cone.
-constexpr float FlashlightRadiusPadding = 0.5f;
+// ÆË‰~‚ÌŠe’f–Ê‚É‘«‚·”¼Œaiƒ[ƒ‹ƒh’PˆÊjB0.0‚Å’Ç‰Á•ª‚È‚µA³‚Ì’l‚ÅÆË”ÍˆÍ‚ğL‚°‚éB
+constexpr float FlashlightRadiusPadding = 0.0f;
 
 const char* ModelVertex = R"(#version 330
 in vec3 vertexPosition;
@@ -36,7 +38,7 @@ void main() {
     gl_Position = mvp * vec4(vertexPosition, 1.0);
 })";
 
-// Material roughness/metalness are evaluated per fragment. Light highlights move with the view.
+// Ş¿‚Ì‘e‚³E‹à‘®“x‚©‚ç”½Ë‚ğŒvZ‚·‚éBüŒ`F‚ÅÆ–¾‚ğ‘«‚µAÅŒã‚É•\¦—p‚ÌF‚Ö–ß‚·B
 const char* ModelFragment = R"(#version 330
 in vec2 fragTexCoord;
 in vec4 fragColor;
@@ -52,9 +54,11 @@ uniform vec3 lightPosition;
 uniform vec3 lightDirection;
 uniform float flashlightEnabled;
 uniform float flashlightRadiusPadding;
+uniform float viewModelLighting;
+uniform float editorLighting;
 uniform vec3 fluorescentTint;
 uniform vec3 flashlightTint;
-uniform vec4 surface; // roughness, metalness, normal map mode, packed MR enabled
+uniform vec4 surface; // ‘e‚³A‹à‘®“xA–@üƒ}ƒbƒv‚Ìí—ŞAMRƒeƒNƒXƒ`ƒƒ‚Ìg—pƒtƒ‰ƒO
 uniform vec4 emission;
 uniform float emissionTextureEnabled;
 uniform float damageFlash;
@@ -63,8 +67,10 @@ uniform int buildingLightCount;
 uniform vec3 buildingPositions[MAX_LIGHTS];
 uniform vec3 buildingDirections[MAX_LIGHTS];
 uniform vec4 buildingColors[MAX_LIGHTS];
-out vec4 finalColor;
+layout(location = 0) out vec4 finalColor;
+layout(location = 1) out vec4 focusColor;
 const float PI = 3.14159265;
+// –Ê‚Ì–@üE‹üEŒõ‚ÌŒü‚«‚©‚çŠgU”½Ë‚Æ‹¾–Ê”½Ë‚ğ‹‚ß‚éB‘e‚¢–Ê‚Ù‚Ç”½Ë‚ªL‚ª‚éB
 vec3 reflectedLight(vec3 base, vec3 n, vec3 v, vec3 l, vec3 radiance, float roughness, float metalness) {
     float nl = max(dot(n, l), 0.0), nv = max(dot(n, v), 0.001);
     if (nl <= 0.0) return vec3(0.0);
@@ -86,6 +92,7 @@ void main() {
     if (albedo.a < 0.01) discard;
     vec3 normal = normalize(fragNormal);
     if (!gl_FrontFacing) normal = -normal;
+    // ˆÊ’u‚ÆUV‚Ì”÷•ª‚©‚çÚ‹óŠÔ‚ğì‚èA–@üƒ}ƒbƒv‚Ì‰š“Ê‚ğÆ–¾‚É”½‰f‚·‚éB
     if (surface.z > 0.5) {
         vec3 dp1 = dFdx(fragPosition), dp2 = dFdy(fragPosition);
         vec2 uv1 = dFdx(fragTexCoord), uv2 = dFdy(fragTexCoord);
@@ -96,61 +103,94 @@ void main() {
         if (surface.z > 1.5) mapped.y = -mapped.y;
         if (length2 > 1e-12) normal = normalize(mat3(tangent, bitangent, normal * sqrt(length2)) * mapped);
     }
+    // Neutral, even lighting for the editor; keep textures and skinned geometry.
+    if (editorLighting > 0.5) {
+        float diffuse = max(dot(normal, normalize(vec3(-0.35, 0.8, -0.45))), 0.0);
+        vec3 base = pow(max(albedo.rgb, vec3(0.0)), vec3(2.2));
+        finalColor = vec4(pow(base * (0.55 + 0.30 * diffuse), vec3(1.0 / 2.2)), albedo.a);
+        focusColor = vec4(1.0, 0.0, 0.0, albedo.a);
+        return;
+    }
     float roughness = surface.x, metalness = surface.y;
     if (surface.w > 0.5) {
         vec3 packedMR = texture(texture3, fragTexCoord).rgb;
         roughness *= packedMR.g;
         metalness *= packedMR.b;
     }
-    roughness = clamp(roughness, 0.08, 1.0);
+    // èŒ³‚Ìe‚Í”½Ë‚ğ­‚µL‚°A”½“®‚ÅŒü‚«‚ª•Ï‚í‚Á‚Ä‚à‰s‚¢”’”ò‚Ñ‚ğ‹N‚±‚³‚È‚¢‚æ‚¤‚É‚·‚éB
+    roughness = clamp(roughness, viewModelLighting > 0.5 ? 0.32 : 0.08, 1.0);
     metalness = clamp(metalness, 0.0, 1.0);
     vec3 base = pow(max(albedo.rgb, vec3(0.0)), vec3(2.2));
     vec3 view = normalize(viewPosition - fragPosition);
     vec3 toLight = lightPosition - fragPosition;
     float distanceToLight = max(length(toLight), 0.001);
     vec3 lightVector = toLight / distanceToLight;
+    // ŒõŒ¹‚©‚ç‚Ì‰œs‚«‚Æ‰¡•ûŒü‚Ì‹——£‚ÅÆË‰~‚ğ‹‚ß‚éB”w–Ê‚É‚ÍÆË‚µ‚È‚¢B
     vec3 fromLight = -toLight;
     float forwardDistance = dot(fromLight, lightDirection);
     float radialDistance = length(fromLight - lightDirection * forwardDistance);
     float padding = max(flashlightRadiusPadding, 0.0);
     float coneDistance = max(forwardDistance, 0.01);
+    // “à‘¤12“x‚Í–¾‚é‚­AŠO‘¤22“x‚Ü‚ÅŠŠ‚ç‚©‚ÉŒ¸ŠB34“x‚Ü‚Åã‚¢˜R‚êŒõ‚ğ‰Á‚¦‚éB
     float innerRadius = coneDistance * tan(radians(12.0)) + padding;
     float outerRadius = coneDistance * tan(radians(22.0)) + padding;
     float spillRadius = coneDistance * tan(radians(34.0)) + padding;
     float cone = forwardDistance > 0.001 ? 1.0 - smoothstep(innerRadius, outerRadius, radialDistance) : 0.0;
     float spill = forwardDistance > 0.001 ? 0.015 * (1.0 - smoothstep(outerRadius, spillRadius, radialDistance)) : 0.0;
+    // ‹——£Œ¸Š‚É‰Á‚¦A12`20ƒ[ƒ‹ƒh’PˆÊ‚ÅÆË‚ğÁ‚·BÁ“”‚Íbeam‚ÆèŒ³‚Ì‹ß‹——£Œõ‚ğ0‚É‚·‚éB
     float attenuation = 1.0 / (1.0 + 0.12 * distanceToLight + 0.06 * distanceToLight * distanceToLight);
     float beam = (cone + spill) * attenuation * (1.0 - smoothstep(12.0, 20.0, distanceToLight)) * flashlightEnabled;
     float distanceToView = length(viewPosition - fragPosition);
     float nearFill = 0.06 * (1.0 - smoothstep(0.15, 0.9, distanceToView)) * flashlightEnabled;
-    // Ambient light is black: only fixtures, torch and emissive surfaces illuminate the room.
-    vec3 color = base * flashlightTint * (0.16 * beam + nearFill);
-    color += reflectedLight(base, normal, view, lightVector, flashlightTint * 7.5 * beam, roughness, metalness);
+    // ˆÃŠ‚É‚àã‚¢ŠÔÚŒõ‚ğc‚·B–Í—l‚â‰A‰e‚ğŒ©‚¹‚È‚ª‚çƒ‰ƒCƒg‚Ì’†S‚Æ‚Ì–¾ˆÃ·‚ğ•Û‚ÂB
+    vec3 color = base * (vec3(0.64, 0.94, 0.69) * 0.045 + flashlightTint * (0.16 * beam + nearFill));
+    color += vec3(0.0009, 0.0018, 0.0011);
+    // FPS‚Ìe‚Æ˜r‚¾‚¯’¼ÚŒõ‚ğã‚ß‚éB’Êí‚Ìƒ‚ƒfƒ‹‚Ì”½Ë‹­“x‚Í•Ï‚¦‚È‚¢B
+    float directStrength = viewModelLighting > 0.5 ? 0.4 : 1.0;
+    color += reflectedLight(base, normal, view, lightVector, flashlightTint * 7.5 * beam * directStrength, roughness, metalness);
     for (int i = 0; i < buildingLightCount; ++i) {
         vec3 delta = buildingPositions[i] - fragPosition;
         float distance = max(length(delta), 0.001);
         vec3 l = delta / distance;
-        // Fixtures emit into their room, with a smooth six metre falloff.
+        // ”­Œõ–Ê‚ÌŒü‚«‚É]‚Á‚ÄÆ‚ç‚µA6ƒ[ƒ‹ƒh’PˆÊ‚ÅŠŠ‚ç‚©‚ÉŒ¸Š‚ğI‚¦‚éB
         float facing = max(dot(-l, buildingDirections[i]), 0.0);
         float falloff = (1.0 - smoothstep(3.0, 6.0, distance)) / (1.0 + 0.3 * distance + 0.8 * distance * distance);
         vec3 radiance = buildingColors[i].rgb * buildingColors[i].a * facing * falloff;
-        color += reflectedLight(base, normal, view, l, radiance, roughness, metalness);
+        color += reflectedLight(base, normal, view, l, radiance * directStrength, roughness, metalness);
     }
-    // Neutral emissive surfaces follow the fluorescent palette; coloured emitters retain their hue.
+    if (viewModelLighting > 0.5) {
+        // e‚Æ˜r‚É_‚ç‚©‚¢ŠÔÚŒõ‚ğ‘«‚·BƒeƒNƒXƒ`ƒƒ‚ÌF‚Æ–Ê‚Ì‰A‰e‚ğc‚µAÁ“”‚Íã‚ß‚éB
+        // ‚±‚Ì•â•Œõ‚ÍèŒ³‚Ìƒ‚ƒfƒ‹‚¾‚¯‚É“K—p‚µAƒXƒe[ƒW‚â“G‚ÌÆ–¾‚É‚Í‰e‹¿‚³‚¹‚È‚¢B
+        float facing = 0.45 + 0.55 * max(dot(normal, view), 0.0);
+        float fill = mix(0.04, 0.20, flashlightEnabled);
+        color += base * vec3(0.94, 0.96, 0.93) * facing * fill;
+    }
+    // –³ÊF‚Ì”­Œõ–Ê‚ÍÆ–¾‚ÌF‚ÉŠñ‚¹‚éB“Vˆä–Í—l‚È‚Ç‚Ì”­Œõ—áŠO‚Í“Ç‚İ‚İ‘¤‚Å–³Œø‚É‚·‚éB
     float neutralEmission = min(emission.r, min(emission.g, emission.b)) / max(max(emission.r, max(emission.g, emission.b)), 0.001);
     vec3 emitted = emission.rgb * emission.a * mix(vec3(1.0), fluorescentTint * 0.65, neutralEmission);
     if (emissionTextureEnabled > 0.5) emitted *= pow(texture(texture5, fragTexCoord).rgb, vec3(2.2));
     color += emitted;
+    // e‚Ì–¾•”‚¾‚¯‚ğŠŠ‚ç‚©‚Éˆ³k‚·‚éBRGB‚ğ“¯‚¶”ä—¦‚Å‰º‚°AF‚Æ¿Š´‚ğ•Û‚¿‚È‚ª‚ç”’”ò‚Ñ‚ğ–h‚®B
+    if (viewModelLighting > 0.5) {
+        float peak = max(color.r, max(color.g, color.b));
+        float excess = max(peak - 0.16, 0.0);
+        float compressed = min(peak, 0.16) + excess / (1.0 + excess / 0.40);
+        color *= compressed / max(peak, 0.00001);
+    }
     float fog = 1.0 - exp(-0.006 * distanceToView * distanceToView);
-    color *= 1.0 - fog;
+    // ‰“•û‚Í—Î‚Ì‰à‚ÖŠŠ‚ç‚©‚ÉŠñ‚¹‚éB•‚ÖØ‚è—‚Æ‚³‚¸Aƒg[ƒ“ƒ}ƒbƒsƒ“ƒO‚ÅŠK’²‚ğ•Û‚ÂB
+    color = mix(color, vec3(0.0036, 0.0070, 0.0042), fog);
     color = color / (vec3(1.0) + color);
     color = pow(color, vec3(1.0 / 2.2));
-    // A hit remains visible even where the flashlight does not reach.
+    // ”í’e‚ÌÔF‚ÍÆ–¾ŒvZ‚ÌŒã‚Éd‚ËAˆÃŠ‚Å‚àŒ©‚¦‚é‚æ‚¤‚É‚·‚éB
     color = mix(color, vec3(0.95, 0.025, 0.04), clamp(damageFlash, 0.0, 1.0) * 0.85);
     finalColor = vec4(color, albedo.a);
+    // FE“§–¾“x‚ğ•Û‚Á‚½‚Ü‚ÜAÀÛ‚ÌÆË—Ê‚ğ•Ê‚Ì•`‰ææ‚Ö‹L˜^‚·‚éBÄ“xƒ‚ƒfƒ‹‚ğ•`‚­•K—v‚Í‚È‚¢B
+    float focus = cone * (1.0 - smoothstep(12.0, 20.0, distanceToLight)) * flashlightEnabled;
+    focusColor = vec4(focus, 0.0, 0.0, albedo.a);
 })";
 
-struct MaterialLocations { int surface, emission, emissionTexture, flash; };
+struct MaterialLocations { int surface, emission, emissionTexture, flash, viewModel; };
 std::unordered_map<unsigned int, MaterialLocations> materialLocations;
 constexpr int MaxBuildingLights = 8;
 
@@ -158,44 +198,67 @@ const char* PostFragment = R"(#version 330
 in vec2 fragTexCoord;
 in vec4 fragColor;
 uniform sampler2D texture0;
+uniform sampler2D focusTexture;
+uniform float focusEnabled;
 uniform vec4 colDiffuse;
 uniform float time;
-uniform float aspect;
 uniform vec2 texelSize;
 out vec4 finalColor;
-vec3 brightSample(vec2 uv) {
-    vec3 value = texture(texture0, clamp(uv, vec2(0.0), vec2(1.0))).rgb;
+// ü•Ó‚Ú‚©‚µ‚Í0`1‚Ì”ä—¦A”¼Œa‚Í•`‰æƒoƒbƒtƒ@ã‚ÌƒsƒNƒZƒ‹”B—Î‚ÌF–¡‚Í‚±‚ÌRGB‚Å’²®‚·‚éB
+const float PeripheralBlurRatio = 0.75; // ÆË”ÍˆÍ‚ÌŠO‚Å‚Ú‚©‚µ‚½‰æ‘œ‚ğ75%¬‚º‚éB
+const float PeripheralBlurRadius = 6.0;
+const float PeripheralTintRatio = 0.60;
+const vec3 PeripheralTint = vec3(0.42, 0.98, 0.52);
+vec3 brightPart(vec3 value) {
     float luma = dot(value, vec3(0.2126, 0.7152, 0.0722));
     return value * max(luma - 0.62, 0.0) / max(luma, 0.001);
 }
+void addSceneSample(vec2 uv, float weight, inout vec3 blurred, inout vec3 glow) {
+    vec3 value = texture(texture0, clamp(uv, vec2(0.0), vec2(1.0))).rgb;
+    blurred += value * weight;
+    glow += brightPart(value);
+}
+vec3 blurredScene(vec2 uv, vec3 center, out vec3 glow) {
+    // ƒuƒ‹[ƒ€‚Æ‚Ú‚©‚µ‚Å“¯‚¶9“_‚Ì“Ç‚İ‚İ‚ğ‹¤—L‚·‚éB’Ç‰Á‚Ì‘S‰æ–Êƒoƒbƒtƒ@‚Íì‚ç‚È‚¢B
+    vec2 radius = texelSize * PeripheralBlurRadius;
+    vec3 result = center * 4.0;
+    glow = brightPart(center) * 2.0;
+    addSceneSample(uv + vec2(radius.x, 0.0), 2.0, result, glow);
+    addSceneSample(uv - vec2(radius.x, 0.0), 2.0, result, glow);
+    addSceneSample(uv + vec2(0.0, radius.y), 2.0, result, glow);
+    addSceneSample(uv - vec2(0.0, radius.y), 2.0, result, glow);
+    addSceneSample(uv + radius, 1.0, result, glow);
+    addSceneSample(uv - radius, 1.0, result, glow);
+    addSceneSample(uv + vec2(radius.x, -radius.y), 1.0, result, glow);
+    addSceneSample(uv + vec2(-radius.x, radius.y), 1.0, result, glow);
+    return result / 16.0;
+}
 void main() {
     vec3 color = texture(texture0, fragTexCoord).rgb;
-    // A small single-pass glow avoids another full-size scene buffer.
-    vec2 radius = texelSize * 4.0;
-    vec3 glow = brightSample(fragTexCoord) * 2.0;
-    glow += brightSample(fragTexCoord + vec2(radius.x, 0.0));
-    glow += brightSample(fragTexCoord - vec2(radius.x, 0.0));
-    glow += brightSample(fragTexCoord + vec2(0.0, radius.y));
-    glow += brightSample(fragTexCoord - vec2(0.0, radius.y));
-    glow += brightSample(fragTexCoord + radius);
-    glow += brightSample(fragTexCoord - radius);
-    glow += brightSample(fragTexCoord + vec2(radius.x, -radius.y));
-    glow += brightSample(fragTexCoord + vec2(-radius.x, radius.y));
+    vec3 glow;
+    vec3 blurred = blurredScene(fragTexCoord, color, glow);
     color += glow * 0.022;
-    vec2 edge = fragTexCoord * 2.0 - 1.0;
-    edge.x *= min(aspect, 1.8) / 1.8;
-    float vignette = 1.0 - 0.68 * smoothstep(0.25, 1.5, dot(edge, edge));
+    blurred += glow * 0.022;
+    // ‰æ–Ê’†‰›‚âƒeƒNƒXƒ`ƒƒ‚Ì–¾‚é‚³‚Å”»’f‚¹‚¸AÀÛ‚Éƒ‰ƒCƒg‚ª“–‚½‚Á‚½êŠ‚ğ‘N–¾‚É•Û‚ÂB
+    // “¯‚¶ŠŠ‚ç‚©‚ÈÆËƒ}ƒXƒN‚Å‚Ú‚©‚µ‚Æ—Î‚ğ¬‚ºAØ‚è‘Ö‚¦‚Ì‹«ŠEü‚ğì‚ç‚È‚¢B
+    float coverage = focusEnabled > 0.5 ? texture(focusTexture, fragTexCoord).r : 0.0;
+    float peripheral = 1.0 - smoothstep(0.12, 0.90, coverage);
+    color = mix(color, blurred, peripheral * PeripheralBlurRatio);
     float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
-    // Grade only the scene; HUD and damage overlay are drawn afterwards.
-    vec3 shadowTint = mix(vec3(0.72, 0.91, 0.82), vec3(1.0), smoothstep(0.04, 0.65, luma));
+    // F’²•â³‚ÍƒV[ƒ“‚¾‚¯‚É“K—p‚·‚éBHUD‚â”í’e•\¦‚ÍEndFrame‚ÌŒã‚É•`‚¢‚ÄF‚Æ•¶š‚ğ•Û‚ÂB
+    vec3 shadowTint = mix(vec3(0.88), vec3(1.0), smoothstep(0.04, 0.65, luma));
     color = mix(vec3(luma), color, 0.74) * shadowTint;
-    color = max((color * 0.90 - vec3(0.035)) * 1.06, vec3(0.0)) * vignette;
+    color *= mix(vec3(1.0), PeripheralTint, peripheral * PeripheralTintRatio);
+    // •‚¢ƒrƒlƒbƒg‚ÆˆÃ•”‚ÌØ‚èÌ‚Ä‚ğg‚í‚¸AˆÃ‚¢•”•ª‚ÌŠK’²‚ğc‚·B
+    color *= 0.90 * 1.06;
+    // ‚í‚¸‚©‚È—±óŠ´‚ğ‰Á‚¦‚éBtime‚ÅXV‚·‚é‚ªA•¶š‚âHUD‚É‚Í‚©‚©‚ç‚È‚¢B
     float grain = fract(sin(dot(gl_FragCoord.xy + floor(time * 24.0), vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
     finalColor = vec4(max(color + grain * 0.012, vec3(0.0)), 1.0) * colDiffuse * fragColor;
 })";
 }
 
 Shader LoadHorrorShader(const char* vertexCode, bool normalMaps) {
+    // ƒ‚ƒfƒ‹—pƒVƒF[ƒ_[‚Ì¶¬‚ÆuniformˆÊ’u‚Ìæ“¾‚Í“Ç‚İ‚İ‚¾‚¯s‚¤B
     Shader shader = LoadShaderFromMemory(vertexCode ? vertexCode : ModelVertex, ModelFragment);
     if (!shader.id || !shader.locs || shader.id == rlGetShaderIdDefault()) return {};
     shader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocation(shader, "matModel");
@@ -204,7 +267,8 @@ Shader LoadHorrorShader(const char* vertexCode, bool normalMaps) {
     shader.locs[SHADER_LOC_MAP_ROUGHNESS] = GetShaderLocation(shader, "texture3");
     shader.locs[SHADER_LOC_MAP_EMISSION] = GetShaderLocation(shader, "texture5");
     const MaterialLocations locations = {GetShaderLocation(shader, "surface"), GetShaderLocation(shader, "emission"),
-        GetShaderLocation(shader, "emissionTextureEnabled"), GetShaderLocation(shader, "damageFlash")};
+        GetShaderLocation(shader, "emissionTextureEnabled"), GetShaderLocation(shader, "damageFlash"),
+        GetShaderLocation(shader, "viewModelLighting")};
     materialLocations[shader.id] = locations;
     SetShaderValue(shader, GetShaderLocation(shader, "fluorescentTint"), &FluorescentTint, SHADER_UNIFORM_VEC3);
     SetShaderValue(shader, GetShaderLocation(shader, "flashlightTint"), &FlashlightTint, SHADER_UNIFORM_VEC3);
@@ -219,9 +283,9 @@ void UnloadHorrorShader(Shader shader) {
     UnloadShader(shader);
 }
 
-void DrawHorrorMesh(Mesh mesh, Material material, Matrix transform, Color tint, float damageFlash) {
+void DrawHorrorMesh(Mesh mesh, Material material, Matrix transform, Color tint, float damageFlash, bool viewModel) {
     if (!material.maps) return;
-    // Borrow textures while copying map values, so an actor's tint cannot alter a shared material.
+    // ƒeƒNƒXƒ`ƒƒ‚ÍØ—p‚µAŞ¿‚Ì’l‚¾‚¯ƒRƒs[‚·‚éB”í’eF‚âe‚Ì•â³‚Å‹¤—LŞ¿‚ğ•ÏX‚µ‚È‚¢B
     std::array<MaterialMap, 12> maps; // raylib 5.5 MAX_MATERIAL_MAPS includes one reserved slot.
     std::copy_n(material.maps, maps.size(), maps.begin());
     material.maps = maps.data();
@@ -240,16 +304,19 @@ void DrawHorrorMesh(Mesh mesh, Material material, Matrix transform, Color tint, 
         SetShaderValue(material.shader, locations.emission, &emitted, SHADER_UNIFORM_VEC4);
         SetShaderValue(material.shader, locations.emissionTexture, &material.params[2], SHADER_UNIFORM_FLOAT);
         SetShaderValue(material.shader, locations.flash, &damageFlash, SHADER_UNIFORM_FLOAT);
+        // ‹¤—LƒVƒF[ƒ_[‚É‘O‚Ìƒ‚ƒfƒ‹‚Ì•â³‚ªc‚ç‚È‚¢‚æ‚¤A–ˆƒƒbƒVƒ…‚Åİ’è‚·‚éB
+        const float weapon = viewModel ? 1.0f : 0.0f;
+        SetShaderValue(material.shader, locations.viewModel, &weapon, SHADER_UNIFORM_FLOAT);
     }
     DrawMesh(mesh, material, transform);
 }
 
-void DrawHorrorModelEx(Model model, Vector3 position, Vector3 axis, float degrees, Vector3 scale, Color tint, float flash) {
+void DrawHorrorModelEx(Model model, Vector3 position, Vector3 axis, float degrees, Vector3 scale, Color tint, float flash, bool viewModel) {
     const Matrix transform = MatrixMultiply(model.transform, MatrixMultiply(
         MatrixMultiply(MatrixScale(scale.x, scale.y, scale.z), MatrixRotate(axis, degrees * DEG2RAD)),
         MatrixTranslate(position.x, position.y, position.z)));
     for (int i = 0; i < model.meshCount; ++i)
-        DrawHorrorMesh(model.meshes[i], model.materials[model.meshMaterial[i]], transform, tint, flash);
+        DrawHorrorMesh(model.meshes[i], model.materials[model.meshMaterial[i]], transform, tint, flash, viewModel);
 }
 
 void DrawHorrorModel(Model model, Vector3 position, float scale, Color tint) {
@@ -257,6 +324,7 @@ void DrawHorrorModel(Model model, Vector3 position, float scale, Color tint) {
 }
 
 void HorrorLighting::CollectBuildingLights(const Model& model) {
+    // ‰Šú‰»‚¾‚¯”­Œõ‚ª—LŒø‚È‘fŞ‚©‚çŒõŒ¹‚ğ’Šo‚·‚éB“Vˆä–Í—l‚ÍResourceManager‚ÅœŠO‚·‚éB
     buildingLights_.clear();
     std::vector<float> weights;
     const Matrix normals = MatrixTranspose(MatrixInvert(model.transform));
@@ -289,7 +357,7 @@ void HorrorLighting::CollectBuildingLights(const Model& model) {
             const float area = Vector3Length(Vector3CrossProduct(Vector3Subtract(positions[1], positions[0]),
                 Vector3Subtract(positions[2], positions[0]))) * 0.5f;
             if (area < 0.00001f) continue;
-            // Sample inside triangles: the centre alone can miss an emitter in a dark texture atlas.
+            // OŠpŒ`‚Ì“à•”‚à’²‚×AˆÃ‚¢ƒeƒNƒXƒ`ƒƒ“à‚Ì¬‚³‚È”­Œõ–Ê‚ğæ‚è‚±‚Ú‚³‚È‚¢‚æ‚¤‚É‚·‚éB
             const int steps = pixels ? 16 : 1;
             for (int a = 0; a < steps; ++a) for (int b = 0; b < steps - a; ++b) {
                 const float w0 = (a + 1.0f / 3.0f) / steps, w1 = (b + 1.0f / 3.0f) / steps;
@@ -328,13 +396,14 @@ void HorrorLighting::CollectBuildingLights(const Model& model) {
 }
 
 void HorrorLighting::Init(const std::vector<Shader>& shaders, const Model& building) {
+    // ƒ‚ƒfƒ‹—pƒVƒF[ƒ_[‚ÍØ—p‚·‚éB•`‰æƒoƒbƒtƒ@EÆËƒ}ƒXƒNE‰æ–ÊŒø‰Ê‚Í‚±‚ÌƒNƒ‰ƒX‚ªŠ—L‚·‚éB
     CollectBuildingLights(building);
     modelLights_.clear();
     for (Shader shader : shaders) {
         const int enabled = GetShaderLocation(shader, "flashlightEnabled");
         if (enabled >= 0) modelLights_.push_back({shader,
             GetShaderLocation(shader, "viewPosition"), GetShaderLocation(shader, "lightPosition"),
-            GetShaderLocation(shader, "lightDirection"), enabled,
+            GetShaderLocation(shader, "lightDirection"), enabled, GetShaderLocation(shader, "editorLighting"),
             GetShaderLocation(shader, "buildingLightCount"), GetShaderLocation(shader, "buildingPositions[0]"),
             GetShaderLocation(shader, "buildingColors[0]"), GetShaderLocation(shader, "buildingDirections[0]")});
     }
@@ -343,27 +412,33 @@ void HorrorLighting::Init(const std::vector<Shader>& shaders, const Model& build
         if (post_.id == rlGetShaderIdDefault()) post_ = {};
         if (post_.id) {
             timeLocation_ = GetShaderLocation(post_, "time");
-            aspectLocation_ = GetShaderLocation(post_, "aspect");
             texelLocation_ = GetShaderLocation(post_, "texelSize");
+            focusLocation_ = GetShaderLocation(post_, "focusTexture");
+            focusEnabledLocation_ = GetShaderLocation(post_, "focusEnabled");
         }
     }
     Reset();
 }
 
 void HorrorLighting::Update() {
+    // “ü—Í‚Í–ˆƒtƒŒ[ƒ€1‰ñˆ—‚·‚éBF‚Å‰ù’†“d“”‚ÆØ‚è‘Ö‚¦‰¹‚ğXV‚·‚éB
     if (IsKeyPressed(KEY_F)) {
         flashlightOn_ = !flashlightOn_;
         AM().PlaySe(SeId::Flashlight);
     }
 }
 
-void HorrorLighting::BeginFrame(const Camera3D& view, const Camera3D& flashlight, Vector3 stagePosition, float stageScale) {
+void HorrorLighting::BeginFrame(const Camera3D& view, const Camera3D& flashlight, Vector3 stagePosition, float stageScale, bool editorView) {
+    editorView_ = editorView;
+    // •\¦—pƒJƒƒ‰‚Æ‚Í•Ê‚ÉƒvƒŒƒCƒ„[‚Ì‹ü‚©‚çŒõŒ¹‚ğ’u‚«Aè‚Å‚ÂˆÊ’u‚Ö­‚µ‚¸‚ç‚·B
     const Vector3 direction = Vector3Normalize(Vector3Subtract(flashlight.target, flashlight.position));
     const Vector3 right = Vector3Normalize(Vector3CrossProduct(direction, flashlight.up));
     Vector3 position = Vector3Add(flashlight.position, Vector3Scale(direction, 0.12f));
     position = Vector3Add(position, Vector3Scale(right, 0.10f));
     position = Vector3Subtract(position, Vector3Scale(flashlight.up, 0.09f));
     const float enabled = flashlightOn_ ? 1.0f : 0.0f;
+    const float editor = editorView_ ? 1.0f : 0.0f;
+    // ƒXƒe[ƒW‚ÌˆÚ“®EŠgk‚É’Ç]‚µA•\¦ƒJƒƒ‰‚É‹ß‚¢8“”‚¾‚¯‚ğGPU‚Ö‘—‚éB
     std::vector<BuildingLight> nearest = buildingLights_;
     for (auto& light : nearest) light.position = Vector3Add(stagePosition, Vector3Scale(light.position, stageScale));
     std::sort(nearest.begin(), nearest.end(), [&](const BuildingLight& a, const BuildingLight& b) {
@@ -382,6 +457,7 @@ void HorrorLighting::BeginFrame(const Camera3D& view, const Camera3D& flashlight
         SetShaderValue(light.shader, light.lightPosition, &position, SHADER_UNIFORM_VEC3);
         SetShaderValue(light.shader, light.lightDirection, &direction, SHADER_UNIFORM_VEC3);
         SetShaderValue(light.shader, light.enabled, &enabled, SHADER_UNIFORM_FLOAT);
+        SetShaderValue(light.shader, light.editorView, &editor, SHADER_UNIFORM_FLOAT);
         SetShaderValue(light.shader, light.buildingCount, &count, SHADER_UNIFORM_INT);
         if (count > 0) {
             SetShaderValueV(light.shader, light.buildingPositions, positions.data(), SHADER_UNIFORM_VEC3, count);
@@ -389,32 +465,87 @@ void HorrorLighting::BeginFrame(const Camera3D& view, const Camera3D& flashlight
             SetShaderValueV(light.shader, light.buildingDirections, directions.data(), SHADER_UNIFORM_VEC3, count);
         }
     }
-    // Reallocate only on resize. Cap the buffer at 1080p to avoid adding 4K fill cost.
+    // ƒŠƒTƒCƒY‚¾‚¯ƒoƒbƒtƒ@‚ğÄŠm•Û‚·‚éB‰æ–ÊŒø‰Ê‚Ì•`‰æ‰ğ‘œ“x‚ÍÅ‘å1920~1080‚É—}‚¦‚éB
+    if (editorView_) {
+        // •ÒW’†‚Í’†—§F‚Ì”wŒi‚Ö’¼Ú•`‰æ‚µAˆÃ‚¢–¶E—Î‚ÌF’²•â³Eü•Ó‚Ú‚©‚µ‚ğ’Ê‚³‚È‚¢B
+        ClearBackground({48, 54, 62, 255});
+        return;
+    }
     const int screenWidth = (std::max)(GetScreenWidth(), 1);
     const int screenHeight = (std::max)(GetScreenHeight(), 1);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     const float scale = (std::min)(1.0f, (std::min)(1920.0f / screenWidth, 1080.0f / screenHeight));
     const int width = (std::max)(1, static_cast<int>(screenWidth * scale));
     const int height = (std::max)(1, static_cast<int>(screenHeight * scale));
     if (!scene_.id || scene_.texture.width != width || scene_.texture.height != height) {
+        if (focus_.id) UnloadTexture(focus_);
+        focus_ = {};
         if (scene_.id) UnloadRenderTexture(scene_);
         scene_ = LoadRenderTexture(width, height);
-        if (scene_.id) SetTextureFilter(scene_.texture, TEXTURE_FILTER_BILINEAR);
+        if (scene_.id) {
+            SetTextureFilter(scene_.texture, TEXTURE_FILTER_BILINEAR);
+            SetTextureWrap(scene_.texture, TEXTURE_WRAP_CLAMP);
+            // F‚ÆÆË—Ê‚ğ1‰ñ‚Ì3D•`‰æ‚Å‹L˜^‚·‚éB1ƒ`ƒƒƒ“ƒlƒ‹‚Ì‚½‚ß’Ç‰Áƒƒ‚ƒŠ‚Í1080p‚Å–ñ2MBB
+            focus_ = {rlLoadTexture(nullptr, width, height, PIXELFORMAT_UNCOMPRESSED_GRAYSCALE, 1),
+                      width, height, 1, PIXELFORMAT_UNCOMPRESSED_GRAYSCALE};
+            if (focus_.id) {
+                SetTextureFilter(focus_, TEXTURE_FILTER_BILINEAR);
+                SetTextureWrap(focus_, TEXTURE_WRAP_CLAMP);
+                rlFramebufferAttach(scene_.id, focus_.id, RL_ATTACHMENT_COLOR_CHANNEL1, RL_ATTACHMENT_TEXTURE2D, 0);
+                if (!rlFramebufferComplete(scene_.id)) {
+                    rlFramebufferAttach(scene_.id, 0, RL_ATTACHMENT_COLOR_CHANNEL1, RL_ATTACHMENT_TEXTURE2D, 0);
+                    UnloadTexture(focus_);
+                    focus_ = {};
+                }
+            }
+        }
     }
-    if (scene_.id) BeginTextureMode(scene_);
+    if (scene_.id) {
+        BeginTextureMode(scene_);
+        if (focus_.id) rlActiveDrawBuffers(2);
+    }
     ClearBackground(NightBackground);
 }
 
 void HorrorLighting::EndFrame(bool drawControls) const {
+    if (editorView_) return;
+    // 3D•`‰æ‚ğI—¹‚µAÆË”ÍˆÍ‚ÌŠO‚¾‚¯‚ğ‚Ú‚©‚µ‚Ä—Î‚ÌƒOƒ‰ƒf[ƒVƒ‡ƒ“‚ğd‚Ë‚éBHUD‚Í‚±‚ÌŒãB
     if (scene_.id) {
+        rlDrawRenderBatchActive();
+        if (focus_.id) rlActiveDrawBuffers(1);
         EndTextureMode();
         if (post_.id) {
             const float time = static_cast<float>(GetTime());
-            const float aspect = static_cast<float>(scene_.texture.width) / scene_.texture.height;
             SetShaderValue(post_, timeLocation_, &time, SHADER_UNIFORM_FLOAT);
-            SetShaderValue(post_, aspectLocation_, &aspect, SHADER_UNIFORM_FLOAT);
             const Vector2 texel = {1.0f / scene_.texture.width, 1.0f / scene_.texture.height};
             SetShaderValue(post_, texelLocation_, &texel, SHADER_UNIFORM_VEC2);
+            const float enabled = focus_.id ? 1.0f : 0.0f;
+            SetShaderValue(post_, focusEnabledLocation_, &enabled, SHADER_UNIFORM_FLOAT);
             BeginShaderMode(post_);
+            // ƒVƒF[ƒ_[Ø‚è‘Ö‚¦‚Íƒoƒbƒ`‚ğƒtƒ‰ƒbƒVƒ…‚·‚é‚½‚ßA‚»‚ÌŒã‚É’Ç‰ÁƒeƒNƒXƒ`ƒƒ‚ğ“o˜^‚·‚éB
+            if (focus_.id) SetShaderValueTexture(post_, focusLocation_, focus_);
         }
         DrawTexturePro(scene_.texture, {0, 0, static_cast<float>(scene_.texture.width), -static_cast<float>(scene_.texture.height)},
             {0, 0, static_cast<float>(GetScreenWidth()), static_cast<float>(GetScreenHeight())}, {0, 0}, 0, WHITE);
@@ -425,10 +556,14 @@ void HorrorLighting::EndFrame(bool drawControls) const {
 }
 
 void HorrorLighting::Shutdown() {
+    // Š—L‚·‚éGPUƒŠƒ\[ƒX‚¾‚¯‚ğ‰ğ•ú‚·‚éB‹¤—Lƒ‚ƒfƒ‹—pƒVƒF[ƒ_[‚ÍResourceManager‚ª‰ğ•ú‚·‚éB
+    if (focus_.id) UnloadTexture(focus_);
     if (scene_.id) UnloadRenderTexture(scene_);
     if (post_.id) UnloadShader(post_);
     scene_ = {};
+    focus_ = {};
     post_ = {};
     modelLights_.clear();
     buildingLights_.clear();
+    editorView_ = false;
 }

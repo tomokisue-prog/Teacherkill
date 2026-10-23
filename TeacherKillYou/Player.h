@@ -37,6 +37,10 @@ public:
     bool IsDebugDrawEnabled() const { return debugDrawEnabled_; }
     void SetDebugDrawEnabled(bool enabled) { debugDrawEnabled_ = enabled; }
 
+    // Item effects
+    void Heal(int amount);
+    void AddReserveAmmo(int amount);
+
     Vector3 GetMuzzlePosition(const Camera3D& view) const;
 
 
@@ -88,6 +92,12 @@ private:
 
     float shootDuration_{ 0.417f };
     float reloadDuration_{ 2.291667f };
+
+    // HUD画像はInitで読み込み、Resetでは再利用し、Endで解放する。
+    Texture2D ammoHudTexture_{};
+    Rectangle ammoHudSource_{};
+    Texture2D healthHudTexture_{};
+    Rectangle healthHudSource_{};
 
     int magazineCapacity_{ 15 };
     int currentAmmo_{ 15 };
