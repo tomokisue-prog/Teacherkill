@@ -1,4 +1,5 @@
 ﻿#include "GameSettings.h"
+#include "GameContext.h"
 #include "AudioManager.h"
 #include "PlayerCamera.h"
 #include "SaveData.h"
@@ -23,13 +24,17 @@ bool GameSettings::Load(const std::string& path)
     seVolume = ReadSetting(data, "se", seVolume, 0, 1);
     ambienceVolume = ReadSetting(data, "ambience", ambienceVolume, 0, 1);
     mouseSensitivity = ReadSetting(data, "mouseSensitivity", mouseSensitivity, 0.1f, 3.0f);
+    brightness = ReadSetting(data, "brightness", brightness, MinBrightness, MaxBrightness);
+    greenStrength = ReadSetting(data, "greenStrength", greenStrength, 0, 1);
     return true;
 }
 
 bool GameSettings::Save(const std::string& path) const
 {
     return SaveData::Write(path, {{"version", 1}, {"bgm", bgmVolume}, {"se", seVolume},
-        {"ambience", ambienceVolume}, {"mouseSensitivity", mouseSensitivity}});
+        {"ambience", ambienceVolume}, {"mouseSensitivity", mouseSensitivity},
+        {"brightness", std::isfinite(brightness) ? std::clamp(brightness, MinBrightness, MaxBrightness) : 1.0f},
+        {"greenStrength", std::isfinite(greenStrength) ? std::clamp(greenStrength, 0.0f, 1.0f) : 1.0f}});
 }
 
 void GameSettings::Apply(PlayerCamera& camera) const
@@ -38,4 +43,10 @@ void GameSettings::Apply(PlayerCamera& camera) const
     AM().SetSeVolume(seVolume);
     AM().SetAmbienceVolume(ambienceVolume);
     camera.SetSensitivity(mouseSensitivity);
+}
+
+void GameSettings::Apply(GameContext& context) const
+{
+    Apply(context.GetCameraController().GetPlayerCamera());
+    context.SetDisplaySettings(brightness, greenStrength);
 }

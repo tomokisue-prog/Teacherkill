@@ -76,6 +76,11 @@ namespace
     constexpr int AMMO_PICKUP_AMOUNT = 30;
 }
 
+void GameContext::SetDisplaySettings(float brightness, float greenStrength)
+{
+    lighting_.SetDisplaySettings(brightness, greenStrength);
+}
+
 void GameContext::Init()
 {
     // 新しいラウンドへ、前回の暗転・会話・ドア開閉・ライト状態を持ち越さない。

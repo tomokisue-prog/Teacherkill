@@ -5,6 +5,7 @@
 #include <algorithm>
 
 namespace {
+    constexpr int SettingCount = 6;
     float Scale() { return Clamp((std::min)(GetScreenWidth() / 1920.0f, GetScreenHeight() / 1080.0f), .45f, 1.5f); }
     Rectangle Button(int row) {
         const float s = Scale();
@@ -33,8 +34,15 @@ namespace {
         case 0: return settings.bgmVolume;
         case 1: return settings.ambienceVolume;
         case 2: return settings.seVolume;
-        default: return settings.mouseSensitivity;
+        case 3: return settings.mouseSensitivity;
+        case 4: return settings.brightness;
+        default: return settings.greenStrength;
         }
+    }
+    Vector2 SettingRange(int row) {
+        if (row == 3) return {.1f, 3.0f};
+        if (row == 4) return {GameSettings::MinBrightness, GameSettings::MaxBrightness};
+        return {0, 1};
     }
 }
 
@@ -61,38 +69,40 @@ PauseAction PauseMenu::Update(float dt, GameSettings& settings, bool canLoad, bo
     const bool click = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
     const bool mouseMoved = Vector2LengthSqr(GetMouseDelta()) > 0 || click;
     const auto mouse = GetMousePosition();
-    const int optionCount = 5;
+    const int optionCount = settingsPage_ ? SettingCount + 1 : 5;
     if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) selectedOption_ = (selectedOption_ + optionCount - 1) % optionCount;
     if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) selectedOption_ = (selectedOption_ + 1) % optionCount;
 
     if (settingsPage_) {
         if (IsKeyPressed(KEY_ESCAPE)) { settingsPage_ = false; selectedOption_ = 1; return PauseAction::SaveSettings; }
+        // 新しいクリックではドラッグ対象を選び直し、前のスライダーを動かさない。
+        if (click) draggingSlider_ = -1;
         bool changed = false;
-        for (int i = 0; i < 4; ++i) {
+        for (int i = 0; i < SettingCount; ++i) {
             auto bar = Slider(i);
             auto hit = Rectangle{bar.x - 12 * Scale(), bar.y - 12 * Scale(), bar.width + 24 * Scale(), bar.height + 24 * Scale()};
             if (mouseMoved && CheckCollisionPointRec(mouse, hit)) selectedOption_ = i;
             if (click && CheckCollisionPointRec(mouse, hit)) draggingSlider_ = i;
             if (draggingSlider_ == i && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-                const float low = i == 3 ? .1f : 0;
-                const float high = i == 3 ? 3.0f : 1.0f;
+                const Vector2 range = SettingRange(i);
                 float& value = Setting(settings, i);
-                const float next = Lerp(low, high, Clamp((mouse.x - bar.x) / bar.width, 0, 1));
+                const float next = Lerp(range.x, range.y, Clamp((mouse.x - bar.x) / bar.width, 0, 1));
                 changed |= value != next;
                 value = next;
             }
         }
         if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) draggingSlider_ = -1;
-        if (selectedOption_ < 4 && (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_RIGHT))) {
+        if (selectedOption_ < SettingCount && (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_RIGHT))) {
             float& value = Setting(settings, selectedOption_);
             const float step = selectedOption_ == 3 ? .1f : .05f;
-            value = Clamp(value + (IsKeyPressed(KEY_RIGHT) ? step : -step), selectedOption_ == 3 ? .1f : 0, selectedOption_ == 3 ? 3.0f : 1.0f);
+            const Vector2 range = SettingRange(selectedOption_);
+            value = Clamp(value + (IsKeyPressed(KEY_RIGHT) ? step : -step), range.x, range.y);
             changed = true;
         }
-        const auto back = Button(5);
+        const auto back = Button(7);
         const bool overBack = CheckCollisionPointRec(mouse, back);
-        if (mouseMoved && overBack) selectedOption_ = 4;
-        if ((click && overBack) || (selectedOption_ == 4 && (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)))) {
+        if (mouseMoved && overBack) selectedOption_ = SettingCount;
+        if ((click && overBack) || (selectedOption_ == SettingCount && (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)))) {
             settingsPage_ = false; selectedOption_ = 1; return PauseAction::SaveSettings;
         }
         return changed ? PauseAction::SettingsChanged : PauseAction::None;
@@ -120,15 +130,22 @@ PauseAction PauseMenu::Update(float dt, GameSettings& settings, bool canLoad, bo
 void PauseMenu::Draw(const GameSettings& settings, bool canLoad, bool canSave) const
 {
     const float s = Scale();
-    DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), {3, 9, 11, 225});
+    // 設定中は背景を確認できる明るさにし、文字の後ろだけパネルを重ねる。
+    DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), {3, 9, 11, static_cast<unsigned char>(settingsPage_ ? 24 : 225)});
+    if (settingsPage_) {
+        const float top = GetScreenHeight() * .28f;
+        DrawRectangleRec({(GetScreenWidth() - 760 * s) / 2, top, 760 * s, Button(7).y + Button(7).height + 24 * s - top}, {3, 9, 11, 210});
+    }
     Text(settingsPage_ ? u8"設定" : u8"ポーズ", settingsPage_ ? "SETTINGS" : "PAUSED", GetScreenHeight() * .16f, 64 * s, RAYWHITE);
     if (settingsPage_) {
-        const char* jp[] = {u8"BGM音量", u8"環境音量", u8"効果音量", u8"マウス感度"};
-        const char* en[] = {"BGM VOLUME", "AMBIENCE VOLUME", "SOUND EFFECTS", "MOUSE SENSITIVITY"};
-        const float values[] = {settings.bgmVolume, settings.ambienceVolume, settings.seVolume, settings.mouseSensitivity};
-        for (int i = 0; i < 4; ++i) {
+        const char* jp[] = {u8"BGM音量", u8"環境音量", u8"効果音量", u8"マウス感度", u8"画面の明るさ", u8"緑の強さ"};
+        const char* en[] = {"BGM VOLUME", "AMBIENCE VOLUME", "SOUND EFFECTS", "MOUSE SENSITIVITY", "DISPLAY BRIGHTNESS", "GREEN STRENGTH"};
+        const float values[] = {settings.bgmVolume, settings.ambienceVolume, settings.seVolume, settings.mouseSensitivity, settings.brightness, settings.greenStrength};
+        Text(u8"背景を見ながら調整できます。明るさ・緑の強さは100%が標準です。", "Preview the background. Brightness and green default to 100%.", GetScreenHeight() * .24f, 20 * s, {192, 212, 198, 255});
+        for (int i = 0; i < SettingCount; ++i) {
             const auto bar = Slider(i);
-            const float fraction = i == 3 ? (values[i] - .1f) / 2.9f : values[i];
+            const Vector2 range = SettingRange(i);
+            const float fraction = Clamp((values[i] - range.x) / (range.y - range.x), 0, 1);
             Text(jp[i], en[i], bar.y - 36 * s, 25 * s, i == selectedOption_ ? Color{173, 226, 194, 255} : RAYWHITE);
             DrawRectangleRec(bar, {42, 49, 51, 255});
             DrawRectangleRec({bar.x, bar.y, bar.width * fraction, bar.height}, {96, 153, 126, 255});
@@ -136,11 +153,11 @@ void PauseMenu::Draw(const GameSettings& settings, bool canLoad, bool canSave) c
             const char* number = i == 3 ? TextFormat("%.2fx", values[i]) : TextFormat("%d%%", int(values[i] * 100 + .5f));
             DrawText(number, int(bar.x + bar.width + 24 * s), int(bar.y - 3 * s), int(22 * s), RAYWHITE);
         }
-        DrawButton(Button(5), u8"保存して戻る", "SAVE AND BACK", selectedOption_ == 4, true);
+        DrawButton(Button(7), u8"保存して戻る", "SAVE AND BACK", selectedOption_ == SettingCount, true);
     }
     else {
-        const char* jp[] = {u8"ゲームに戻る  [Esc]", u8"音量・マウス感度", u8"チェックポイントを保存", u8"チェックポイントから再開", u8"タイトルへ戻る"};
-        const char* en[] = {"RESUME  [Esc]", "AUDIO / MOUSE SETTINGS", "SAVE CHECKPOINT", "LOAD CHECKPOINT", "RETURN TO TITLE"};
+        const char* jp[] = {u8"ゲームに戻る  [Esc]", u8"画面・音量・マウス設定", u8"チェックポイントを保存", u8"チェックポイントから再開", u8"タイトルへ戻る"};
+        const char* en[] = {"RESUME  [Esc]", "DISPLAY / AUDIO / MOUSE", "SAVE CHECKPOINT", "LOAD CHECKPOINT", "RETURN TO TITLE"};
         for (int i = 0; i < 5; ++i)
             DrawButton(Button(i), jp[i], en[i], selectedOption_ == i, i == 2 ? canSave : i == 3 ? canLoad : true);
         Text(u8"保存すると、前のチェックポイントを更新します。", "Saving replaces the previous checkpoint.", Button(4).y + 87 * s, 20 * s, {159, 176, 172, 255});
