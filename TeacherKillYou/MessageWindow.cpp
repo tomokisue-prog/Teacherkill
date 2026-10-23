@@ -11,41 +11,60 @@ void MessageWindow::Open(const std::string& speaker, const std::string& text)
     displayCharCount_ = 0;
 }
 
+
 void MessageWindow::Update(float deltaTime)
 {
     if (!isOpen_) return;
 
-	// 文字を1文字ずつ表示する処理
+    const bool advance =
+        IsKeyPressed(KEY_SPACE) ||
+        IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+
     if (!isCompleted_)
     {
         textTimer_ += deltaTime;
-        if (textTimer_ >= textSpeed_)
-        {
-            textTimer_ = 0.0f;
-            displayCharCount_++;
 
-            // 全文字数に達したら完了
-            if (displayCharCount_ >= static_cast<int>(fullText_.size()))
+        while (textTimer_ >= textSpeed_ &&
+            displayCharCount_ < static_cast<int>(fullText_.size()))
+        {
+            textTimer_ -= textSpeed_;
+
+            unsigned char c = static_cast<unsigned char>(
+                fullText_[displayCharCount_]);
+
+            int byteCount = 1;
+
+            if ((c & 0xE0) == 0xC0)
+                byteCount = 2;
+            else if ((c & 0xF0) == 0xE0)
+                byteCount = 3;
+            else if ((c & 0xF8) == 0xF0)
+                byteCount = 4;
+
+            displayCharCount_ += byteCount;
+
+            if (displayCharCount_ >=
+                static_cast<int>(fullText_.size()))
             {
-                displayCharCount_ = static_cast<int>(fullText_.size());
+                displayCharCount_ =
+                    static_cast<int>(fullText_.size());
+
                 isCompleted_ = true;
+                break;
             }
         }
 
-        // スペースキーまたはマウス左クリックで「全文を一気に表示する」
-        if (IsKeyPressed(KEY_SPACE) || IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        if (advance)
         {
-            displayCharCount_ = static_cast<int>(fullText_.size());
+            displayCharCount_ =
+                static_cast<int>(fullText_.size());
+
             isCompleted_ = true;
         }
     }
-    else
+    else if (advance)
     {
-        // 全文表示完了後にキーが押されたらウィンドウを閉じる
-        if (IsKeyPressed(KEY_SPACE) || IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-        {
-            Close();
-        }
+        Close();
     }
 }
 

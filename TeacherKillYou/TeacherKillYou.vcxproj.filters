@@ -105,6 +105,9 @@
     <Filter Include="GamePlay\GoalPoint">
       <UniqueIdentifier>{829401ae-0975-4ef6-b2d4-69f337a688fc}</UniqueIdentifier>
     </Filter>
+    <Filter Include="GamePlay\UI">
+      <UniqueIdentifier>{55896d09-40f6-46b0-903b-a727ef918119}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="Data\Audio\README.md">
@@ -255,6 +258,10 @@
     </ClCompile>
     <ClCompile Include="DialogueManager.cpp">
       <Filter>GamePlay</Filter>
+    </ClCompile>
+    <ClCompile Include="MessageWindow.cpp" />
+    <ClCompile Include="TutorialUI.cpp">
+      <Filter>GamePlay\UI</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -429,6 +436,15 @@
     </ClInclude>
     <ClInclude Include="DialogueManager.h">
       <Filter>GamePlay</Filter>
+    </ClInclude>
+    <ClInclude Include="DialogueEntry.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="MessageWindow.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="TutorialUI.h">
+      <Filter>GamePlay\UI</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

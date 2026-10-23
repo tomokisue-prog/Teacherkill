@@ -13,6 +13,7 @@
 #include "SceneManager.h"
 #include "DialogueManager.h"
 #include <cmath>
+#include "TutorialUI.h"
 
 static void DrawCrosshair()
 {
@@ -86,6 +87,7 @@ void GameContext::Init()
     lighting_.Init(RM().GetModelShaders(), RM().GetModel(ResourceKeys::Model_Stage1));
     hitMarkerTimer_ = 0.0f;
     hitMarkerKill_ = false;
+    tutorialUI_.Init();
 
     teleportPoints_.clear();
     TeleportPoint tp1;
@@ -121,8 +123,13 @@ void GameContext::Init()
     goalPoint_.Init();
     goalPoint_.SetPosition({ 5.0f, 0.0f, 5.0f });
 
-	DM().LoadFromJson("Data/Json/dialogue.json");
-    ShowDialogue("door_locked");
+    DM().LoadFromJson("Data/Json/dialogue.json");
+
+    introDialogueIndex_ = 0;
+    introCompleted_ = false;
+
+    messageWindow_.Close();
+    ShowNextIntroDialogue();
 }
 
 void GameContext::Reset()
@@ -139,6 +146,7 @@ void GameContext::Reset()
     hitMarkerKill_ = false;
     bulletMarks_.clear();
     teleportPoints_.clear();
+	tutorialUI_.Reset();
     TeleportPoint tp1;
     tp1.SetPosition({ 3.0f, 0.0f, 0.0f });
     tp1.SetPointNumber(1);
@@ -155,6 +163,13 @@ void GameContext::Reset()
     tracerActive_ = false;
     tracerAge_ = 0.0f;
     goalPoint_.Reset();
+
+    // Restart opening dialogue
+    introDialogueIndex_ = 0;
+    introCompleted_ = false;
+
+    messageWindow_.Close();
+    ShowNextIntroDialogue();
 }
 
 void GameContext::ShowDialogue(const std::string& dialogueId)
@@ -163,6 +178,28 @@ void GameContext::ShowDialogue(const std::string& dialogueId)
     if (entry != nullptr)
     {
         messageWindow_.Open(entry->speaker, entry->text);
+    }
+}
+void GameContext::ShowNextIntroDialogue()
+{
+    static constexpr const char* introIds[] =
+    {
+        "intro_1",
+        "intro_2",
+        "intro_3"
+    };
+
+    constexpr int introCount = 3;
+
+    if (introDialogueIndex_ < introCount)
+    {
+        ShowDialogue(introIds[introDialogueIndex_]);
+        introDialogueIndex_++;
+    }
+    else
+    {
+        // All intro dialogues have finished
+        introCompleted_ = true;
     }
 }
 
@@ -427,12 +464,33 @@ void GameContext::DrawShotEffects() const
 
 void GameContext::Update(float deltaTime)
 {
-    if(IsMessageActive())
+  
+    if (!introCompleted_)
+    {
+        if (IsMessageActive())
+        {
+            messageWindow_.Update(deltaTime);
+            if (IsMessageActive())
+            {
+                return;
+            }
+        }
+        ShowNextIntroDialogue();
+        return;
+    }
+
+    if (IsMessageActive())
     {
         messageWindow_.Update(deltaTime);
         return;
     }
-
+    
+    // Update tutorial only during active gameplay
+    if (cameraController_.GetActiveType() == CameraType::Player
+        && player_.IsAlive())
+    {
+        tutorialUI_.Update(deltaTime);
+    }
 
     UpdateShotEffects(deltaTime);
     if (hitMarkerTimer_ > 0.0f)
@@ -662,7 +720,15 @@ void GameContext::Draw() const
 
         // インベントリHUD表示
         inventory_.DrawHUD();
+
+        if (player_.IsAlive()
+            && introCompleted_
+            && !IsMessageActive())
+        {
+            tutorialUI_.Draw();
+        }
     }
+   
 
     gameFade_.Draw();
 
@@ -682,6 +748,7 @@ void GameContext::End()
     stage_.End();
     bloodEffect_.Shutdown();
     lighting_.Shutdown();
+    tutorialUI_.End();
 
     if (muzzleFlashTexture_.id != 0)
     {

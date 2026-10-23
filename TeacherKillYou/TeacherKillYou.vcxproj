@@ -88,6 +88,7 @@
     <ClCompile Include="SystemCamera.cpp" />
     <ClCompile Include="SystemMode.cpp" />
     <ClCompile Include="TitleScene.cpp" />
+    <ClCompile Include="TutorialUI.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AudioManager.h" />
@@ -150,6 +151,7 @@
     <ClInclude Include="SystemCamera.h" />
     <ClInclude Include="SystemMode.h" />
     <ClInclude Include="TitleScene.h" />
+    <ClInclude Include="TutorialUI.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

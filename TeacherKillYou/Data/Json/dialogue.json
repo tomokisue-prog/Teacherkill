@@ -1,10 +1,31 @@
 {
+
+  "intro": {
+    "speaker": "主人公",
+    "text": "あれ！ ？"
+  },
+
+  "intro_2": {
+    "speaker": "主人公",
+    "text": "ここ学校だよな？忘れ物あって戻ってきたけど。。。"
+  },
+
+  "intro_3": {
+    "speaker": "主人公",
+    "text": " なんか変だな。。。"
+  },
+
   "door_locked": {
     "speaker": "主人公",
     "text": "ここは鍵がかかっているようだ…"
+  },
+  "door_unlocked": {
+    "speaker": "主人公",
+    "text": "開いた！"
   },
   "key_found": {
     "speaker": "主人公",
     "text": "こんなところに鍵が落ちている。"
   }
+
 }

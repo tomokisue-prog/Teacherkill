@@ -12,6 +12,7 @@
 #include "Inventory.h"
 #include "GoalPoint.h"
 #include "MessageWindow.h"
+#include "TutorialUI.h"
 
 #include <vector>
 
@@ -74,6 +75,7 @@ private:
     Inventory inventory_;
     GoalPoint goalPoint_;
 	MessageWindow messageWindow_;
+    TutorialUI tutorialUI_;
 
     Vector3 paladinPosition_{ 0.0f, 0.0f, 3.0f };
     std::vector<TeleportPoint> teleportPoints_;
@@ -102,4 +104,10 @@ private:
     std::vector<BulletMark> bulletMarks_;
     static constexpr float bulletMarkLifetime_ = 2.0f;
     static constexpr int maxBulletMarks_ = 40;
+
+    // Opening dialogue tutorial
+    void ShowNextIntroDialogue();
+
+    int introDialogueIndex_{ 0 };
+    bool introCompleted_{ false };
 };
