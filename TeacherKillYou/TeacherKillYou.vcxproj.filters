@@ -253,6 +253,9 @@
     <ClCompile Include="JapaneseFont.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="DialogueManager.cpp">
+      <Filter>GamePlay</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="imgui\imconfig.h">
@@ -423,6 +426,9 @@
     </ClInclude>
     <ClInclude Include="JapaneseFont.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="DialogueManager.h">
+      <Filter>GamePlay</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

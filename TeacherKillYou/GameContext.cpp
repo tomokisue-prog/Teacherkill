@@ -11,6 +11,7 @@
 #include "rlgl.h"
 #include <algorithm>
 #include "SceneManager.h"
+#include "DialogueManager.h"
 #include <cmath>
 
 static void DrawCrosshair()
@@ -119,6 +120,9 @@ void GameContext::Init()
 
     goalPoint_.Init();
     goalPoint_.SetPosition({ 5.0f, 0.0f, 5.0f });
+
+	DM().LoadFromJson("Data/Json/dialogue.json");
+    ShowDialogue("door_locked");
 }
 
 void GameContext::Reset()
@@ -151,6 +155,15 @@ void GameContext::Reset()
     tracerActive_ = false;
     tracerAge_ = 0.0f;
     goalPoint_.Reset();
+}
+
+void GameContext::ShowDialogue(const std::string& dialogueId)
+{
+    const auto* entry = DM().GetDialogue(dialogueId);
+    if (entry != nullptr)
+    {
+        messageWindow_.Open(entry->speaker, entry->text);
+    }
 }
 
 void GameContext::PlaceCharacters()
@@ -414,6 +427,13 @@ void GameContext::DrawShotEffects() const
 
 void GameContext::Update(float deltaTime)
 {
+    if(IsMessageActive())
+    {
+        messageWindow_.Update(deltaTime);
+        return;
+    }
+
+
     UpdateShotEffects(deltaTime);
     if (hitMarkerTimer_ > 0.0f)
     {
@@ -516,7 +536,6 @@ void GameContext::Update(float deltaTime)
 
 
     door_.Update(deltaTime, player_);
-
 
     // 2. ワールドオブジェクト（ステージ・敵）の更新
     const BoundingBox doorBounds = door_.GetBoundingBox();
@@ -646,6 +665,11 @@ void GameContext::Draw() const
     }
 
     gameFade_.Draw();
+
+    if (IsMessageActive())
+    {
+        messageWindow_.Draw();
+    }
 }
 
 

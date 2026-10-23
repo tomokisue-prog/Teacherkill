@@ -17,7 +17,7 @@ void GoalPoint::Reset()
 
 void GoalPoint::Draw() const
 {
-    // ゴール地点は黄金色（ゴールド）のワイヤーフレームで可視化
+    // ゴール地点は黄金色のワイヤーフレームで可視化
     Color color = { 255, 215, 0, 255 };
 
     rlPushMatrix();

@@ -79,6 +79,8 @@ void GizmoDrawer::Draw(
     Vector3 rot = targetObj->GetRotation();
     Vector3 scale = targetObj->GetScale();
 
+    // スケールが 0 やマイナスになってギズモが崩れるのを防ぐ
+
     scale.x = (std::max)(0.001f, scale.x);
     scale.y = (std::max)(0.001f, scale.y);
     scale.z = (std::max)(0.001f, scale.z);
