@@ -10,6 +10,7 @@ void DebugUI::Draw(GameContext& gameContext)
     auto& cameraController =
         gameContext.GetCameraController();
 
+    // 配置編集とギズモ操作は、システムカメラ使用時だけ有効にする。
     if (cameraController.GetActiveType() == CameraType::System)
     {
         ImGuizmo::BeginFrame();
