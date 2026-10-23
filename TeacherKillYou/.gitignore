@@ -4,3 +4,6 @@
 /Data/Image/Monster_final_animations/MONSTER _attack_final.glb
 /Data/Image/Monster_final_animations/MONSTER_dead_final.glb
 /Data/Image/Monster_final_animations/MONSTER_run_final.glb
+
+# Local gameplay progress and preferences (never editor scene data).
+/Data/Save/

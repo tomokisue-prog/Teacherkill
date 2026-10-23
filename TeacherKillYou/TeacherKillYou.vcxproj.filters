@@ -1,434 +1,482 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
-    <Filter Include="ヘッダー ファイル">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    <Filter Include="Data">
+      <UniqueIdentifier>{091edb64-076f-5428-803d-5c0fb03a888b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="リソース ファイル">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    <Filter Include="External">
+      <UniqueIdentifier>{6a489d7e-d551-5d85-9c15-0e671cd389b5}</UniqueIdentifier>
     </Filter>
-    <Filter Include="main">
-      <UniqueIdentifier>{15006b34-4f14-42bc-9179-519f15f2c478}</UniqueIdentifier>
+    <Filter Include="External\ImGui">
+      <UniqueIdentifier>{d35d3629-5a94-554f-8d5a-5edbc888f4e5}</UniqueIdentifier>
     </Filter>
-    <Filter Include="lib\ufbx">
-      <UniqueIdentifier>{7a6fa386-4c57-4bce-b52d-a742beaf8e01}</UniqueIdentifier>
+    <Filter Include="External\ImGuizmo">
+      <UniqueIdentifier>{2c114967-1a8e-5660-86b8-221cb0d81328}</UniqueIdentifier>
     </Filter>
-    <Filter Include="lib">
-      <UniqueIdentifier>{8a042a1b-57a9-4e2b-bdcc-390914c9e55e}</UniqueIdentifier>
+    <Filter Include="External\nlohmann">
+      <UniqueIdentifier>{6a7f5055-f2ad-5187-8825-fe95fad739b0}</UniqueIdentifier>
     </Filter>
-    <Filter Include="lib\imgui">
-      <UniqueIdentifier>{a2501832-707b-4f50-978c-1c41e5273926}</UniqueIdentifier>
+    <Filter Include="External\rlImGui">
+      <UniqueIdentifier>{0c7e15ae-2fde-5f84-9db8-4214557bced1}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Camera">
-      <UniqueIdentifier>{d4d3836a-9864-4c29-956b-c759ac78ea1f}</UniqueIdentifier>
+    <Filter Include="External\ufbx">
+      <UniqueIdentifier>{6851f8c3-aa67-55c2-9eba-e5dbea3fc10f}</UniqueIdentifier>
     </Filter>
-    <Filter Include="lib\imguizmo">
-      <UniqueIdentifier>{897701d5-508a-4d16-9d3a-f7f68e0abb0b}</UniqueIdentifier>
+    <Filter Include="Project">
+      <UniqueIdentifier>{07b4cc7e-e837-55b5-8314-c1d14a21c908}</UniqueIdentifier>
     </Filter>
-    <Filter Include="lib\rlImGui">
-      <UniqueIdentifier>{9aaa293b-40cf-4f4c-9c4e-0b2186092e7a}</UniqueIdentifier>
+    <Filter Include="Source">
+      <UniqueIdentifier>{6d07e578-35a2-576e-be2d-571efe1bb4ee}</UniqueIdentifier>
     </Filter>
-    <Filter Include="lib\nlohmann">
-      <UniqueIdentifier>{b7184e0a-41c7-4720-9338-04ce7476b384}</UniqueIdentifier>
+    <Filter Include="Source\Actors">
+      <UniqueIdentifier>{53d54c89-2f45-54fb-8553-410766746245}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Camera\Base">
-      <UniqueIdentifier>{b0364b2a-eaf9-42cd-85d5-05a8fbb18231}</UniqueIdentifier>
+    <Filter Include="Source\Actors\Enemy">
+      <UniqueIdentifier>{06ffaed7-bc85-5349-a363-8a3ac0ca4efa}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Camera\Player">
-      <UniqueIdentifier>{b089814b-0b94-4c4b-b7e5-030bcb5f9933}</UniqueIdentifier>
+    <Filter Include="Source\Actors\Player">
+      <UniqueIdentifier>{3937c915-2892-516e-b410-14e5fc7c0a89}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Camera\System">
-      <UniqueIdentifier>{7d049cf2-86f6-4adc-99d2-436081eebeca}</UniqueIdentifier>
+    <Filter Include="Source\Audio">
+      <UniqueIdentifier>{fb295df2-4f57-5d0c-9f02-4458be650685}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Core">
-      <UniqueIdentifier>{5c431b71-fa37-4e3e-b358-209f910fa13c}</UniqueIdentifier>
+    <Filter Include="Source\Camera">
+      <UniqueIdentifier>{26235250-8a70-5be8-9e86-f068ed4ddf25}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Resource">
-      <UniqueIdentifier>{a0e187d4-8691-4c14-97bc-6876b18b45be}</UniqueIdentifier>
+    <Filter Include="Source\Core">
+      <UniqueIdentifier>{ffa33b2d-f171-5566-8788-6b8196cc9191}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Scene">
-      <UniqueIdentifier>{ae573a7f-1e1f-4ccf-85ba-826b2d57fd23}</UniqueIdentifier>
+    <Filter Include="Source\Debug">
+      <UniqueIdentifier>{43091da2-e1ee-564e-bdd6-0f21512e1050}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Scene\Base">
-      <UniqueIdentifier>{5588b051-3f09-4639-aee9-ff733ffbab9f}</UniqueIdentifier>
+    <Filter Include="Source\Graphics">
+      <UniqueIdentifier>{58377d93-b941-5a94-8d8b-fd40a1533afb}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Scene\Game">
-      <UniqueIdentifier>{9306c68e-6a07-4f4c-bfd9-a34b3adf17e5}</UniqueIdentifier>
+    <Filter Include="Source\Items">
+      <UniqueIdentifier>{2e70707c-3ae2-5236-a0f1-f546aa9d2097}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Scene\Title">
-      <UniqueIdentifier>{422dc4e7-5af5-4909-a173-42c49388f666}</UniqueIdentifier>
+    <Filter Include="Source\Resources">
+      <UniqueIdentifier>{dad19617-7e88-5cf8-9d4c-5963e5c26cba}</UniqueIdentifier>
     </Filter>
-    <Filter Include="GamePlay">
-      <UniqueIdentifier>{69fb6a87-aef4-4b3c-a0a7-644c5cee22be}</UniqueIdentifier>
+    <Filter Include="Source\Save">
+      <UniqueIdentifier>{267847ad-3c00-5618-9cff-8950554c376a}</UniqueIdentifier>
     </Filter>
-    <Filter Include="GamePlay\Actors">
-      <UniqueIdentifier>{f1c45c8c-3ca7-4687-9d2a-5fd337abca1a}</UniqueIdentifier>
+    <Filter Include="Source\Scenes">
+      <UniqueIdentifier>{fddf345f-fac4-56a8-b31e-4e8649427e0b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="GamePlay\Actors\Player">
-      <UniqueIdentifier>{81b67e50-89f0-4e85-9ed3-3e374efd8d31}</UniqueIdentifier>
+    <Filter Include="Source\UI">
+      <UniqueIdentifier>{9417bf9a-4b9a-5c2b-b42f-3268aa93b56c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="GamePlay\Actors\Stage">
-      <UniqueIdentifier>{7205009e-35ae-41ed-a5b1-1dafca18c345}</UniqueIdentifier>
+    <Filter Include="Source\World">
+      <UniqueIdentifier>{1ad9254a-314c-596b-b24b-95ec12188c8c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="GamePlay\Actors\Enemy">
-      <UniqueIdentifier>{0ba82620-9cc4-45f6-92fa-d40e5d98a0d3}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Debug">
-      <UniqueIdentifier>{60f18078-5f27-4e19-8fab-c43ac4fc1df2}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Debug\DebugUI">
-      <UniqueIdentifier>{2f3c4ab1-6f63-43a8-80b8-641ddd906fd1}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Debug\GizmoDrawer">
-      <UniqueIdentifier>{b92afbe3-f4cc-4fd4-932f-df5f72d13a48}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="GamePlay\Actors\Stage\Door">
-      <UniqueIdentifier>{fc2eb779-bfe8-4626-a97c-072d32b37eea}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Fade">
-      <UniqueIdentifier>{f49d64c5-4fb1-456b-b557-5e03e6d9029d}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Fade\GameFade">
-      <UniqueIdentifier>{31a80382-ce83-45b3-870f-0ed8cafddf3e}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Core\Save/Load">
-      <UniqueIdentifier>{e99fc9f7-f8e7-4b71-82f3-f9244d586094}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Scene\GoalScene">
-      <UniqueIdentifier>{c7db3f3c-b9df-4a84-93cc-ff9d7a7238ab}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="GamePlay\TeleportPoint">
-      <UniqueIdentifier>{9b170575-8d8b-40e7-af0c-1216bc3ce4ba}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="GamePlay\GoalPoint">
-      <UniqueIdentifier>{829401ae-0975-4ef6-b2d4-69f337a688fc}</UniqueIdentifier>
+    <Filter Include="Tools">
+      <UniqueIdentifier>{ab5d0dd5-e06f-5686-89be-ec0e7ea1e8fe}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Data\Audio\README.md">
-      <Filter>Resource</Filter>
-    </None>
-    <None Include="packages.config" />
-    <None Include="tools\FBX.md" />
-    <None Include="third_party\ufbx\LICENSE" />
-    <None Include="third_party\ufbx\README.md" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="main.cpp">
-      <Filter>main</Filter>
+    <ClCompile Include="Source\Audio\AudioManager.cpp">
+      <Filter>Source\Audio</Filter>
     </ClCompile>
-    <ClCompile Include="imgui\imgui.cpp">
-      <Filter>lib\imgui</Filter>
+    <ClCompile Include="Source\Camera\CameraController.cpp">
+      <Filter>Source\Camera</Filter>
     </ClCompile>
-    <ClCompile Include="imgui\imgui_demo.cpp">
-      <Filter>lib\imgui</Filter>
+    <ClCompile Include="Source\Debug\DebugUI.cpp">
+      <Filter>Source\Debug</Filter>
     </ClCompile>
-    <ClCompile Include="imgui\imgui_tables.cpp">
-      <Filter>lib\imgui</Filter>
+    <ClCompile Include="Source\UI\DialogueManager.cpp">
+      <Filter>Source\UI</Filter>
     </ClCompile>
-    <ClCompile Include="imgui\imgui_widgets.cpp">
-      <Filter>lib\imgui</Filter>
+    <ClCompile Include="Source\World\DoorMove.cpp">
+      <Filter>Source\World</Filter>
     </ClCompile>
-    <ClCompile Include="imgui\imgui_draw.cpp">
-      <Filter>lib\imgui</Filter>
+    <ClCompile Include="Source\Actors\Enemy\Enemy.cpp">
+      <Filter>Source\Actors\Enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Graphics\BloodEffect.cpp">
+      <Filter>Source\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Actors\Enemy\EnemyAI.cpp">
+      <Filter>Source\Actors\Enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Actors\Enemy\EnemyConfig.cpp">
+      <Filter>Source\Actors\Enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Actors\Enemy\EnemyManager.cpp">
+      <Filter>Source\Actors\Enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Actors\Enemy\EnemyMovement.cpp">
+      <Filter>Source\Actors\Enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Core\WorldScale.cpp">
+      <Filter>Source\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Core\GameContext.cpp">
+      <Filter>Source\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\UI\GameFade.cpp">
+      <Filter>Source\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Scenes\GameScene.cpp">
+      <Filter>Source\Scenes</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Save\SaveData.cpp">
+      <Filter>Source\Save</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Core\GameSettings.cpp">
+      <Filter>Source\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Save\CheckpointSave.cpp">
+      <Filter>Source\Save</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Audio\HorrorAudio.cpp">
+      <Filter>Source\Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\UI\PauseMenu.cpp">
+      <Filter>Source\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\UI\GameOverScreen.cpp">
+      <Filter>Source\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Debug\GizmoDrawer.cpp">
+      <Filter>Source\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\World\GoalPoint.cpp">
+      <Filter>Source\World</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Scenes\GoalScene.cpp">
+      <Filter>Source\Scenes</Filter>
     </ClCompile>
     <ClCompile Include="imguizmo\GraphEditor.cpp">
-      <Filter>lib\imguizmo</Filter>
-    </ClCompile>
-    <ClCompile Include="imguizmo\ImGradient.cpp">
-      <Filter>lib\imguizmo</Filter>
+      <Filter>External\ImGuizmo</Filter>
     </ClCompile>
     <ClCompile Include="imguizmo\ImCurveEdit.cpp">
-      <Filter>lib\imguizmo</Filter>
+      <Filter>External\ImGuizmo</Filter>
+    </ClCompile>
+    <ClCompile Include="imguizmo\ImGradient.cpp">
+      <Filter>External\ImGuizmo</Filter>
     </ClCompile>
     <ClCompile Include="imguizmo\ImGuizmo.cpp">
-      <Filter>lib\imguizmo</Filter>
+      <Filter>External\ImGuizmo</Filter>
     </ClCompile>
     <ClCompile Include="imguizmo\ImSequencer.cpp">
-      <Filter>lib\imguizmo</Filter>
+      <Filter>External\ImGuizmo</Filter>
     </ClCompile>
     <ClCompile Include="imguizmo\ImVectorEditor.cpp">
-      <Filter>lib\imguizmo</Filter>
+      <Filter>External\ImGuizmo</Filter>
     </ClCompile>
-    <ClCompile Include="rlImGui\rlImGui.cpp">
-      <Filter>lib\rlImGui</Filter>
+    <ClCompile Include="imgui\imgui.cpp">
+      <Filter>External\ImGui</Filter>
     </ClCompile>
-    <ClCompile Include="CameraController.cpp">
-      <Filter>Camera\Base</Filter>
+    <ClCompile Include="imgui\imgui_demo.cpp">
+      <Filter>External\ImGui</Filter>
     </ClCompile>
-    <ClCompile Include="PlayerCamera.cpp">
-      <Filter>Camera\Player</Filter>
+    <ClCompile Include="imgui\imgui_draw.cpp">
+      <Filter>External\ImGui</Filter>
     </ClCompile>
-    <ClCompile Include="SystemCamera.cpp">
-      <Filter>Camera\System</Filter>
+    <ClCompile Include="imgui\imgui_tables.cpp">
+      <Filter>External\ImGui</Filter>
     </ClCompile>
-    <ClCompile Include="DebugUI.cpp">
-      <Filter>Debug\DebugUI</Filter>
+    <ClCompile Include="imgui\imgui_widgets.cpp">
+      <Filter>External\ImGui</Filter>
     </ClCompile>
-    <ClCompile Include="FbxLoader.cpp">
-      <Filter>Resource</Filter>
+    <ClCompile Include="Source\Items\Inventory.cpp">
+      <Filter>Source\Items</Filter>
     </ClCompile>
-    <ClCompile Include="BakedAnimation.cpp">
-      <Filter>Resource</Filter>
+    <ClCompile Include="Source\Items\Item.cpp">
+      <Filter>Source\Items</Filter>
     </ClCompile>
-    <ClCompile Include="GltfMaterials.cpp">
-      <Filter>Resource</Filter>
+    <ClCompile Include="Source\UI\JapaneseFont.cpp">
+      <Filter>Source\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\UI\MessageWindow.cpp">
+      <Filter>Source\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Actors\Player\Player.cpp">
+      <Filter>Source\Actors\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Camera\PlayerCamera.cpp">
+      <Filter>Source\Camera</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Resources\FbxLoader.cpp">
+      <Filter>Source\Resources</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Resources\BakedAnimation.cpp">
+      <Filter>Source\Resources</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Resources\GltfMaterials.cpp">
+      <Filter>Source\Resources</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Save\SaveSystem.cpp">
+      <Filter>Source\Save</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\World\TeleportPoint.cpp">
+      <Filter>Source\World</Filter>
     </ClCompile>
     <ClCompile Include="third_party\ufbx\ufbx.c">
-      <Filter>lib\ufbx</Filter>
+      <Filter>External\ufbx</Filter>
     </ClCompile>
-    <ClCompile Include="HorrorLighting.cpp">
-      <Filter>Resource</Filter>
+    <ClCompile Include="Source\Graphics\HorrorLighting.cpp">
+      <Filter>Source\Graphics</Filter>
     </ClCompile>
-    <ClCompile Include="AudioManager.cpp">
-      <Filter>Resource</Filter>
+    <ClCompile Include="Source\Resources\ResourceManager.cpp">
+      <Filter>Source\Resources</Filter>
     </ClCompile>
-    <ClCompile Include="ResourceManager.cpp">
-      <Filter>Resource</Filter>
+    <ClCompile Include="rlImGui\rlImGui.cpp">
+      <Filter>External\rlImGui</Filter>
     </ClCompile>
-    <ClCompile Include="TitleScene.cpp">
-      <Filter>Scene\Title</Filter>
+    <ClCompile Include="Source\Scenes\SceneManager.cpp">
+      <Filter>Source\Scenes</Filter>
     </ClCompile>
-    <ClCompile Include="SceneManager.cpp">
-      <Filter>Scene\Base</Filter>
+    <ClCompile Include="Source\World\Stage.cpp">
+      <Filter>Source\World</Filter>
     </ClCompile>
-    <ClCompile Include="GameScene.cpp">
-      <Filter>Scene\Game</Filter>
+    <ClCompile Include="Source\Camera\SystemCamera.cpp">
+      <Filter>Source\Camera</Filter>
     </ClCompile>
-    <ClCompile Include="Player.cpp">
-      <Filter>GamePlay\Actors\Player</Filter>
+    <ClCompile Include="Source\Debug\SystemMode.cpp">
+      <Filter>Source\Debug</Filter>
     </ClCompile>
-    <ClCompile Include="Stage.cpp">
-      <Filter>GamePlay\Actors\Stage</Filter>
-    </ClCompile>
-    <ClCompile Include="BloodEffect.cpp">
-      <Filter>GamePlay\Actors\Enemy</Filter>
-    </ClCompile>
-    <ClCompile Include="Enemy.cpp">
-      <Filter>GamePlay\Actors\Enemy</Filter>
-    </ClCompile>
-    <ClCompile Include="EnemyManager.cpp">
-      <Filter>GamePlay\Actors\Enemy</Filter>
-    </ClCompile>
-    <ClCompile Include="SystemMode.cpp">
-      <Filter>Debug</Filter>
-    </ClCompile>
-    <ClCompile Include="GizmoDrawer.cpp">
-      <Filter>Debug\GizmoDrawer</Filter>
-    </ClCompile>
-    <ClCompile Include="DoorMove.cpp">
-      <Filter>GamePlay\Actors\Stage\Door</Filter>
-    </ClCompile>
-    <ClCompile Include="GameFade.cpp">
-      <Filter>Fade\GameFade</Filter>
-    </ClCompile>
-    <ClCompile Include="GameContext.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="GoalScene.cpp">
-      <Filter>Scene\GoalScene</Filter>
-    </ClCompile>
-    <ClCompile Include="EnemyAI.cpp">
-      <Filter>GamePlay\Actors\Enemy</Filter>
-    </ClCompile>
-    <ClCompile Include="EnemyConfig.cpp">
-      <Filter>GamePlay\Actors\Enemy</Filter>
-    </ClCompile>
-    <ClCompile Include="EnemyMovement.cpp">
-      <Filter>GamePlay\Actors\Enemy</Filter>
-    </ClCompile>
-    <ClCompile Include="Inventory.cpp" />
-    <ClCompile Include="TeleportPoint.cpp">
-      <Filter>GamePlay\TeleportPoint</Filter>
-    </ClCompile>
-    <ClCompile Include="SaveSystem.cpp">
-      <Filter>Core\Save/Load</Filter>
-    </ClCompile>
-    <ClCompile Include="GoalPoint.cpp">
-      <Filter>GamePlay\GoalPoint</Filter>
-    </ClCompile>
-    <ClCompile Include="Item.cpp" />
-    <ClCompile Include="JapaneseFont.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="DialogueManager.cpp">
-      <Filter>GamePlay</Filter>
+    <ClCompile Include="Source\Scenes\TitleScene.cpp">
+      <Filter>Source\Scenes</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="imgui\imconfig.h">
-      <Filter>lib\imgui</Filter>
+    <ClInclude Include="Source\Audio\AudioManager.h">
+      <Filter>Source\Audio</Filter>
     </ClInclude>
-    <ClInclude Include="imgui\imgui.h">
-      <Filter>lib\imgui</Filter>
+    <ClInclude Include="Source\Camera\CameraController.h">
+      <Filter>Source\Camera</Filter>
     </ClInclude>
-    <ClInclude Include="imgui\imgui_impl_raylib.h">
-      <Filter>lib\imgui</Filter>
+    <ClInclude Include="Source\Debug\DebugUI.h">
+      <Filter>Source\Debug</Filter>
     </ClInclude>
-    <ClInclude Include="imgui\imgui_internal.h">
-      <Filter>lib\imgui</Filter>
+    <ClInclude Include="Source\UI\DialogueEntry.h">
+      <Filter>Source\UI</Filter>
     </ClInclude>
-    <ClInclude Include="imgui\imstb_rectpack.h">
-      <Filter>lib\imgui</Filter>
+    <ClInclude Include="Source\UI\DialogueManager.h">
+      <Filter>Source\UI</Filter>
     </ClInclude>
-    <ClInclude Include="imgui\imstb_textedit.h">
-      <Filter>lib\imgui</Filter>
+    <ClInclude Include="Source\World\DoorMove.h">
+      <Filter>Source\World</Filter>
     </ClInclude>
-    <ClInclude Include="imgui\imstb_truetype.h">
-      <Filter>lib\imgui</Filter>
+    <ClInclude Include="Source\Graphics\DamageFlash.h">
+      <Filter>Source\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Actors\Enemy\Enemy.h">
+      <Filter>Source\Actors\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Graphics\BloodEffect.h">
+      <Filter>Source\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Actors\Enemy\EnemyAI.h">
+      <Filter>Source\Actors\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Actors\Enemy\EnemyConfig.h">
+      <Filter>Source\Actors\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Actors\Enemy\EnemyManager.h">
+      <Filter>Source\Actors\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Actors\Enemy\EnemyMovement.h">
+      <Filter>Source\Actors\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Core\WorldScale.h">
+      <Filter>Source\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Core\GameContext.h">
+      <Filter>Source\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\UI\GameFade.h">
+      <Filter>Source\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Core\GameObject.h">
+      <Filter>Source\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Scenes\GameScene.h">
+      <Filter>Source\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Save\SaveData.h">
+      <Filter>Source\Save</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Core\GameSettings.h">
+      <Filter>Source\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Save\CheckpointSave.h">
+      <Filter>Source\Save</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Audio\HorrorAudio.h">
+      <Filter>Source\Audio</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\UI\PauseMenu.h">
+      <Filter>Source\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Save\CheckpointData.h">
+      <Filter>Source\Save</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\UI\GameOverScreen.h">
+      <Filter>Source\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Debug\GizmoDrawer.h">
+      <Filter>Source\Debug</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\World\GoalPoint.h">
+      <Filter>Source\World</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Scenes\GoalScene.h">
+      <Filter>Source\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Camera\ICamera.h">
+      <Filter>Source\Camera</Filter>
     </ClInclude>
     <ClInclude Include="imguizmo\GraphEditor.h">
-      <Filter>lib\imguizmo</Filter>
+      <Filter>External\ImGuizmo</Filter>
     </ClInclude>
     <ClInclude Include="imguizmo\ImCurveEdit.h">
-      <Filter>lib\imguizmo</Filter>
+      <Filter>External\ImGuizmo</Filter>
     </ClInclude>
     <ClInclude Include="imguizmo\ImGradient.h">
-      <Filter>lib\imguizmo</Filter>
+      <Filter>External\ImGuizmo</Filter>
     </ClInclude>
     <ClInclude Include="imguizmo\ImGuizmo.h">
-      <Filter>lib\imguizmo</Filter>
+      <Filter>External\ImGuizmo</Filter>
     </ClInclude>
     <ClInclude Include="imguizmo\ImLightRig.h">
-      <Filter>lib\imguizmo</Filter>
+      <Filter>External\ImGuizmo</Filter>
     </ClInclude>
     <ClInclude Include="imguizmo\ImSequencer.h">
-      <Filter>lib\imguizmo</Filter>
+      <Filter>External\ImGuizmo</Filter>
     </ClInclude>
     <ClInclude Include="imguizmo\ImVectorEditor.h">
-      <Filter>lib\imguizmo</Filter>
+      <Filter>External\ImGuizmo</Filter>
     </ClInclude>
     <ClInclude Include="imguizmo\ImZoomSlider.h">
-      <Filter>lib\imguizmo</Filter>
+      <Filter>External\ImGuizmo</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui\imconfig.h">
+      <Filter>External\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui\imgui.h">
+      <Filter>External\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui\imgui_impl_raylib.h">
+      <Filter>External\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui\imgui_internal.h">
+      <Filter>External\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui\imstb_rectpack.h">
+      <Filter>External\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui\imstb_textedit.h">
+      <Filter>External\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui\imstb_truetype.h">
+      <Filter>External\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Items\Inventory.h">
+      <Filter>Source\Items</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Items\Item.h">
+      <Filter>Source\Items</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\UI\JapaneseFont.h">
+      <Filter>Source\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\UI\MessageWindow.h">
+      <Filter>Source\UI</Filter>
     </ClInclude>
     <ClInclude Include="nlohmann\json.hpp">
-      <Filter>lib\nlohmann</Filter>
+      <Filter>External\nlohmann</Filter>
     </ClInclude>
     <ClInclude Include="nlohmann\json_fwd.hpp">
-      <Filter>lib\nlohmann</Filter>
+      <Filter>External\nlohmann</Filter>
     </ClInclude>
-    <ClInclude Include="rlImGui\rlImGui.h">
-      <Filter>lib\rlImGui</Filter>
+    <ClInclude Include="Source\Actors\Player\Player.h">
+      <Filter>Source\Actors\Player</Filter>
     </ClInclude>
-    <ClInclude Include="CameraController.h">
-      <Filter>Camera\Base</Filter>
+    <ClInclude Include="Source\Camera\PlayerCamera.h">
+      <Filter>Source\Camera</Filter>
     </ClInclude>
-    <ClInclude Include="ICamera.h">
-      <Filter>Camera\Base</Filter>
+    <ClInclude Include="Source\Resources\ResourceKeys.h">
+      <Filter>Source\Resources</Filter>
     </ClInclude>
-    <ClInclude Include="PlayerCamera.h">
-      <Filter>Camera\Player</Filter>
+    <ClInclude Include="Source\Resources\FbxLoader.h">
+      <Filter>Source\Resources</Filter>
     </ClInclude>
-    <ClInclude Include="SystemCamera.h">
-      <Filter>Camera\System</Filter>
+    <ClInclude Include="Source\Resources\BakedAnimation.h">
+      <Filter>Source\Resources</Filter>
     </ClInclude>
-    <ClInclude Include="GameContext.h">
-      <Filter>Core</Filter>
+    <ClInclude Include="Source\Resources\GltfMaterials.h">
+      <Filter>Source\Resources</Filter>
     </ClInclude>
-    <ClInclude Include="DebugUI.h">
-      <Filter>Debug\DebugUI</Filter>
+    <ClInclude Include="Source\Save\SaveSystem.h">
+      <Filter>Source\Save</Filter>
     </ClInclude>
-    <ClInclude Include="ResourceKeys.h">
-      <Filter>Resource</Filter>
-    </ClInclude>
-    <ClInclude Include="FbxLoader.h">
-      <Filter>Resource</Filter>
-    </ClInclude>
-    <ClInclude Include="BakedAnimation.h">
-      <Filter>Resource</Filter>
-    </ClInclude>
-    <ClInclude Include="GltfMaterials.h">
-      <Filter>Resource</Filter>
+    <ClInclude Include="Source\World\TeleportPoint.h">
+      <Filter>Source\World</Filter>
     </ClInclude>
     <ClInclude Include="third_party\ufbx\ufbx.h">
-      <Filter>lib\ufbx</Filter>
+      <Filter>External\ufbx</Filter>
     </ClInclude>
-    <ClInclude Include="HorrorLighting.h">
-      <Filter>Resource</Filter>
+    <ClInclude Include="Source\Graphics\HorrorLighting.h">
+      <Filter>Source\Graphics</Filter>
     </ClInclude>
-    <ClInclude Include="AudioManager.h">
-      <Filter>Resource</Filter>
+    <ClInclude Include="Source\Resources\ResourceManager.h">
+      <Filter>Source\Resources</Filter>
     </ClInclude>
-    <ClInclude Include="ResourceManager.h">
-      <Filter>Resource</Filter>
+    <ClInclude Include="rlImGui\rlImGui.h">
+      <Filter>External\rlImGui</Filter>
     </ClInclude>
-    <ClInclude Include="Scene.h">
-      <Filter>Scene\Base</Filter>
+    <ClInclude Include="Source\Scenes\Scene.h">
+      <Filter>Source\Scenes</Filter>
     </ClInclude>
-    <ClInclude Include="TitleScene.h">
-      <Filter>Scene\Title</Filter>
+    <ClInclude Include="Source\Scenes\SceneManager.h">
+      <Filter>Source\Scenes</Filter>
     </ClInclude>
-    <ClInclude Include="SceneManager.h">
-      <Filter>Scene\Base</Filter>
+    <ClInclude Include="Source\World\Stage.h">
+      <Filter>Source\World</Filter>
     </ClInclude>
-    <ClInclude Include="GameScene.h">
-      <Filter>Scene\Game</Filter>
+    <ClInclude Include="Source\Camera\SystemCamera.h">
+      <Filter>Source\Camera</Filter>
     </ClInclude>
-    <ClInclude Include="Player.h">
-      <Filter>GamePlay\Actors\Player</Filter>
+    <ClInclude Include="Source\Debug\SystemMode.h">
+      <Filter>Source\Debug</Filter>
     </ClInclude>
-    <ClInclude Include="Stage.h">
-      <Filter>GamePlay\Actors\Stage</Filter>
+    <ClInclude Include="Source\Scenes\TitleScene.h">
+      <Filter>Source\Scenes</Filter>
     </ClInclude>
-    <ClInclude Include="DamageFlash.h" />
-    <ClInclude Include="BloodEffect.h">
-      <Filter>GamePlay\Actors\Enemy</Filter>
-    </ClInclude>
-    <ClInclude Include="Enemy.h">
-      <Filter>GamePlay\Actors\Enemy</Filter>
-    </ClInclude>
-    <ClInclude Include="EnemyManager.h">
-      <Filter>GamePlay\Actors\Enemy</Filter>
-    </ClInclude>
-    <ClInclude Include="SystemMode.h">
-      <Filter>Debug</Filter>
-    </ClInclude>
-    <ClInclude Include="GameObject.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="GizmoDrawer.h">
-      <Filter>Debug\GizmoDrawer</Filter>
-    </ClInclude>
-    <ClInclude Include="DoorMove.h">
-      <Filter>GamePlay\Actors\Stage\Door</Filter>
-    </ClInclude>
-    <ClInclude Include="GameFade.h">
-      <Filter>Fade\GameFade</Filter>
-    </ClInclude>
-    <ClInclude Include="GoalScene.h">
-      <Filter>Scene\GoalScene</Filter>
-    </ClInclude>
-    <ClInclude Include="EnemyAI.h">
-      <Filter>GamePlay\Actors\Enemy</Filter>
-    </ClInclude>
-    <ClInclude Include="EnemyConfig.h">
-      <Filter>GamePlay\Actors\Enemy</Filter>
-    </ClInclude>
-    <ClInclude Include="EnemyMovement.h">
-      <Filter>GamePlay\Actors\Enemy</Filter>
-    </ClInclude>
-    <ClInclude Include="Inventory.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="TeleportPoint.h">
-      <Filter>GamePlay\TeleportPoint</Filter>
-    </ClInclude>
-    <ClInclude Include="SaveSystem.h">
-      <Filter>Core\Save/Load</Filter>
-    </ClInclude>
-    <ClInclude Include="GoalPoint.h">
-      <Filter>GamePlay\GoalPoint</Filter>
-    </ClInclude>
-    <ClInclude Include="Item.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="JapaneseFont.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="DialogueManager.h">
-      <Filter>GamePlay</Filter>
-    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config">
+      <Filter>Project</Filter>
+    </None>
+    <None Include="tools\extract_fbx_materials.py">
+      <Filter>Tools</Filter>
+    </None>
+    <None Include="tools\generate_horror_audio.py">
+      <Filter>Tools</Filter>
+    </None>
+    <None Include="tools\Gameplay.md">
+      <Filter>Tools</Filter>
+    </None>
+    <None Include="README.md">
+      <Filter>Project</Filter>
+    </None>
+    <None Include="Data\Audio\README.md">
+      <Filter>Data</Filter>
+    </None>
+    <None Include="tools\FBX.md">
+      <Filter>Tools</Filter>
+    </None>
+    <None Include="third_party\ufbx\LICENSE">
+      <Filter>External\ufbx</Filter>
+    </None>
+    <None Include="third_party\ufbx\README.md">
+      <Filter>External\ufbx</Filter>
+    </None>
   </ItemGroup>
 </Project>
