@@ -21,6 +21,8 @@ public:
     HorrorLighting& operator=(const HorrorLighting&) = delete;
     void Init(const std::vector<Shader>& shaders, const Model& building = {}); // 光源抽出は初期化時だけ行う。
     void Reset() { flashlightOn_ = true; }
+    // PCごとの表示補正。Resetやチェックポイント復元では値を初期化しない。
+    void SetDisplaySettings(float brightness, float greenStrength);
     void Update(); // 毎フレーム1回、懐中電灯の入力とSEを更新する。
     // BeginFrame→3D描画→EndFrameの順に呼ぶ。viewは表示用、flashlightはプレイヤーの視線。
     void BeginFrame(const Camera3D& view, const Camera3D& flashlight, Vector3 stagePosition = {}, float stageScale = 1.0f, bool editorView = false);
@@ -35,6 +37,7 @@ private:
         Shader shader;
         int viewPosition, lightPosition, lightDirection, enabled, editorView;
         int buildingCount, buildingPositions, buildingColors, buildingDirections;
+        int fluorescentTint, flashlightTint, greenStrength;
     };
     struct BuildingLight {
         Vector3 position, direction;
@@ -50,6 +53,10 @@ private:
     int texelLocation_ = -1; // ぼかし半径を描画バッファの解像度に合わせるuniform。
     int focusLocation_ = -1;
     int focusEnabledLocation_ = -1;
+    int brightnessLocation_ = -1;
+    int greenStrengthLocation_ = -1;
+    float brightness_ = 1.0f;
+    float greenStrength_ = 1.0f;
     bool flashlightOn_ = true;
     bool editorView_ = false; // System Cameraでは明るい照明で直接描画し、画面効果を省く。
 };

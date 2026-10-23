@@ -27,6 +27,7 @@ public:
     void Reset();
     void Update(float deltaTime);
     void Draw() const;
+    void SetDisplaySettings(float brightness, float greenStrength);
     void End();
 
     CameraController& GetCameraController() { return cameraController_; }

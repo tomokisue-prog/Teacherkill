@@ -18,6 +18,13 @@ constexpr float FixtureIntensity = 0.55f;
 // 照射円の各断面に足す半径（ワールド単位）。0.0で追加分なし、正の値で照射範囲を広げる。
 constexpr float FlashlightRadiusPadding = 0.0f;
 
+// 色付きの光を同じ輝度の中性色へ寄せ、緑の調整で光量が大きく変わらないようにする。
+Vector3 AdjustGreenTint(Vector3 tint, float strength) {
+    const float luma = Vector3DotProduct(tint, {0.2126f, 0.7152f, 0.0722f});
+    return Vector3Lerp({luma, luma, luma}, tint, strength);
+}
+
+
 const char* ModelVertex = R"(#version 330
 in vec3 vertexPosition;
 in vec2 vertexTexCoord;
@@ -56,6 +63,7 @@ uniform float flashlightEnabled;
 uniform float flashlightRadiusPadding;
 uniform float viewModelLighting;
 uniform float editorLighting;
+uniform float greenStrength;
 uniform vec3 fluorescentTint;
 uniform vec3 flashlightTint;
 uniform vec4 surface; // 粗さ、金属度、法線マップの種類、MRテクスチャの使用フラグ
@@ -70,6 +78,9 @@ uniform vec4 buildingColors[MAX_LIGHTS];
 layout(location = 0) out vec4 finalColor;
 layout(location = 1) out vec4 focusColor;
 const float PI = 3.14159265;
+vec3 adjustGreenTint(vec3 tint) {
+    return mix(vec3(dot(tint, vec3(0.2126, 0.7152, 0.0722))), tint, greenStrength);
+}
 // 面の法線・視線・光の向きから拡散反射と鏡面反射を求める。粗い面ほど反射が広がる。
 vec3 reflectedLight(vec3 base, vec3 n, vec3 v, vec3 l, vec3 radiance, float roughness, float metalness) {
     float nl = max(dot(n, l), 0.0), nv = max(dot(n, v), 0.001);
@@ -143,8 +154,8 @@ void main() {
     float distanceToView = length(viewPosition - fragPosition);
     float nearFill = 0.06 * (1.0 - smoothstep(0.15, 0.9, distanceToView)) * flashlightEnabled;
     // 暗所にも弱い間接光を残す。模様や陰影を見せながらライトの中心との明暗差を保つ。
-    vec3 color = base * (vec3(0.64, 0.94, 0.69) * 0.045 + flashlightTint * (0.16 * beam + nearFill));
-    color += vec3(0.0009, 0.0018, 0.0011);
+    vec3 color = base * (adjustGreenTint(vec3(0.64, 0.94, 0.69)) * 0.045 + flashlightTint * (0.16 * beam + nearFill));
+    color += adjustGreenTint(vec3(0.0009, 0.0018, 0.0011));
     // FPSの銃と腕だけ直接光を弱める。通常のモデルの反射強度は変えない。
     float directStrength = viewModelLighting > 0.5 ? 0.4 : 1.0;
     color += reflectedLight(base, normal, view, lightVector, flashlightTint * 9.0 * beam * directStrength, roughness, metalness);
@@ -179,7 +190,7 @@ void main() {
     }
     float fog = 1.0 - exp(-0.006 * distanceToView * distanceToView);
     // 遠方は緑の霞へ滑らかに寄せる。黒へ切り落とさず、トーンマッピングで階調を保つ。
-    color = mix(color, vec3(0.0036, 0.0070, 0.0042), fog);
+    color = mix(color, adjustGreenTint(vec3(0.0036, 0.0070, 0.0042)), fog);
     color = color / (vec3(1.0) + color);
     color = pow(color, vec3(1.0 / 2.2));
     // 被弾時の赤色は照明計算の後に重ね、暗所でも見えるようにする。
@@ -203,12 +214,17 @@ uniform float focusEnabled;
 uniform vec4 colDiffuse;
 uniform float time;
 uniform vec2 texelSize;
+uniform float displayBrightness;
+uniform float greenStrength;
 out vec4 finalColor;
 // 周辺ぼかしは0～1の比率、半径は描画バッファ上のピクセル数。緑の色味はこのRGBで調整する。
 const float PeripheralBlurRatio = 0.75; // 照射範囲の外でぼかした画像を75%混ぜる。
 const float PeripheralBlurRadius = 6.0;
 const float PeripheralTintRatio = 0.60;
 const vec3 PeripheralTint = vec3(0.42, 0.98, 0.52);
+vec3 adjustGreenTint(vec3 tint) {
+    return mix(vec3(dot(tint, vec3(0.2126, 0.7152, 0.0722))), tint, greenStrength);
+}
 vec3 brightPart(vec3 value) {
     float luma = dot(value, vec3(0.2126, 0.7152, 0.0722));
     return value * max(luma - 0.62, 0.0) / max(luma, 0.001);
@@ -248,12 +264,14 @@ void main() {
     // 色調補正はシーンだけに適用する。HUDや被弾表示はEndFrameの後に描いて色と文字を保つ。
     vec3 shadowTint = mix(vec3(0.88), vec3(1.0), smoothstep(0.04, 0.65, luma));
     color = mix(vec3(luma), color, 0.74) * shadowTint;
-    color *= mix(vec3(1.0), PeripheralTint, peripheral * PeripheralTintRatio);
+    color *= adjustGreenTint(mix(vec3(1.0), PeripheralTint, peripheral * PeripheralTintRatio));
     // 黒いビネットと暗部の切り捨てを使わず、暗い部分の階調を残す。
     color *= 0.90 * 1.06;
     // わずかな粒状感を加える。timeで更新するが、文字やHUDにはかからない。
     float grain = fract(sin(dot(gl_FragCoord.xy + floor(time * 24.0), vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
-    finalColor = vec4(max(color + grain * 0.012, vec3(0.0)), 1.0) * colDiffuse * fragColor;
+    // 表示用のガンマ補正で暗部を持ち上げる。100%では従来と同じで、HUDには適用しない。
+    color = pow(clamp(color + grain * 0.012, vec3(0.0), vec3(1.0)), vec3(1.0 / displayBrightness));
+    finalColor = vec4(color, 1.0) * colDiffuse * fragColor;
 })";
 }
 
@@ -275,6 +293,8 @@ Shader LoadHorrorShader(const char* vertexCode, bool normalMaps) {
     SetShaderValue(shader, GetShaderLocation(shader, "flashlightRadiusPadding"), &FlashlightRadiusPadding, SHADER_UNIFORM_FLOAT);
     const Vector4 defaults = {0.8f, 0.0f, normalMaps ? 2.0f : 0.0f, 0.0f};
     SetShaderValue(shader, locations.surface, &defaults, SHADER_UNIFORM_VEC4);
+    const float greenStrength = 1.0f;
+    SetShaderValue(shader, GetShaderLocation(shader, "greenStrength"), &greenStrength, SHADER_UNIFORM_FLOAT);
     return shader;
 }
 
@@ -382,8 +402,8 @@ void HorrorLighting::CollectBuildingLights(const Model& model) {
                     existing->position = Vector3Lerp(existing->position, center, weight / (weights[index] + weight));
                     weights[index] += weight;
                 } else if (buildingLights_.size() < 64) {
-                    buildingLights_.push_back({center, normal, {emission.color.r / 255.0f * FluorescentTint.x,
-                        emission.color.g / 255.0f * FluorescentTint.y, emission.color.b / 255.0f * FluorescentTint.z,
+                    buildingLights_.push_back({center, normal, {emission.color.r / 255.0f,
+                        emission.color.g / 255.0f, emission.color.b / 255.0f,
                         Clamp(emission.value * brightness * 0.6f, 0.3f, 5.0f) * FixtureIntensity}});
                     weights.push_back(weight);
                 }
@@ -405,7 +425,9 @@ void HorrorLighting::Init(const std::vector<Shader>& shaders, const Model& build
             GetShaderLocation(shader, "viewPosition"), GetShaderLocation(shader, "lightPosition"),
             GetShaderLocation(shader, "lightDirection"), enabled, GetShaderLocation(shader, "editorLighting"),
             GetShaderLocation(shader, "buildingLightCount"), GetShaderLocation(shader, "buildingPositions[0]"),
-            GetShaderLocation(shader, "buildingColors[0]"), GetShaderLocation(shader, "buildingDirections[0]")});
+            GetShaderLocation(shader, "buildingColors[0]"), GetShaderLocation(shader, "buildingDirections[0]"),
+            GetShaderLocation(shader, "fluorescentTint"), GetShaderLocation(shader, "flashlightTint"),
+            GetShaderLocation(shader, "greenStrength")});
     }
     if (!post_.id) {
         post_ = LoadShaderFromMemory(nullptr, PostFragment);
@@ -415,9 +437,16 @@ void HorrorLighting::Init(const std::vector<Shader>& shaders, const Model& build
             texelLocation_ = GetShaderLocation(post_, "texelSize");
             focusLocation_ = GetShaderLocation(post_, "focusTexture");
             focusEnabledLocation_ = GetShaderLocation(post_, "focusEnabled");
+            brightnessLocation_ = GetShaderLocation(post_, "displayBrightness");
+            greenStrengthLocation_ = GetShaderLocation(post_, "greenStrength");
         }
     }
     Reset();
+}
+
+void HorrorLighting::SetDisplaySettings(float brightness, float greenStrength) {
+    brightness_ = std::isfinite(brightness) ? Clamp(brightness, 0.5f, 2.0f) : 1.0f;
+    greenStrength_ = std::isfinite(greenStrength) ? Clamp(greenStrength, 0.0f, 1.0f) : 1.0f;
 }
 
 void HorrorLighting::Update() {
@@ -438,6 +467,8 @@ void HorrorLighting::BeginFrame(const Camera3D& view, const Camera3D& flashlight
     position = Vector3Subtract(position, Vector3Scale(flashlight.up, 0.09f));
     const float enabled = flashlightOn_ ? 1.0f : 0.0f;
     const float editor = editorView_ ? 1.0f : 0.0f;
+    const Vector3 fixtureTint = AdjustGreenTint(FluorescentTint, greenStrength_);
+    const Vector3 flashlightTint = AdjustGreenTint(FlashlightTint, greenStrength_);
     // ステージの移動・拡縮に追従し、表示カメラに近い8灯だけをGPUへ送る。
     std::vector<BuildingLight> nearest = buildingLights_;
     for (auto& light : nearest) light.position = Vector3Add(stagePosition, Vector3Scale(light.position, stageScale));
@@ -451,6 +482,9 @@ void HorrorLighting::BeginFrame(const Camera3D& view, const Camera3D& flashlight
         positions[i] = nearest[i].position;
         directions[i] = stageScale < 0.0f ? Vector3Negate(nearest[i].direction) : nearest[i].direction;
         colors[i] = nearest[i].color;
+        colors[i].x *= fixtureTint.x;
+        colors[i].y *= fixtureTint.y;
+        colors[i].z *= fixtureTint.z;
     }
     for (const ModelLight& light : modelLights_) {
         SetShaderValue(light.shader, light.viewPosition, &view.position, SHADER_UNIFORM_VEC3);
@@ -458,6 +492,9 @@ void HorrorLighting::BeginFrame(const Camera3D& view, const Camera3D& flashlight
         SetShaderValue(light.shader, light.lightDirection, &direction, SHADER_UNIFORM_VEC3);
         SetShaderValue(light.shader, light.enabled, &enabled, SHADER_UNIFORM_FLOAT);
         SetShaderValue(light.shader, light.editorView, &editor, SHADER_UNIFORM_FLOAT);
+        SetShaderValue(light.shader, light.fluorescentTint, &fixtureTint, SHADER_UNIFORM_VEC3);
+        SetShaderValue(light.shader, light.flashlightTint, &flashlightTint, SHADER_UNIFORM_VEC3);
+        SetShaderValue(light.shader, light.greenStrength, &greenStrength_, SHADER_UNIFORM_FLOAT);
         SetShaderValue(light.shader, light.buildingCount, &count, SHADER_UNIFORM_INT);
         if (count > 0) {
             SetShaderValueV(light.shader, light.buildingPositions, positions.data(), SHADER_UNIFORM_VEC3, count);
@@ -526,7 +563,9 @@ void HorrorLighting::BeginFrame(const Camera3D& view, const Camera3D& flashlight
         BeginTextureMode(scene_);
         if (focus_.id) rlActiveDrawBuffers(2);
     }
-    ClearBackground(NightBackground);
+    const Vector3 background = AdjustGreenTint({float(NightBackground.r), float(NightBackground.g), float(NightBackground.b)}, greenStrength_);
+    ClearBackground({static_cast<unsigned char>(std::round(background.x)), static_cast<unsigned char>(std::round(background.y)),
+                     static_cast<unsigned char>(std::round(background.z)), NightBackground.a});
 }
 
 void HorrorLighting::EndFrame(bool drawControls) const {
@@ -543,6 +582,8 @@ void HorrorLighting::EndFrame(bool drawControls) const {
             SetShaderValue(post_, texelLocation_, &texel, SHADER_UNIFORM_VEC2);
             const float enabled = focus_.id ? 1.0f : 0.0f;
             SetShaderValue(post_, focusEnabledLocation_, &enabled, SHADER_UNIFORM_FLOAT);
+            SetShaderValue(post_, brightnessLocation_, &brightness_, SHADER_UNIFORM_FLOAT);
+            SetShaderValue(post_, greenStrengthLocation_, &greenStrength_, SHADER_UNIFORM_FLOAT);
             BeginShaderMode(post_);
             // シェーダー切り替えはバッチをフラッシュするため、その後に追加テクスチャを登録する。
             if (focus_.id) SetShaderValueTexture(post_, focusLocation_, focus_);

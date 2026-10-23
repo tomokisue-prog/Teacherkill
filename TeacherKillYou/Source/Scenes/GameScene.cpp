@@ -29,7 +29,7 @@ void GameScene::Init()
     controller.SetActiveCamera(CameraType::Player);
     settings_ = GameSettings{};
     settings_.Load();
-    settings_.Apply(camera);
+    settings_.Apply(*gameContext);
     CheckpointData checkpoint;
     checkpointAvailable_ = CheckpointSave::Load(checkpoint);
     const bool continueRequested = loadCheckpointOnInit_;
@@ -143,7 +143,7 @@ void GameScene::Update(float deltaTime)
         case PauseAction::Resume: Resume(); break;
         case PauseAction::Title: SetNextScene(SM().GetScene(SceneID::Title)); break;
         case PauseAction::SettingsChanged:
-            settings_.Apply(gameContext->GetCameraController().GetPlayerCamera());
+            settings_.Apply(*gameContext);
             settingsDirty_ = true;
             break;
         case PauseAction::SaveSettings:

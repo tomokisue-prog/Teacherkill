@@ -26,7 +26,7 @@ void SceneManager::Init()
     AM().Init();
     GameSettings settings;
     settings.Load();
-    settings.Apply(gameContext.GetCameraController().GetPlayerCamera());
+    settings.Apply(gameContext);
     // タイトルでは日本語フォントだけを使い、3D素材はゲーム開始時に読む。
     RM().LoadJapaneseFont();
     
