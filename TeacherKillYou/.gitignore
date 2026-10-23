@@ -1,5 +1,9 @@
 /build/
 
+# Debug helpers are source files; only generated Debug output should be ignored.
+!/Source/Debug/
+!/Source/Debug/**
+
 # Original exports are kept locally. FBX + small material companions are shared.
 /Data/Image/Monster_final_animations/MONSTER _attack_final.glb
 /Data/Image/Monster_final_animations/MONSTER_dead_final.glb
