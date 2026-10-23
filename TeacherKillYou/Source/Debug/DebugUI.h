@@ -19,6 +19,7 @@ enum class SelectedObjectType
 
 class GameContext;
 
+// シーン内の選択状態を保持し、HierarchyとInspectorを描画する。
 class DebugUI
 {
 public:

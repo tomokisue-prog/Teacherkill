@@ -16,7 +16,7 @@ void GizmoDrawer::Draw(
     if (!targetObj)
         return;
 
-    // Shortcut keys
+    // ImGuiがキーボード入力を使用中は、ギズモ用ショートカットを処理しない。
     if (!ImGui::GetIO().WantCaptureKeyboard)
     {
         if (IsKeyPressed(KEY_W) &&

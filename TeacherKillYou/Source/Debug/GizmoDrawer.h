@@ -9,6 +9,7 @@ class GameContext;
 class GameObject;
 class Item;
 
+// 対象の所有権は取得せず、移動・回転・拡縮のギズモ操作を反映する。
 class GizmoDrawer
 {
 public:
