@@ -33,6 +33,8 @@
     <ClCompile Include="Source\Audio\AudioManager.cpp" />
     <ClCompile Include="Source\Camera\CameraController.cpp" />
     <ClCompile Include="Source\Debug\DebugUI.cpp" />
+    <ClCompile Include="Source\Events\EventManager.cpp" />
+    <ClCompile Include="Source\Events\Tutorial4FFloorEvent.cpp" />
     <ClCompile Include="Source\UI\DialogueManager.cpp" />
     <ClCompile Include="Source\World\DoorMove.cpp" />
     <ClCompile Include="Source\Actors\Enemy\Enemy.cpp" />
@@ -112,6 +114,9 @@
     <ClInclude Include="Source\Audio\AudioManager.h" />
     <ClInclude Include="Source\Camera\CameraController.h" />
     <ClInclude Include="Source\Debug\DebugUI.h" />
+    <ClInclude Include="Source\Events\EventBase.h" />
+    <ClInclude Include="Source\Events\EventManager.h" />
+    <ClInclude Include="Source\Events\Tutorial4FFloorEvent.h" />
     <ClInclude Include="Source\UI\DialogueEntry.h" />
     <ClInclude Include="Source\UI\DialogueManager.h" />
     <ClInclude Include="Source\World\DoorMove.h" />

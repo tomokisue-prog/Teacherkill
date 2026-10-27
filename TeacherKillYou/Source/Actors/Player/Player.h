@@ -1,6 +1,7 @@
 #pragma once
 #include "GameObject.h"
 #include "WorldScale.h"
+#include "Inventory.h"
 
 class Stage;
 class PlayerCamera;
@@ -80,6 +81,8 @@ private:
 
     float playerRadius_{ WorldScale::Player.radius };
     float playerHeight_{ WorldScale::Player.height };
+
+    Inventory inventory_;
 
     float gravity_{ -9.81f };
     float jumpForce_{ 3.0f };

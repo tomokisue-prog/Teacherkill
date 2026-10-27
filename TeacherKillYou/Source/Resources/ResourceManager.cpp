@@ -15,7 +15,7 @@ ResourceManager& ResourceManager::GetInstance() {
 }
 
 namespace {
-    enum class LoadKind { Model, Animation, FbxAnimation };
+    enum class LoadKind { Model, Animation, FbxAnimation, Texture };
     struct LoadJob {
         LoadKind kind;
         const char* key;
@@ -39,6 +39,19 @@ namespace {
         {LoadKind::FbxAnimation, ResourceKeys::Animation_FemaleZombieDeath, "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 death.fbx", ResourceKeys::Model_FemaleZombie},
         {LoadKind::FbxAnimation, ResourceKeys::Animation_FemaleZombieHit, "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 hit.fbx", ResourceKeys::Model_FemaleZombie},
         {LoadKind::Model, ResourceKeys::Model_Door, "Data/Image/slide door.glb"},
+		{LoadKind::Texture, ResourceKeys::WASD_UI, "Data/Image/WASDUI.png"},
+
+        // アイテムモデルのロード
+        {LoadKind::Model, ResourceKeys::Model_KeyCard, "Data/Image/Items/Key_Card.glb"},
+        {LoadKind::Model, ResourceKeys::Model_Medkit,  "Data/Image/Items/Med_Kit.glb"},
+        {LoadKind::Model, ResourceKeys::Model_Ammo,    "Data/Image/Items/Ammo.glb"},
+        {LoadKind::Model, ResourceKeys::Model_LostItem,    "Data/Image/Items/Key_Card.glb"},
+
+        // アイテムアイコン・UIのロード
+        {LoadKind::Texture, ResourceKeys::Icon_KeyCard,    "Data/Image/Items/Key_Card.png"},
+        {LoadKind::Texture, ResourceKeys::Icon_Medkit,     "Data/Image/Items/Med_Kit.png"},
+        {LoadKind::Texture, ResourceKeys::Icon_HealingBar, "Data/Image/Items/Healing_bar.png"},
+        {LoadKind::Texture, ResourceKeys::Icon_LostItem, "Data/Image/Items/Key_Card.png"},
     };
     constexpr std::size_t GameResourceCount = sizeof(GameResources) / sizeof(GameResources[0]);
 }
@@ -57,6 +70,7 @@ bool ResourceManager::LoadNextGameResource() {
     case LoadKind::Model: LoadModel(job.key, job.path); break;
     case LoadKind::Animation: LoadModelAnimations(job.key, job.path); break;
     case LoadKind::FbxAnimation: LoadFbxAnimation(job.key, job.modelKey, job.path); break;
+	case LoadKind::Texture: LoadTexture(job.key, job.path); break;
     }
     ++nextGameResource_;
     const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - begin).count();
@@ -195,6 +209,19 @@ void ResourceManager::ApplyModelAnimation(const std::string& key, int frame, int
     } else {
         ::UpdateModelAnimation(model->second, data.anims[animationIndex], frame);
     }
+}
+
+void ResourceManager::LoadTexture(const std::string& key, const std::string& path)
+{
+    if (textures_.find(key) != textures_.end()) {
+        return;
+	}
+
+    Texture2D texture = ::LoadTexture(path.c_str());
+    if (texture.id != 0) {
+        textures_[key] = texture;
+	}
+
 }
 
 ModelAnimation* ResourceManager::GetModelAnimations(const std::string& key, int* count) const

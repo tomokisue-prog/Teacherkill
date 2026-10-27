@@ -136,6 +136,11 @@ void GameContext::Init()
 
 	DM().LoadFromJson("Data/Json/dialogue.json");
     ShowDialogue("door_locked");
+
+    EventMgr().RegisterEvent("Tutorial_4F", std::make_shared<Tutorial4FFloorEvent>());
+    EventMgr().StartEvent("Tutorial_4F");
+
+    ShowDialogue("opening_4f");
 }
 
 void GameContext::Reset()
@@ -453,6 +458,7 @@ void GameContext::Update(float deltaTime)
         return;
     }
 
+    EventMgr().Update(deltaTime);
 
     UpdateShotEffects(deltaTime);
     if (hitMarkerTimer_ > 0.0f)
@@ -693,11 +699,13 @@ void GameContext::Draw() const
     }
 
     gameFade_.Draw();
+    EventMgr().Draw();
 
     if (player_.IsAlive() && IsMessageActive())
     {
         messageWindow_.Draw();
     }
+
 }
 
 

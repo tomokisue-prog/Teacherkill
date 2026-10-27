@@ -33,6 +33,9 @@ public:
     // FBXはシアーを含む行列で再生し、通常のモデルはraylibへ委譲する。
     void ApplyModelAnimation(const std::string& key, int frame, int animationIndex = 0);
 
+	// 2D画像を読み込むための関数
+	void LoadTexture(const std::string& key, const std::string& path);
+
     // 指定したキーのアニメーションを取得（存在しない場合は count = 0）
     ModelAnimation* GetModelAnimations(const std::string& key, int* count = nullptr) const;
 
@@ -50,6 +53,14 @@ public:
     void LoadJapaneseFont();
     const JapaneseFont& GetJapaneseFont() const { return japaneseFont_; }
 
+    const Texture2D* GetTexture(const std::string& key) const {
+        auto it = textures_.find(key);
+        if (it != textures_.end()) {
+            return &it->second;
+        }
+        return nullptr;
+    }
+
 private:
     ResourceManager() = default;
     ~ResourceManager() = default;
@@ -61,6 +72,7 @@ private:
     Shader modelShader_{}; // GLBモデル間で共有。UnloadAllで一度だけ解放する。
     std::unordered_map<std::string, Model> models_;
     std::unordered_map<std::string, BoundingBox> modelBounds_;
+	std::unordered_map<std::string, Texture2D> textures_;
 
 	JapaneseFont japaneseFont_;
 
@@ -72,6 +84,8 @@ private:
     };
     std::unordered_map<std::string, AnimationData> animations_;
     std::unordered_map<std::string, std::vector<FbxSkinBinding>> fbxBindings_;
+
+
 };
 
 // ショートカット関数

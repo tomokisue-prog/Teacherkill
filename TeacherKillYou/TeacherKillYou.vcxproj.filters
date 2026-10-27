@@ -73,6 +73,12 @@
     <Filter Include="Tools">
       <UniqueIdentifier>{ab5d0dd5-e06f-5686-89be-ec0e7ea1e8fe}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source\Events">
+      <UniqueIdentifier>{e68a008f-dd2b-4df5-a43e-435adecc0481}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\Events\Tutorial">
+      <UniqueIdentifier>{46c30ada-5dd4-4074-ae83-dc2de3f7aabf}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source\Audio\AudioManager.cpp">
@@ -242,6 +248,12 @@
     </ClCompile>
     <ClCompile Include="Source\Scenes\TitleScene.cpp">
       <Filter>Source\Scenes</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Events\EventManager.cpp">
+      <Filter>Source\Events</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Events\Tutorial4FFloorEvent.cpp">
+      <Filter>Source\Events\Tutorial</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -448,6 +460,15 @@
     </ClInclude>
     <ClInclude Include="Source\Scenes\TitleScene.h">
       <Filter>Source\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Events\EventBase.h">
+      <Filter>Source\Events</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Events\EventManager.h">
+      <Filter>Source\Events</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Events\Tutorial4FFloorEvent.h">
+      <Filter>Source\Events\Tutorial</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
