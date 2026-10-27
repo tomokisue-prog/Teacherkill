@@ -3,6 +3,9 @@
 #include "GameOverScreen.h"
 #include "GameSettings.h"
 #include "PauseMenu.h"
+#ifndef NDEBUG
+#include "DebugMenu.h"
+#endif
 #include <string>
 
 class GameScene final : public Scene
@@ -16,6 +19,9 @@ public:
     bool IsGameOver() const;
     bool IsPaused() const;
     void RequestCheckpointContinue();
+    void SetDebugToolsEnabled(bool enabled);
+    bool IsDebugMenuOpen() const;
+    void DrawDebugMenu();
 
 private:
     void BeginGameOver();
@@ -38,4 +44,8 @@ private:
     GameOverScreen gameOverScreen_;
     PauseMenu pauseMenu_;
     GameSettings settings_;
+#ifndef NDEBUG
+    bool debugToolsEnabled_ = false;
+    DebugMenu debugMenu_;
+#endif
 };

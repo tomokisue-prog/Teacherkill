@@ -56,10 +56,16 @@ namespace demo {
     }
 
     void Enemy::Reset(Vector3 position, float yaw) {
+#ifndef NDEBUG
+        debugDesiredMove_ = debugActualMove_ = {};
+#endif
         movement_.Reset(position, 0.0f);
         yaw_ = WrapAngle(yaw);
         hp_ = config_.maxHp;
         ai_.Reset();
+        sightTimer_ = 0.0f;
+        sightVisible_ = false;
+        observedPosition_ = {};
         corpseTimer_ = 0.0f;
         hitTime_ = -1.0f;
         animationTime_ = 0.0f;
@@ -84,6 +90,30 @@ namespace demo {
         if (!key) return 0.0f;
         const auto clip = RM().GetModelAnimation(key);
         return clip.frameCount > 1 ? (clip.frameCount - 1) * AnimationFrameDuration / config_.animationSpeed : 0.0f;
+    }
+
+    bool Enemy::CanSeeTarget(const TargetInfo& target, const Stage& stage, const BoundingBox* blocker) const {
+        if (!target.valid || !target.alive || !IsFinite(target.position)) return false;
+        const Vector3 position = GetPosition();
+        const float range = ai_.GetState() == EnemyState::Idle && !ai_.HasLastSeenPosition() ? config_.detectionRange : config_.loseRange;
+        if (Vector2Distance({position.x, position.z}, {target.position.x, target.position.z}) > range) return false;
+        const Vector3 origin = Vector3Add(position, {0, config_.bodyHeight * .85f, 0});
+        if (blocker && CheckCollisionBoxSphere(*blocker, origin, ContactEpsilon)) return false;
+        // 胴と頭を確認する。低い障害物の上から見える場合は視認を許可する。
+        for (float fraction : {.55f, .9f}) {
+            const Vector3 aim{target.position.x, Lerp(target.bodyBounds.min.y, target.bodyBounds.max.y, fraction), target.position.z};
+            const Vector3 delta = Vector3Subtract(aim, origin);
+            const float length = Vector3Length(delta);
+            if (length <= ContactEpsilon) return true;
+            const Ray ray{origin, Vector3Scale(delta, 1.0f / length)};
+            if (blocker) {
+                const auto door = GetRayCollisionBox(ray, *blocker);
+                if (door.hit && door.distance < length - ContactEpsilon) continue;
+            }
+            const auto wall = stage.Raycast(ray, length);
+            if (!wall.hit || wall.distance >= length - ContactEpsilon) return true;
+        }
+        return false;
     }
 
     bool Enemy::CanHitTarget(const TargetInfo& target, const Stage& stage, const BoundingBox* blocker) const {
@@ -115,6 +145,9 @@ namespace demo {
     void Enemy::Update(float dt, const TargetInfo& target, const Stage& stage, const BoundingBox* blocker) {
         pendingAttackDamage_ = 0;
         if (!std::isfinite(dt) || dt <= 0.0f) return;
+#ifndef NDEBUG
+        debugDesiredMove_ = debugActualMove_ = {};
+#endif
 
         if (!IsAlive()) {
             const float duration = DeathDuration();
@@ -128,17 +161,31 @@ namespace demo {
 
         const bool validTarget = target.valid && target.alive && IsFinite(target.position);
         if (!validTarget) {
-            ai_.SetState(EnemyState::Idle);
-            ai_.SetShouldMove(true);
+            ai_.ForgetTarget();
+            sightTimer_ = 0.0f;
+            sightVisible_ = false;
             attackPose_ = false;
             animationTime_ = 0.0f;
+        }
+        else {
+            sightTimer_ -= dt;
+            if (sightTimer_ <= 0.0f) {
+                sightVisible_ = CanSeeTarget(target, stage, blocker);
+                if (sightVisible_) observedPosition_ = target.position;
+                sightTimer_ = 0.1f;
+            }
+        }
+        float newYaw = yaw_;
+        Vector3 displacement{};
+        if (validTarget) {
+            displacement = ai_.CalculateChaseDisplacement(GetPosition(), observedPosition_, config_, dt, newYaw, yaw_, sightVisible_);
         }
 
         if (hitTime_ >= 0.0f && hitTime_ < HitDuration()) {
             // 被弾中は追跡と攻撃を止める。地面との接触と重力は更新を続ける。
             hitTime_ = (std::min)(HitDuration(), hitTime_ + dt);
             ai_.SetShouldMove(false);
-            movement_.Update(dt, {}, validTarget ? &target.bodyBounds : nullptr, stage, config_);
+            movement_.Update(dt, {}, validTarget ? &target.bodyBounds : nullptr, stage, config_, blocker);
             return;
         }
         hitTime_ = -1.0f;
@@ -146,14 +193,14 @@ namespace demo {
         const bool attacking = ai_.GetState() == EnemyState::Attack;
         const Vector3 previousPosition = movement_.GetPosition();
 
-        float newYaw = yaw_;
-        Vector3 displacement = {};
-        if (validTarget && !attacking) {
-            displacement = ai_.CalculateChaseDisplacement(movement_.GetPosition(), target.position, config_, dt, newYaw, yaw_);
-            yaw_ = newYaw;
-        }
-
-        movement_.Update(dt, displacement, validTarget ? &target.bodyBounds : nullptr, stage, config_);
+        if (!attacking) yaw_ = newYaw;
+        movement_.Update(dt, displacement, validTarget ? &target.bodyBounds : nullptr, stage, config_, blocker);
+        const Vector3 actualMove = Vector3Subtract(GetPosition(), previousPosition);
+        ai_.ReportMovement(GetPosition(), displacement, actualMove, dt);
+#ifndef NDEBUG
+        debugDesiredMove_ = displacement;
+        debugActualMove_ = Vector3Subtract(movement_.GetPosition(), previousPosition);
+#endif
 
         if (attacking) {
             attackTime_ += dt;
@@ -165,7 +212,7 @@ namespace demo {
                 if (CanHitTarget(target, stage, blocker)) pendingAttackDamage_ = config_.attackDamage;
             }
             if (attackTime_ >= duration) {
-                ai_.SetState(EnemyState::Chase);
+                ai_.FinishAttack();
                 attackPose_ = false;
                 animationTime_ = 0.0f;
                 ai_.SetAttackCooldown(config_.attackRecovery);
@@ -173,7 +220,7 @@ namespace demo {
             return;
         }
 
-        if (ai_.GetState() == EnemyState::Chase && ai_.GetAttackCooldown() <= 0.0f && config_.attackDamage > 0 && CanHitTarget(target, stage, blocker)) {
+        if (ai_.IsTargetVisible() && ai_.GetState() == EnemyState::Chase && ai_.GetAttackCooldown() <= 0.0f && config_.attackDamage > 0 && CanHitTarget(target, stage, blocker)) {
             ai_.SetState(EnemyState::Attack);
             ai_.SetShouldMove(false);
             attackPose_ = true;
@@ -201,6 +248,48 @@ namespace demo {
             animationTime_ = 0.0f;
         }
     }
+
+#ifndef NDEBUG
+    EnemyDebugInfo Enemy::GetDebugInfo(const TargetInfo& target, const Stage& stage, const BoundingBox* blocker) const {
+        EnemyDebugInfo info;
+        info.config = config_; info.cooldown = ai_.GetAttackCooldown();
+        info.targetVisible = IsAlive() && sightVisible_; info.hasLastSeen = ai_.HasLastSeenPosition();
+        info.lastSeenPosition = ai_.GetLastSeenPosition(); info.searchTime = ai_.GetSearchTimeRemaining();
+        info.movementBlocked = ai_.IsMovementBlocked();
+        info.sightOrigin = Vector3Add(GetPosition(), {0, config_.bodyHeight * .85f, 0});
+        info.desiredMove = debugDesiredMove_; info.actualMove = debugActualMove_;
+        const Vector2 desired{info.desiredMove.x,info.desiredMove.z}, actual{info.actualMove.x,info.actualMove.z};
+        info.movementLimited = Vector2Length(desired) > .001f && Vector2Distance(desired,actual) > .002f;
+        info.hitReaction = hitTime_ >= 0 && hitTime_ < HitDuration();
+        info.attackProgress = ai_.GetState() == EnemyState::Attack ? Clamp(attackTime_ / AttackDuration(),0,1) : 0;
+        info.origin = Vector3Add(GetPosition(),{0,config_.bodyHeight * .6f,0});
+        info.aim = {target.position.x,(target.bodyBounds.min.y+target.bodyBounds.max.y)*.5f,target.position.z};
+        if (!IsAlive()) { info.reason=DebugAttackBlock::Dead; return info; }
+        if (!target.valid || !target.alive || !IsFinite(target.position)) return info;
+        Vector3 delta=Vector3Subtract(target.position,GetPosition());delta.y=0;info.distance=Vector3Length(delta);
+        const Vector3 sight=Vector3Subtract(info.aim,info.origin);const float length=Vector3Length(sight);
+        if(length>ContactEpsilon) {
+            const Ray ray{info.origin,Vector3Scale(sight,1/length)};const auto wall=stage.Raycast(ray,length);
+            info.wallBlocked=wall.hit && wall.distance<length-ContactEpsilon;
+            if(info.wallBlocked) info.obstruction=wall.point;
+            if(blocker) {
+                const bool inside=CheckCollisionBoxSphere(*blocker,info.origin,ContactEpsilon);const auto door=GetRayCollisionBox(ray,*blocker);
+                info.doorBlocked=inside || (door.hit && door.distance<length-ContactEpsilon);
+                if(info.doorBlocked && (!info.wallBlocked || door.distance<wall.distance)) info.obstruction=inside?info.origin:door.point;
+            }
+        }
+        // 結果は実際の攻撃判定から取得する。表示用の理由は同じ条件順で分類する。
+        info.canHit=CanHitTarget(target,stage,blocker);
+        const auto body=GetBodyBounds();
+        if(body.max.y<=target.bodyBounds.min.y || body.min.y>=target.bodyBounds.max.y) info.reason=DebugAttackBlock::Height;
+        else if(info.distance>config_.attackRange) info.reason=DebugAttackBlock::Range;
+        else if(info.distance>ContactEpsilon && Vector3DotProduct(Vector3Scale(delta,1/info.distance),{std::sin(yaw_),0,-std::cos(yaw_)})<.7f) info.reason=DebugAttackBlock::Facing;
+        else if(info.wallBlocked) info.reason=DebugAttackBlock::Wall;
+        else if(info.doorBlocked) info.reason=DebugAttackBlock::Door;
+        else info.reason=DebugAttackBlock::Ready;
+        return info;
+    }
+#endif
 
     int Enemy::ConsumeAttackDamage() {
         const int damage = pendingAttackDamage_;
@@ -279,7 +368,7 @@ namespace demo {
         }
         Color color = { 57, 187, 173, 255 };
         if (!IsAlive()) color = { 91, 99, 110, 255 };
-        else if (ai_.GetState() == EnemyState::Chase) color = { 242, 146, 65, 255 };
+        else if (ai_.GetState() == EnemyState::Chase || ai_.GetState() == EnemyState::Search) color = { 242, 146, 65, 255 };
 
         const float radius = config_.bodyRadius;
         const Vector3 center = Vector3Add(position, { 0, config_.bodyHeight * 0.5f, 0 });

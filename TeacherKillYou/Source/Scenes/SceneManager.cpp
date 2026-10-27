@@ -17,6 +17,9 @@ void SceneManager::Init()
     if (runConfig.windowed) MaximizeWindow();
     SetTargetFPS(60);
     SetExitKey(KEY_NULL); // Esc belongs to the pause menu; the window close button still exits.
+#ifndef NDEBUG
+    rlImGuiSetLoadFontsCallback(runConfig.enableDebugUI ? DebugMenu::LoadFonts : nullptr);
+#endif
     rlImGuiSetup(true);
 
     // ImGuiとraylibのカーソル競合を防ぐ設定
@@ -33,6 +36,7 @@ void SceneManager::Init()
     // 各シーンにコンテキストを伝搬
     titleScene.SetGameContext(&gameContext);
     gameScene.SetGameContext(&gameContext);
+    gameScene.SetDebugToolsEnabled(runConfig.enableDebugUI);
     goalScene.SetGameContext(&gameContext);
 
     systemMode_.Init(&gameContext);
@@ -142,6 +146,7 @@ void SceneManager::Run()
 
         // 死亡メニューにデバッグUIの描画やマウス操作を重ねない。
         const bool showDebugUI = runConfig.enableDebugUI && currentScene == &gameScene && !gameScene.IsGameOver() && !gameScene.IsPaused();
+        const bool showDebugMenu = currentScene == &gameScene && gameScene.IsDebugMenuOpen();
         if (showDebugUI) systemMode_.Update(deltaTime);
         AM().Update();
 
@@ -156,9 +161,10 @@ void SceneManager::Run()
         }
 
         // プレイ中のデバッグ表示が有効な場合だけImGuiを描画する。
-        if (showDebugUI) {
+        if (showDebugUI || showDebugMenu) {
             rlImGuiBegin();
-            systemMode_.Draw();
+            if (showDebugMenu) gameScene.DrawDebugMenu();
+            else systemMode_.Draw();
             rlImGuiEnd();
         }
 
