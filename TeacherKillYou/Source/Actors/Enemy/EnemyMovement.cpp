@@ -38,20 +38,20 @@ namespace demo {
         return BodyBounds(position_, config.bodyRadius, config.bodyHeight);
     }
 
-    void EnemyMovement::Update(float dt, Vector3 displacement, const BoundingBox* targetBounds, const Stage& stage, const EnemyConfig& config) {
-        Move(displacement, targetBounds, stage, config);
+    void EnemyMovement::Update(float dt, Vector3 displacement, const BoundingBox* targetBounds, const Stage& stage, const EnemyConfig& config, const BoundingBox* blocker) {
+        Move(displacement, targetBounds, stage, config, blocker);
         UpdateGround(dt, stage);
     }
 
-    void EnemyMovement::Move(Vector3 displacement, const BoundingBox* bounds, const Stage& stage, const EnemyConfig& config) {
+    void EnemyMovement::Move(Vector3 displacement, const BoundingBox* bounds, const Stage& stage, const EnemyConfig& config, const BoundingBox* blocker) {
         if (bounds && Overlaps(GetBodyBounds(config), *bounds)) {
-            SeparateFromTarget(*bounds, stage, config);
+            SeparateFromTarget(*bounds, stage, config, blocker);
         }
-        position_.x += AllowedTravel(position_, displacement.x, MoveAxis::X, config.bodyRadius, config.bodyHeight, stage, bounds);
-        position_.z += AllowedTravel(position_, displacement.z, MoveAxis::Z, config.bodyRadius, config.bodyHeight, stage, bounds);
+        position_.x += AllowedTravel(position_, displacement.x, MoveAxis::X, config.bodyRadius, config.bodyHeight, stage, bounds, blocker);
+        position_.z += AllowedTravel(position_, displacement.z, MoveAxis::Z, config.bodyRadius, config.bodyHeight, stage, bounds, blocker);
     }
 
-    void EnemyMovement::SeparateFromTarget(const BoundingBox& bounds, const Stage& stage, const EnemyConfig& config) {
+    void EnemyMovement::SeparateFromTarget(const BoundingBox& bounds, const Stage& stage, const EnemyConfig& config, const BoundingBox* blocker) {
         struct Separation { float amount; MoveAxis axis; };
         const float padding = config.bodyRadius + ContactEpsilon;
         Separation choices[] = {
@@ -64,7 +64,7 @@ namespace demo {
             return std::fabs(a.amount) < std::fabs(b.amount);
             });
         for (const Separation& choice : choices) {
-            const float allowed = AllowedTravel(position_, choice.amount, choice.axis, config.bodyRadius, config.bodyHeight, stage, nullptr);
+            const float allowed = AllowedTravel(position_, choice.amount, choice.axis, config.bodyRadius, config.bodyHeight, stage, nullptr, blocker);
             if (std::fabs(allowed - choice.amount) > ContactEpsilon * 0.5f) continue;
             if (choice.axis == MoveAxis::X) position_.x += allowed;
             else position_.z += allowed;
@@ -89,7 +89,7 @@ namespace demo {
         }
     }
 
-    float EnemyMovement::AllowedTravel(Vector3 position, float amount, MoveAxis axis, float radius, float height, const Stage& stage, const BoundingBox* target) const {
+    float EnemyMovement::AllowedTravel(Vector3 position, float amount, MoveAxis axis, float radius, float height, const Stage& stage, const BoundingBox* target, const BoundingBox* blocker) const {
         if (amount == 0.0f) return 0.0f;
         const bool xAxis = axis == MoveAxis::X;
         const float sign = amount > 0.0f ? 1.0f : -1.0f;
@@ -113,21 +113,21 @@ namespace demo {
         }
 
         const BoundingBox body = BodyBounds(position, radius, height);
-        if (!target) return sign * travel;
-        const bool overlapsHeight = body.min.y < target->max.y && body.max.y > target->min.y;
-        if (!overlapsHeight) return sign * travel;
-
-        const bool overlapsSide = xAxis ?
-            body.min.z < target->max.z && body.max.z > target->min.z :
-            body.min.x < target->max.x && body.max.x > target->min.x;
-        if (!overlapsSide) return sign * travel;
-
-        const float bodyMin = xAxis ? body.min.x : body.min.z;
-        const float bodyMax = xAxis ? body.max.x : body.max.z;
-        const float targetMin = xAxis ? target->min.x : target->min.z;
-        const float targetMax = xAxis ? target->max.x : target->max.z;
-        const float gap = sign > 0.0f ? targetMin - bodyMax : bodyMin - targetMax;
-        if (gap >= 0.0f) travel = (std::min)(travel, (std::max)(0.0f, gap - ContactEpsilon));
+        // ステージへのレイは共有し、動くドアとプレイヤーを同じ箱判定で止める。
+        const BoundingBox* obstacles[] = { target, blocker };
+        for (const BoundingBox* obstacle : obstacles) {
+            if (!obstacle || body.min.y >= obstacle->max.y || body.max.y <= obstacle->min.y) continue;
+            const bool overlapsSide = xAxis ?
+                body.min.z < obstacle->max.z && body.max.z > obstacle->min.z :
+                body.min.x < obstacle->max.x && body.max.x > obstacle->min.x;
+            if (!overlapsSide) continue;
+            const float bodyMin = xAxis ? body.min.x : body.min.z;
+            const float bodyMax = xAxis ? body.max.x : body.max.z;
+            const float obstacleMin = xAxis ? obstacle->min.x : obstacle->min.z;
+            const float obstacleMax = xAxis ? obstacle->max.x : obstacle->max.z;
+            const float gap = sign > 0.0f ? obstacleMin - bodyMax : bodyMin - obstacleMax;
+            if (gap >= 0.0f) travel = (std::min)(travel, (std::max)(0.0f, gap - ContactEpsilon));
+        }
         return sign * travel;
     }
 

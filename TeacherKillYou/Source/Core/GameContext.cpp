@@ -83,6 +83,9 @@ void GameContext::SetDisplaySettings(float brightness, float greenStrength)
 
 void GameContext::Init()
 {
+#ifndef NDEBUG
+    debugGameplay_.ClearShots();
+#endif
     // 新しいラウンドへ、前回の暗転・会話・ドア開閉・ライト状態を持ち越さない。
     gameFade_.Reset();
     messageWindow_.Close();
@@ -145,6 +148,9 @@ void GameContext::Init()
 
 void GameContext::Reset()
 {
+#ifndef NDEBUG
+    debugGameplay_.ClearShots();
+#endif
     AM().StopAllSe();
     player_.Reset();
     stage_.Reset();
@@ -236,6 +242,9 @@ void GameContext::ProcessPlayerShot()
 
     demo::EnemyId targetId = 0;
     bool foundTarget = false;
+#ifndef NDEBUG
+    int targetHpBefore = 0;
+#endif
     Vector3 impactNormal = Vector3Negate(ray.direction);
 
     for (const auto& enemy : enemyManager_.GetEnemies())
@@ -265,6 +274,9 @@ void GameContext::ProcessPlayerShot()
         {
             closestDistance = hit.distance;
             targetId = enemy.GetId();
+#ifndef NDEBUG
+            targetHpBefore = enemy.GetHp();
+#endif
             foundTarget = true;
             impactNormal = inside ? Vector3Negate(ray.direction) : hit.normal;
         }
@@ -310,14 +322,29 @@ void GameContext::ProcessPlayerShot()
         }
     }
 
+#ifndef NDEBUG
+    DebugShot debugShot;
+    debugShot.ray=ray;debugShot.end=tracerEnd_;
+    debugShot.normal=foundTarget?impactNormal:wallHit.hit?wallHit.normal:Vector3{};
+    debugShot.target=foundTarget?DebugShotTarget::Enemy:wallHit.hit?DebugShotTarget::Wall:DebugShotTarget::Miss;
+    debugShot.enemyId=targetId;
+#endif
     if (!foundTarget)
     {
+#ifndef NDEBUG
+        debugGameplay_.RecordShot(debugShot);
+#endif
         TraceLog(LOG_INFO, "SHOT: No enemy hit");
         return;
     }
 
     const demo::EnemyDamageResult result =
         enemyManager_.ApplyDamage(targetId, shotDamage);
+#ifndef NDEBUG
+    debugShot.damage=result.applied?targetHpBefore-result.hp:0;
+    debugShot.hpAfter=result.hp;debugShot.killed=result.becameDead;
+    debugGameplay_.RecordShot(debugShot);
+#endif
 
     if (result.applied)
     {
@@ -711,6 +738,9 @@ void GameContext::Draw() const
 
 void GameContext::End()
 {
+#ifndef NDEBUG
+    debugGameplay_.ClearShots();
+#endif
     AM().StopAllSe();
     enemyManager_.Clear();
     player_.End();
@@ -820,6 +850,9 @@ CheckpointData GameContext::CaptureCheckpoint() const
 
 void GameContext::RestoreCheckpoint(const CheckpointData& data)
 {
+#ifndef NDEBUG
+    debugGameplay_.ClearShots();
+#endif
     // Loaded models and HUD textures stay alive. Transient attacks and visual effects do not.
     AM().StopAllSe();
     gameFade_.Reset();
@@ -876,3 +909,16 @@ bool GameContext::ConsumeCheckpointRequest()
     if (requested) checkpointRequested_ = false;
     return requested;
 }
+
+#ifndef NDEBUG
+bool GameContext::DebugTeleportPlayer(Vector3 position, float yaw, float pitch) {
+    if (!std::isfinite(yaw) || !std::isfinite(pitch) || !player_.DebugMoveTo(position)) return false;
+    const bool hidden=IsCursorHidden();
+    inventory_.CancelHealing();gameFade_.Reset();checkpointRequested_=false;
+    muzzleFlashTimer_=0;tracerActive_=false;horrorAudio_.Reset(position);
+    cameraController_.SetActiveCamera(CameraType::Player);
+    auto& camera=cameraController_.GetPlayerCamera();camera.SetPlayerPosition(position);camera.SetViewAngles(yaw,pitch);
+    if(!hidden) EnableCursor();
+    return true;
+}
+#endif

@@ -143,6 +143,10 @@ void Player::Init()
 
 void Player::Reset()
 {
+#ifndef NDEBUG
+    // 無敵・無限弾は通常の進行データに残さず、開始・復元時は解除する。
+    debugInvincible_ = debugInfiniteAmmo_ = false;
+#endif
     position_ = { 0.0f, 4.0f, 0.0f };
     rotation_ = { 0.0f, 0.0f, 0.0f };
     scale_ = { 1.0f, 1.0f, 1.0f };
@@ -387,7 +391,10 @@ void Player::UpdateWeapon(float deltaTime)
 
         isShooting_ = true;
         shootTimer_ = 0.0f;
-        --currentAmmo_;
+#ifndef NDEBUG
+        if (!debugInfiniteAmmo_)
+#endif
+            --currentAmmo_;
         shotPending_ = true;
         AM().PlaySe(SeId::Shoot);
 
@@ -500,6 +507,9 @@ bool Player::ConsumeDamageImpact()
 void Player::TakeDamage(int amount)
 {
     if (amount <= 0 || !IsAlive()) return;
+#ifndef NDEBUG
+    if (debugInvincible_) return;
+#endif
     isSprinting_ = false;
     hp_ = amount >= hp_ ? 0 : hp_ - amount;
     damageFlashTimer_ = damageFlashDuration_;
@@ -809,3 +819,24 @@ void Player::RestoreCheckpoint(const PlayerCheckpoint& data)
     reserveAmmo_ = std::clamp(data.reserveAmmo, 0, 1000000);
     stamina_ = Clamp(data.stamina, 0, maxStamina_);
 }
+
+#ifndef NDEBUG
+bool Player::DebugIsInvincible() const { return debugInvincible_; }
+bool Player::DebugHasInfiniteAmmo() const { return debugInfiniteAmmo_; }
+void Player::DebugSetInvincible(bool enabled) { debugInvincible_ = enabled; }
+void Player::DebugSetInfiniteAmmo(bool enabled) {
+    debugInfiniteAmmo_ = enabled;
+    if (enabled) currentAmmo_ = magazineCapacity_;
+}
+void Player::DebugRefillVitals() {
+    if (!IsAlive()) return; // 死亡画面の状態を残したまま復活させない。
+    hp_ = maxHp_; stamina_ = maxStamina_; staminaRecoveryTimer_ = 0;
+    sprintExhausted_ = false; damageFlashTimer_ = 0; damageImpactPending_ = false;
+}
+void Player::DebugRefillAmmo() { currentAmmo_ = magazineCapacity_; reserveAmmo_ = (std::max)(reserveAmmo_, 90); }
+bool Player::DebugMoveTo(Vector3 position) {
+    if (!std::isfinite(position.x) || !std::isfinite(position.y) || !std::isfinite(position.z) || !IsAlive()) return false;
+    position_ = position; velocity_ = {}; isGrounded_ = false; isSprinting_ = false;
+    return true;
+}
+#endif

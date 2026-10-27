@@ -46,9 +46,15 @@ namespace {
     }
 }
 
-void PauseMenu::Open()
+void PauseMenu::Open(bool debugEnabled)
 {
     settingsPage_ = false;
+#ifndef NDEBUG
+    debugEnabled_ = debugEnabled;
+#else
+    debugEnabled_ = false;
+    (void)debugEnabled;
+#endif
     selectedOption_ = 0;
     draggingSlider_ = -1;
     elapsed_ = 0;
@@ -69,7 +75,7 @@ PauseAction PauseMenu::Update(float dt, GameSettings& settings, bool canLoad, bo
     const bool click = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
     const bool mouseMoved = Vector2LengthSqr(GetMouseDelta()) > 0 || click;
     const auto mouse = GetMousePosition();
-    const int optionCount = settingsPage_ ? SettingCount + 1 : 5;
+    const int optionCount = settingsPage_ ? SettingCount + 1 : (debugEnabled_ ? 6 : 5);
     if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) selectedOption_ = (selectedOption_ + optionCount - 1) % optionCount;
     if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) selectedOption_ = (selectedOption_ + 1) % optionCount;
 
@@ -123,6 +129,7 @@ PauseAction PauseMenu::Update(float dt, GameSettings& settings, bool canLoad, bo
     case 2: return canSave ? PauseAction::SaveCheckpoint : PauseAction::None;
     case 3: return canLoad ? PauseAction::LoadCheckpoint : PauseAction::None;
     case 4: return PauseAction::Title;
+    case 5: return debugEnabled_ ? PauseAction::Debug : PauseAction::None;
     }
     return PauseAction::None;
 }
@@ -156,11 +163,12 @@ void PauseMenu::Draw(const GameSettings& settings, bool canLoad, bool canSave) c
         DrawButton(Button(7), u8"保存して戻る", "SAVE AND BACK", selectedOption_ == SettingCount, true);
     }
     else {
-        const char* jp[] = {u8"ゲームに戻る  [Esc]", u8"画面・音量・マウス設定", u8"チェックポイントを保存", u8"チェックポイントから再開", u8"タイトルへ戻る"};
-        const char* en[] = {"RESUME  [Esc]", "DISPLAY / AUDIO / MOUSE", "SAVE CHECKPOINT", "LOAD CHECKPOINT", "RETURN TO TITLE"};
-        for (int i = 0; i < 5; ++i)
+        const char* jp[] = {u8"ゲームに戻る  [Esc]", u8"画面・音量・マウス設定", u8"チェックポイントを保存", u8"チェックポイントから再開", u8"タイトルへ戻る", u8"デバッグ"};
+        const char* en[] = {"RESUME  [Esc]", "DISPLAY / AUDIO / MOUSE", "SAVE CHECKPOINT", "LOAD CHECKPOINT", "RETURN TO TITLE", "DEBUG"};
+        const int count = debugEnabled_ ? 6 : 5;
+        for (int i = 0; i < count; ++i)
             DrawButton(Button(i), jp[i], en[i], selectedOption_ == i, i == 2 ? canSave : i == 3 ? canLoad : true);
-        Text(u8"保存すると、前のチェックポイントを更新します。", "Saving replaces the previous checkpoint.", Button(4).y + 87 * s, 20 * s, {159, 176, 172, 255});
+        Text(u8"保存すると、前のチェックポイントを更新します。", "Saving replaces the previous checkpoint.", Button(count - 1).y + 87 * s, 20 * s, {159, 176, 172, 255});
     }
     if (!message_.empty()) Text(message_.c_str(), fallbackMessage_.c_str(), GetScreenHeight() * .91f, 22 * s, {192, 212, 184, 255});
 }
