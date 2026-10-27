@@ -17,7 +17,7 @@ void GameScene::Init()
     nextScene = nullptr;
     gameOver_ = paused_ = settingsDirty_ = false;
     resumeInputDelay_ = noticeTime_ = 0;
-    gameOverScreen_.Reset();
+    gameOverScreen_.Init();
     if (!gameContext) return;
 
     gameContext->Init();
@@ -42,6 +42,8 @@ void GameScene::Init()
     AM().PlayBgm(BgmId::Game);
     AM().PlayAmbience();
     DisableCursor();
+
+    resumeInputDelay_ = 0.1f;
 }
 
 void GameScene::BeginGameOver()
@@ -195,6 +197,7 @@ void GameScene::Render() const
 
 void GameScene::End()
 {
+    gameOverScreen_.End();
     SaveSettings();
     AM().StopBgm();
     AM().StopAmbience();

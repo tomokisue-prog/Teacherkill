@@ -2,6 +2,7 @@
 #include "GameObject.h"
 #include "WorldScale.h"
 #include "Inventory.h"
+#include "PlayerStatusHud.h"
 
 class Stage;
 class PlayerCamera;
@@ -102,7 +103,8 @@ private:
     float shootDuration_{ 0.417f };
     float reloadDuration_{ 2.291667f };
 
-    // HUD画像はInitで読み込み、Resetでは再利用し、Endで解放する。
+    mutable PlayerStatusHud statusHud_;
+
     Texture2D ammoHudTexture_{};
     Rectangle ammoHudSource_{};
     Texture2D healthHudTexture_{};

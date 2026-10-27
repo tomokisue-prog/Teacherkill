@@ -137,8 +137,12 @@ namespace
 void Player::Init()
 {
     Reset();
-    LoadHudTexture("Data/Image/GunUI.png", ammoHudTexture_, ammoHudSource_, "Data/Image/PistolUI.png");
-    LoadHudTexture("Data/Image/HPBackUI.png", healthHudTexture_, healthHudSource_);
+    if (!statusHud_.Init("Data/Image/UI/HP_Bar.png"))
+    {
+        // Keep the original HUD as a fallback if the new PNG cannot load.
+        LoadHudTexture("Data/Image/GunUI.png", ammoHudTexture_, ammoHudSource_, "Data/Image/PistolUI.png");
+        LoadHudTexture("Data/Image/HPBackUI.png", healthHudTexture_, healthHudSource_);
+    }
 }
 
 void Player::Reset()
@@ -533,6 +537,7 @@ void Player::DrawDamageOverlay() const
 }
 void Player::DrawStaminaHUD() const
 {
+    if (statusHud_.IsReady()) return; // Included in the unified HUD.
     const Rectangle panel = HealthHudPanel(healthHudSource_);
     const int value = static_cast<int>(std::round(Clamp(stamina_, 0.0f, maxStamina_)));
     // HPBackUIの横線より下に、毎フレームのスタミナ残量を整数で表示する。
@@ -568,6 +573,12 @@ void Player::DrawColliderDebug() const
 
 void Player::DrawHealthHUD() const
 {
+    if (statusHud_.IsReady())
+    {
+        statusHud_.Draw(hp_, maxHp_, currentAmmo_, reserveAmmo_,
+                        stamina_, maxStamina_, isReloading_);
+        return;
+    }
     const Rectangle panel = HealthHudPanel(healthHudSource_);
     if (healthHudTexture_.id && healthHudSource_.width > 0 && healthHudSource_.height > 0)
         DrawTexturePro(healthHudTexture_, healthHudSource_, panel, {0, 0}, 0.0f, WHITE);
@@ -730,6 +741,7 @@ void Player::Draw(const PlayerCamera* camera) const
 
 void Player::DrawAmmoHUD() const
 {
+    if (statusHud_.IsReady()) return; // Included in the unified HUD.
     if (ammoHudTexture_.id && ammoHudSource_.width > 0 && ammoHudSource_.height > 0)
     {
         const float uiScale = HudScale();
@@ -785,6 +797,7 @@ void Player::AddReserveAmmo(int amount)
 
 void Player::End()
 {
+    statusHud_.End();
     if (ammoHudTexture_.id) UnloadTexture(ammoHudTexture_);
     ammoHudTexture_ = {};
     ammoHudSource_ = {};
