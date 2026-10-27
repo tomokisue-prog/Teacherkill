@@ -14,6 +14,8 @@
 #include "MessageWindow.h"
 #include "HorrorAudio.h"
 #include "CheckpointData.h"
+#include "../Events/EventManager.h"
+#include "../Events/Tutorial4FFloorEvent.h"
 
 #include <vector>
 
@@ -84,6 +86,7 @@ private:
     Inventory inventory_;
     GoalPoint goalPoint_;
 	MessageWindow messageWindow_;
+	Tutorial4FFloorEvent tutorial4FFloorEvent;
 
     Vector3 paladinPosition_{ 0.0f, 0.0f, 3.0f };
     std::vector<TeleportPoint> teleportPoints_;

@@ -2,25 +2,40 @@
 
 namespace ResourceKeys {
     // 3Dモデル用キー
-    constexpr const char* Model_Enemy = "Model_Enemy";
-    constexpr const char* Animation_EnemyAttack = "EnemyAttack";
-    constexpr const char* Animation_EnemyDeath = "EnemyDeath";
-    constexpr const char* Model_FemaleZombie = "Model_FemaleZombie";
-    constexpr const char* Animation_FemaleZombieAttack = "FemaleZombieAttack";
-    constexpr const char* Animation_FemaleZombieDeath = "FemaleZombieDeath";
-    constexpr const char* Animation_FemaleZombieHit = "FemaleZombieHit";
-    constexpr const char* Model_Stage = "Model_Stage";
+    inline constexpr const char* Model_Enemy = "Model_Enemy";
+    inline constexpr const char* Animation_EnemyAttack = "EnemyAttack";
+    inline constexpr const char* Animation_EnemyDeath = "EnemyDeath";
+    inline constexpr const char* Model_FemaleZombie = "Model_FemaleZombie";
+    inline constexpr const char* Animation_FemaleZombieAttack = "FemaleZombieAttack";
+    inline constexpr const char* Animation_FemaleZombieDeath = "FemaleZombieDeath";
+    inline constexpr const char* Animation_FemaleZombieHit = "FemaleZombieHit";
+    inline constexpr const char* Model_Stage = "Model_Stage";
 
-	//Player�̃��f��(FPS hand and gun)
-    constexpr const char* Model_HandGunView = "HandGunView";
+	//Player用キー
+    inline constexpr const char* Model_HandGunView = "HandGunView";
   
 	// ドアのモデル
-	constexpr const char* Model_Door = "Model_Door";
+	inline constexpr const char* Model_Door = "Model_Door";
 
 
     // ステージのモデル
     
-	constexpr const char* Model_Stage1 = "Model_Stage1";
+    inline constexpr const char* Model_Stage1 = "Model_Stage1";
 
-    // 必要に応じてここに追加
+    // アイテムモデル用キー
+    inline constexpr const char* Model_KeyCard = "Model_KeyCard";
+    inline constexpr const char* Model_Medkit = "Model_Medkit";
+    inline constexpr const char* Model_Ammo = "Model_Ammo";
+	inline constexpr const char* Model_LostItem = "Model_LostItem";
+
+    // アイテムアイコン用キー
+    inline constexpr const char* Icon_KeyCard = "Icon_KeyCard";
+    inline constexpr const char* Icon_Medkit = "Icon_Medkit";
+    inline constexpr const char* Icon_HealingBar = "Icon_HealingBar";
+	inline constexpr const char* Icon_Ammo = "Icon_Ammo";
+	inline constexpr const char* Icon_LostItem = "Icon_LostItem";
+	// UI用キー
+
+	inline constexpr const char* WASD_UI = "WASD_UI";
+
 }
