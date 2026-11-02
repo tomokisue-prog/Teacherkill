@@ -19,6 +19,19 @@ namespace demo {
         bool becameDead = false;
     };
 
+#ifndef NDEBUG
+    enum class DebugAttackBlock { Ready, Dead, NoTarget, Height, Range, Facing, Wall, Door };
+    struct EnemyDebugInfo {
+        EnemyConfig config;
+        Vector3 origin{}, aim{}, obstruction{}, desiredMove{}, actualMove{};
+        float distance = 0, cooldown = 0, attackProgress = 0, searchTime = 0;
+        Vector3 sightOrigin{}, lastSeenPosition{};
+        bool targetVisible = false, hasLastSeen = false, movementBlocked = false;
+        bool canHit = false, wallBlocked = false, doorBlocked = false, movementLimited = false, hitReaction = false;
+        DebugAttackBlock reason = DebugAttackBlock::NoTarget;
+    };
+#endif
+
     struct TargetInfo {
         Vector3 position = {};
         BoundingBox bodyBounds = {};
@@ -50,18 +63,29 @@ namespace demo {
         EnemyState GetState() const { return ai_.GetState(); }
         bool IsAlive() const { return ai_.GetState() != EnemyState::Dead; }
         bool IsRemovalReady() const;
-        bool IsMoving() const { return ai_.ShouldMove() && ai_.GetState() == EnemyState::Chase; }
+#ifndef NDEBUG
+        EnemyDebugInfo GetDebugInfo(const TargetInfo& target, const Stage& stage, const BoundingBox* blocker = nullptr) const;
+#endif
+        bool IsMoving() const { return ai_.ShouldMove() && (ai_.GetState() == EnemyState::Chase || ai_.GetState() == EnemyState::Search); }
 
     private:
+        bool CanSeeTarget(const TargetInfo& target, const Stage& stage, const BoundingBox* blocker) const;
         bool CanHitTarget(const TargetInfo& target, const Stage& stage, const BoundingBox* blocker) const;
         float AttackDuration() const;
         float DeathDuration() const;
         float HitDuration() const;
 
+#ifndef NDEBUG
+        Vector3 debugDesiredMove_{}, debugActualMove_{};
+#endif
         EnemyId id_;
         EnemyConfig config_;
         EnemyAI ai_;                 // 頭脳（AI）
         EnemyMovement movement_;     // 肉体・物理（Movement）
+        // 視線判定は10Hzで行い、キャッシュには視認時の位置だけを保持する。
+        float sightTimer_ = 0.0f;
+        bool sightVisible_ = false;
+        Vector3 observedPosition_{};
         float yaw_ = 0.0f;
         int hp_ = 100;
         float corpseTimer_ = 0.0f;

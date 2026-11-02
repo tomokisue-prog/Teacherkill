@@ -19,6 +19,9 @@
 #include "../Events/Tutorial4FFloorEvent.h"
 
 #include <vector>
+#ifndef NDEBUG
+#include "DebugGameplay.h"
+#endif
 
 class GameContext
 {
@@ -32,6 +35,8 @@ public:
     void Draw() const;
     void SetDisplaySettings(float brightness, float greenStrength);
     void End();
+    HorrorLighting& GetLighting() { return lighting_; }
+    const HorrorLighting& GetLighting() const { return lighting_; }
 
     CameraController& GetCameraController() { return cameraController_; }
     const CameraController& GetCameraController() const { return cameraController_; }
@@ -66,6 +71,11 @@ public:
     void RestoreCheckpoint(const CheckpointData& data);
     bool CanSaveCheckpoint() const;
     bool ConsumeCheckpointRequest();
+#ifndef NDEBUG
+    DebugGameplay& GetDebugGameplay() { return debugGameplay_; }
+    const DebugGameplay& GetDebugGameplay() const { return debugGameplay_; }
+    bool DebugTeleportPlayer(Vector3 position, float yaw, float pitch);
+#endif
 
 private:
     void PlaceCharacters();
@@ -74,6 +84,9 @@ private:
     void DrawShotEffects() const;
     void DrawBulletMarks() const;
 
+#ifndef NDEBUG
+    DebugGameplay debugGameplay_;
+#endif
     mutable HorrorLighting lighting_;
     BloodEffect bloodEffect_;
     LowHpBloodOverlay lowHpBlood_;

@@ -3,10 +3,11 @@
 #include "raylib.h"
 struct GameSettings;
 
-enum class PauseAction { None, Resume, SaveCheckpoint, LoadCheckpoint, Title, SettingsChanged, SaveSettings };
+enum class PauseAction { None, Resume, SaveCheckpoint, LoadCheckpoint, Title, SettingsChanged, SaveSettings, Debug };
 
 class PauseMenu {
 public:
+    void Open(bool debugEnabled = false);
     void Init();
     void End();
     void Open();
@@ -16,6 +17,7 @@ public:
 private:
     Texture2D background_{};
     bool settingsPage_ = false;
+    bool debugEnabled_ = false;
     int selectedOption_ = 0;
     int draggingSlider_ = -1;
     float elapsed_ = 0;

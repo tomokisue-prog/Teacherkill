@@ -13,6 +13,22 @@ void DrawHorrorModelEx(Model model, Vector3 position, Vector3 axis, float degree
 void DrawHorrorModel(Model model, Vector3 position, float scale, Color tint = WHITE);
 void UnloadHorrorShader(Shader shader);
 
+// 初期値は従来の描画。Debugメニューからのみ変更・保存する。
+struct PostProcessSettings {
+    bool blurEnabled = true;
+    int blurMode = 0; // 0: ライト外、1: 画面端、2: 全画面。
+    float blurRatio = 0.75f;
+    float blurRadius = 6.0f;
+    bool bloomEnabled = true;
+    float bloomStrength = 0.022f;
+    bool grainEnabled = true;
+    float grainStrength = 0.012f;
+    bool limitTo1080p = true;
+    float renderScale = 1.0f;
+    int preview = 0; // 0: 完成表示、1: 画面効果前、2: ライトの照射マスク。
+    void Validate();
+};
+
 // モデル用シェーダーは借用する。描画バッファ・照射マスク・画面効果はこのクラスが所有する。
 class HorrorLighting {
 public:
@@ -23,6 +39,9 @@ public:
     void Reset() { flashlightOn_ = true; }
     // PCごとの表示補正。Resetやチェックポイント復元では値を初期化しない。
     void SetDisplaySettings(float brightness, float greenStrength);
+    void SetPostProcessSettings(const PostProcessSettings& settings);
+    const PostProcessSettings& GetPostProcessSettings() const { return effects_; }
+    Vector2 GetSceneRenderSize() const;
     void Update(); // 毎フレーム1回、懐中電灯の入力とSEを更新する。
     // BeginFrame→3D描画→EndFrameの順に呼ぶ。viewは表示用、flashlightはプレイヤーの視線。
     void BeginFrame(const Camera3D& view, const Camera3D& flashlight, Vector3 stagePosition = {}, float stageScale = 1.0f, bool editorView = false);
@@ -55,6 +74,10 @@ private:
     int focusEnabledLocation_ = -1;
     int brightnessLocation_ = -1;
     int greenStrengthLocation_ = -1;
+    int blurLocation_ = -1;
+    int effectsLocation_ = -1;
+    int previewLocation_ = -1;
+    PostProcessSettings effects_;
     float brightness_ = 1.0f;
     float greenStrength_ = 1.0f;
     bool flashlightOn_ = true;

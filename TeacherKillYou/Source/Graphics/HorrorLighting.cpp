@@ -215,11 +215,13 @@ uniform vec4 colDiffuse;
 uniform float time;
 uniform vec2 texelSize;
 uniform float displayBrightness;
+uniform vec4 blurSettings; // ratio, radius, mode, reserved
+uniform vec2 effectStrength; // bloom, grain
+uniform int previewMode;
 uniform float greenStrength;
 out vec4 finalColor;
 // 周辺ぼかしは0～1の比率、半径は描画バッファ上のピクセル数。緑の色味はこのRGBで調整する。
-const float PeripheralBlurRatio = 0.75; // 照射範囲の外でぼかした画像を75%混ぜる。
-const float PeripheralBlurRadius = 6.0;
+// ブラーの強さと半径はuniformで受け取り、再コンパイルせず変更する。
 const float PeripheralTintRatio = 0.60;
 const vec3 PeripheralTint = vec3(0.42, 0.98, 0.52);
 vec3 adjustGreenTint(vec3 tint) {
@@ -236,7 +238,7 @@ void addSceneSample(vec2 uv, float weight, inout vec3 blurred, inout vec3 glow) 
 }
 vec3 blurredScene(vec2 uv, vec3 center, out vec3 glow) {
     // ブルームとぼかしで同じ9点の読み込みを共有する。追加の全画面バッファは作らない。
-    vec2 radius = texelSize * PeripheralBlurRadius;
+    vec2 radius = texelSize * blurSettings.y;
     vec3 result = center * 4.0;
     glow = brightPart(center) * 2.0;
     addSceneSample(uv + vec2(radius.x, 0.0), 2.0, result, glow);
@@ -251,15 +253,25 @@ vec3 blurredScene(vec2 uv, vec3 center, out vec3 glow) {
 }
 void main() {
     vec3 color = texture(texture0, fragTexCoord).rgb;
-    vec3 glow;
-    vec3 blurred = blurredScene(fragTexCoord, color, glow);
-    color += glow * 0.022;
-    blurred += glow * 0.022;
+    float coverage = focusEnabled > 0.5 ? texture(focusTexture, fragTexCoord).r : 0.0;
+    if (previewMode == 1) { finalColor = vec4(color, 1.0); return; }
+    if (previewMode == 2) { finalColor = vec4(vec3(coverage), 1.0); return; }
+    vec3 glow = vec3(0.0);
+    vec3 blurred = color;
+    if ((blurSettings.x > 0.0 && blurSettings.y > 0.0) || effectStrength.x > 0.0)
+        blurred = blurredScene(fragTexCoord, color, glow);
+    color += glow * effectStrength.x;
+    blurred += glow * effectStrength.x;
     // 画面中央やテクスチャの明るさで判断せず、実際にライトが当たった場所を鮮明に保つ。
     // 同じ滑らかな照射マスクでぼかしと緑を混ぜ、切り替えの境界線を作らない。
-    float coverage = focusEnabled > 0.5 ? texture(focusTexture, fragTexCoord).r : 0.0;
     float peripheral = 1.0 - smoothstep(0.12, 0.90, coverage);
-    color = mix(color, blurred, peripheral * PeripheralBlurRatio);
+    float blurArea = peripheral;
+    if (blurSettings.z > 1.5) blurArea = 1.0;
+    else if (blurSettings.z > 0.5) {
+        vec2 edge = abs(fragTexCoord - vec2(0.5)) * 2.0;
+        blurArea = smoothstep(0.45, 0.95, max(edge.x, edge.y));
+    }
+    color = mix(color, blurred, blurArea * blurSettings.x);
     float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
     // 色調補正はシーンだけに適用する。HUDや被弾表示はEndFrameの後に描いて色と文字を保つ。
     vec3 shadowTint = mix(vec3(0.88), vec3(1.0), smoothstep(0.04, 0.65, luma));
@@ -270,7 +282,7 @@ void main() {
     // わずかな粒状感を加える。timeで更新するが、文字やHUDにはかからない。
     float grain = fract(sin(dot(gl_FragCoord.xy + floor(time * 24.0), vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
     // 表示用のガンマ補正で暗部を持ち上げる。100%では従来と同じで、HUDには適用しない。
-    color = pow(clamp(color + grain * 0.012, vec3(0.0), vec3(1.0)), vec3(1.0 / displayBrightness));
+    color = pow(clamp(color + grain * effectStrength.y, vec3(0.0), vec3(1.0)), vec3(1.0 / displayBrightness));
     finalColor = vec4(color, 1.0) * colDiffuse * fragColor;
 })";
 }
@@ -439,9 +451,36 @@ void HorrorLighting::Init(const std::vector<Shader>& shaders, const Model& build
             focusEnabledLocation_ = GetShaderLocation(post_, "focusEnabled");
             brightnessLocation_ = GetShaderLocation(post_, "displayBrightness");
             greenStrengthLocation_ = GetShaderLocation(post_, "greenStrength");
+            blurLocation_ = GetShaderLocation(post_, "blurSettings");
+            effectsLocation_ = GetShaderLocation(post_, "effectStrength");
+            previewLocation_ = GetShaderLocation(post_, "previewMode");
         }
     }
     Reset();
+}
+
+void PostProcessSettings::Validate() {
+    const PostProcessSettings defaults;
+    auto bounded = [](float value, float low, float high, float fallback) {
+        return std::isfinite(value) ? Clamp(value, low, high) : fallback;
+    };
+    blurMode = std::clamp(blurMode, 0, 2);
+    preview = std::clamp(preview, 0, 2);
+    blurRatio = bounded(blurRatio, 0, 1, defaults.blurRatio);
+    blurRadius = bounded(blurRadius, 0, 16, defaults.blurRadius);
+    bloomStrength = bounded(bloomStrength, 0, .1f, defaults.bloomStrength);
+    grainStrength = bounded(grainStrength, 0, .05f, defaults.grainStrength);
+    renderScale = bounded(renderScale, .5f, 1, defaults.renderScale);
+}
+
+void HorrorLighting::SetPostProcessSettings(const PostProcessSettings& settings) {
+    effects_ = settings;
+    effects_.Validate();
+}
+
+Vector2 HorrorLighting::GetSceneRenderSize() const {
+    return editorView_ || !scene_.id ? Vector2{float(GetRenderWidth()), float(GetRenderHeight())} :
+        Vector2{float(scene_.texture.width), float(scene_.texture.height)};
 }
 
 void HorrorLighting::SetDisplaySettings(float brightness, float greenStrength) {
@@ -508,8 +547,8 @@ void HorrorLighting::BeginFrame(const Camera3D& view, const Camera3D& flashlight
         ClearBackground({48, 54, 62, 255});
         return;
     }
-    const int screenWidth = (std::max)(GetScreenWidth(), 1);
-    const int screenHeight = (std::max)(GetScreenHeight(), 1);
+    const int screenWidth = (std::max)(effects_.limitTo1080p ? GetScreenWidth() : GetRenderWidth(), 1);
+    const int screenHeight = (std::max)(effects_.limitTo1080p ? GetScreenHeight() : GetRenderHeight(), 1);
 
 
 
@@ -533,7 +572,7 @@ void HorrorLighting::BeginFrame(const Camera3D& view, const Camera3D& flashlight
 
 
 
-    const float scale = (std::min)(1.0f, (std::min)(1920.0f / screenWidth, 1080.0f / screenHeight));
+    const float scale = effects_.renderScale * (effects_.limitTo1080p ? (std::min)(1.0f, (std::min)(1920.0f / screenWidth, 1080.0f / screenHeight)) : 1.0f);
     const int width = (std::max)(1, static_cast<int>(screenWidth * scale));
     const int height = (std::max)(1, static_cast<int>(screenHeight * scale));
     if (!scene_.id || scene_.texture.width != width || scene_.texture.height != height) {
@@ -584,6 +623,11 @@ void HorrorLighting::EndFrame(bool drawControls) const {
             SetShaderValue(post_, focusEnabledLocation_, &enabled, SHADER_UNIFORM_FLOAT);
             SetShaderValue(post_, brightnessLocation_, &brightness_, SHADER_UNIFORM_FLOAT);
             SetShaderValue(post_, greenStrengthLocation_, &greenStrength_, SHADER_UNIFORM_FLOAT);
+            const Vector4 blur = {effects_.blurEnabled ? effects_.blurRatio : 0.0f, effects_.blurRadius, float(effects_.blurMode), 0};
+            const Vector2 strength = {effects_.bloomEnabled ? effects_.bloomStrength : 0.0f, effects_.grainEnabled ? effects_.grainStrength : 0.0f};
+            SetShaderValue(post_, blurLocation_, &blur, SHADER_UNIFORM_VEC4);
+            SetShaderValue(post_, effectsLocation_, &strength, SHADER_UNIFORM_VEC2);
+            SetShaderValue(post_, previewLocation_, &effects_.preview, SHADER_UNIFORM_INT);
             BeginShaderMode(post_);
             // シェーダー切り替えはバッチをフラッシュするため、その後に追加テクスチャを登録する。
             if (focus_.id) SetShaderValueTexture(post_, focusLocation_, focus_);
