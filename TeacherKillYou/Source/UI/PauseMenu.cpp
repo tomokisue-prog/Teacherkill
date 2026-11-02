@@ -209,8 +209,8 @@ void PauseMenu::Draw(const GameSettings& settings, bool canLoad, bool canSave) c
         for (int i = 0; i < count; ++i)
             DrawButton(Button(i), jp[i], en[i], selectedOption_ == i, i == 2 ? canSave : i == 3 ? canLoad : true);
         Text(u8"保存すると、前のチェックポイントを更新します。", "Saving replaces the previous checkpoint.", Button(count - 1).y + 87 * s, 20 * s, {159, 176, 172, 255});
-        const char* jp[] = {u8"ゲームに戻る  [Esc]", u8"画面・音量・マウス設定", u8"チェックポイントを保存", u8"チェックポイントから再開", u8"タイトルへ戻る"};
-        const char* en[] = {"RESUME  [Esc]", "DISPLAY / AUDIO / MOUSE", "SAVE CHECKPOINT", "LOAD CHECKPOINT", "RETURN TO TITLE"};
+        //const char* jp[] = {u8"ゲームに戻る  [Esc]", u8"画面・音量・マウス設定", u8"チェックポイントを保存", u8"チェックポイントから再開", u8"タイトルへ戻る"};
+        //const char* en[] = {"RESUME  [Esc]", "DISPLAY / AUDIO / MOUSE", "SAVE CHECKPOINT", "LOAD CHECKPOINT", "RETURN TO TITLE"};
         for (int i = 0; i < 5; ++i)
             DrawButton(Button(i), jp[i], en[i], selectedOption_ == i, i == 2 ? canSave : i == 3 ? canLoad : true, artwork);
         Text(u8"保存すると、前のチェックポイントを更新します。", "Saving replaces the previous checkpoint.",
