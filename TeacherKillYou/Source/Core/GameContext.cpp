@@ -93,6 +93,7 @@ void GameContext::Init()
     stage_.Init();
     inventory_.Init();  // Load item GLB models and spawn items
     bloodEffect_.Init();
+    lowHpBlood_.Init();
     PlaceCharacters();
     horrorAudio_.Reset(player_.GetPosition());
     checkpointRequested_ = false;
@@ -151,6 +152,7 @@ void GameContext::Reset()
     door_.Reset();
     inventory_.Reset();
     bloodEffect_.Reset();
+    lowHpBlood_.Reset();
     PlaceCharacters();
     horrorAudio_.Reset(player_.GetPosition());
     checkpointRequested_ = false;
@@ -616,6 +618,9 @@ void GameContext::Update(float deltaTime)
         // Camera switch or death interrupts any ongoing healing.
         inventory_.CancelHealing();
     }
+    // Synchronize the on-screen blood with the current HP (damage / medkit).
+    lowHpBlood_.Update(deltaTime, player_.GetHp(), player_.GetMaxHp());
+
     // 6. ÉvÉåÉCÉÑÅ[éÀåÇèàóù
     ProcessPlayerShot();
     horrorAudio_.Update(deltaTime, player_, cameraController_.GetPlayerCamera(), enemyManager_, stage_, isPlayerCameraActive);
@@ -681,6 +686,10 @@ void GameContext::Draw() const
     // ==================================
     if (playerView && player_.IsAlive())
     {
+        // Blood vignette persists according to remaining HP.
+        lowHpBlood_.Draw();
+
+        // Brief full-screen red flash when damage is received.
         player_.DrawDamageOverlay();
 
         DrawCrosshair();
@@ -717,6 +726,7 @@ void GameContext::End()
     inventory_.End();  // Unload item GLB models
     stage_.End();
     bloodEffect_.Shutdown();
+    lowHpBlood_.Shutdown();
     lighting_.Shutdown();
 
     if (muzzleFlashTexture_.id != 0)

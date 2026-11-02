@@ -15,6 +15,7 @@ namespace {
 
 void TitleScene::Init()
 {
+    intro_.Stop();
     finished = false;
     nextScene = nullptr;
     CheckpointData checkpoint;
@@ -25,9 +26,25 @@ void TitleScene::Init()
 
 void TitleScene::Update(float deltaTime)
 {
+    if (intro_.IsPlaying()) {
+        if (!intro_.Update()) {
+            auto* game = static_cast<GameScene*>(SM().GetScene(SceneID::Game));
+            game->RequestIntroFadeIn();
+            SetNextScene(game);
+        }
+        return;
+    }
     if (IsKeyPressed(KEY_SPACE)) {
         AM().PlaySe(SeId::Confirm);
-        SetNextScene(SM().GetScene(SceneID::Game));
+        AM().StopBgm();
+        // Show the existing loading screen before the opening video.
+        if (!SM().PrepareGameResources()) {
+            finished = true;
+            nextScene = nullptr;
+            return;
+        }
+        if (!intro_.Start("Data/Video/IntroFrames.dat", "Data/Video/IntroAudio.ogg", AM().GetBgmVolume()))
+            SetNextScene(SM().GetScene(SceneID::Game));
     }
     else if (checkpointAvailable_ && IsKeyPressed(KEY_C)) {
         static_cast<GameScene*>(SM().GetScene(SceneID::Game))->RequestCheckpointContinue();
@@ -38,6 +55,10 @@ void TitleScene::Update(float deltaTime)
 
 void TitleScene::Render() const
 {
+    if (intro_.IsPlaying()) {
+        intro_.Draw();
+        return;
+    }
     ClearBackground({3, 5, 8, 255});
     const float s = (std::max)(.5f, (std::min)(GetScreenWidth() / 1920.0f, GetScreenHeight() / 1080.0f));
     TitleText(u8"学校脱出 3D", "ESCAPE SCHOOL 3D", GetScreenHeight() * .30f, 64 * s, {220, 230, 222, 255});
@@ -48,4 +69,4 @@ void TitleScene::Render() const
     TitleText(u8"Esc：終了", "Esc: EXIT", GetScreenHeight() * .75f, 22 * s, {128, 140, 132, 255});
 }
 
-void TitleScene::End() { AM().StopBgm(); }
+void TitleScene::End() { intro_.Stop(); AM().StopBgm(); }

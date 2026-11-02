@@ -16,8 +16,10 @@ public:
     bool IsGameOver() const;
     bool IsPaused() const;
     void RequestCheckpointContinue();
+    void RequestIntroFadeIn() { introFadeRequested_ = true; }
 
 private:
+    static constexpr double IntroFadeInSeconds = 0.65; // Adjust the game fade-in duration here.
     void BeginGameOver();
     void OpenPause();
     void Resume();
@@ -31,6 +33,11 @@ private:
     bool checkpointAvailable_ = false;
     bool loadCheckpointOnInit_ = false;
     bool settingsDirty_ = false;
+    bool introFadeRequested_ = false;
+    bool introFadeActive_ = false;
+    bool introFadeClockStarted_ = false;
+    double introFadeStart_ = 0.0;
+    float introFadeAlpha_ = 0.0f;
     float resumeInputDelay_ = 0;
     float noticeTime_ = 0;
     std::string notice_;

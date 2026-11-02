@@ -37,6 +37,8 @@ public:
     };
     void SetRunConfig(const RunConfig& cfg) { runConfig = cfg; }
     void ChangeScene(SceneID id);
+    // Load the gameplay resources before playing the opening movie.
+    bool PrepareGameResources() { return LoadGameResources(); }
 private:
     SceneManager() = default;
     ~SceneManager() = default;

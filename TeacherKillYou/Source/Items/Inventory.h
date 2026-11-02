@@ -20,7 +20,7 @@ public:
     void Init();
     void Reset();
     void PlaceOnStage(const Stage& stage);
-    void End() {} // アセットは ResourceManager が管理するため空処理
+    void End(); // Release the inventory slot texture.
 
     // --- 更新 & 描画 ---
     void Update(float deltaTime, const Camera3D& camera, Stage* stage = nullptr);
@@ -49,6 +49,7 @@ private:
     static constexpr float HEAL_DURATION = 3.0f;
 
     // インベントリスロット & ワールド設置アイテム
+    Texture2D slotBorder_{};
     std::array<ItemType, MAX_SLOTS> slots_{};
     std::vector<Item> items_;
     CameraController cameraController_;

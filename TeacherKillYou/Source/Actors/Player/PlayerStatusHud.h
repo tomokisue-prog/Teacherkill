@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdio>
 #include <vector>
 
 // HUD for the supplied HP_Bar.png. This class owns its texture; the Player
@@ -79,8 +80,7 @@ public:
 
     bool IsReady() const { return texture_.id != 0; }
 
-    void Draw(int hp, int maxHp, int ammo, int reserve,
-              float stamina, float maxStamina, bool reloading)
+    void Draw(int hp, int maxHp, float stamina, float maxStamina, int ammo, int reserve)
     {
         if (!IsReady()) return;
 
@@ -102,30 +102,41 @@ public:
         const Rectangle source{ 0.0f, 0.0f, static_cast<float>(texture_.width), static_cast<float>(texture_.height) };
         DrawTexturePro(texture_, source, imageRect, { 0.0f, 0.0f }, 0.0f, WHITE);
 
-        // Small dark backing keeps the values readable over the level.
-        const Rectangle values{ x + width * 0.69f, y + height * 0.46f,
-                                230.0f * uiScale, 136.0f * uiScale };
-        DrawRectangleRec(values, Color{ 7, 9, 10, 200 });
-        const int textX = static_cast<int>(values.x + 8.0f * uiScale);
-        const float textY = values.y + 5.0f * uiScale;
-        const int hpSize = (std::max)(8, static_cast<int>(25.0f * uiScale));
-        const int ammoSize = (std::max)(8, static_cast<int>(23.0f * uiScale));
-        const int staminaSize = (std::max)(8, static_cast<int>(20.0f * uiScale));
-        const int reloadSize = (std::max)(8, static_cast<int>(18.0f * uiScale));
-        const Color hpColor = hp <= 25 ? RED : hp <= 50 ? ORANGE : RAYWHITE;
-        const Color staminaColor = stamina <= 0.0f ? ORANGE : SKYBLUE;
+        // Put the ammo count inside the circle, under the gun artwork.
+        char counter[48];
+        std::snprintf(counter, sizeof(counter), "%02d / %02d",
+                      (std::max)(ammo, 0), (std::max)(reserve, 0));
+        int valueSize = (std::max)(12, static_cast<int>(24.0f * uiScale));
+        const float maxTextWidth = width * (170.0f / 606.0f);
+        while (valueSize > 9 && MeasureText(counter, valueSize) > maxTextWidth) --valueSize;
+        const int textWidth = MeasureText(counter, valueSize);
+        const float centerX = x + width * (222.0f / 606.0f);
+        const float textY = y + height * (380.0f / 586.0f);
+        const float padX = 5.0f * uiScale;
+        const float padY = 3.0f * uiScale;
+        DrawRectangleRounded({centerX - textWidth * 0.5f - padX, textY - padY,
+                              textWidth + 2.0f * padX, valueSize + 2.0f * padY},
+                             0.18f, 6, Color{12, 10, 10, 180});
+        DrawText(counter, static_cast<int>(centerX - textWidth * 0.5f), static_cast<int>(textY),
+                 valueSize, ammo > 0 ? RAYWHITE : Color{235, 88, 78, 255});
+    }
 
-        DrawShadowText(TextFormat("HP %d / %d", hp, maxHp), textX,
-                       static_cast<int>(textY), hpSize, hpColor, uiScale);
-        DrawShadowText(TextFormat("AMMO %d / %d", ammo, reserve), textX,
-                       static_cast<int>(textY + 31.0f * uiScale), ammoSize,
-                       ammo > 0 ? RAYWHITE : RED, uiScale);
-        const int staminaValue = static_cast<int>(std::round(Clamp(stamina, 0.0f, (std::max)(0.0f, maxStamina))));
-        DrawShadowText(TextFormat("STAMINA %d", staminaValue), textX,
-                       static_cast<int>(textY + 59.0f * uiScale), staminaSize, staminaColor, uiScale);
-        if (reloading)
-            DrawShadowText("RELOADING", textX, static_cast<int>(textY + 85.0f * uiScale),
-                           reloadSize, YELLOW, uiScale);
+    static void DrawAmmoCounter(int ammo, int reserve, float x, float y, float uiScale)
+    {
+        const int valueSize = (std::max)(15, static_cast<int>(30.0f * uiScale));
+        const int labelSize = (std::max)(9, static_cast<int>(14.0f * uiScale));
+        char counter[48];
+        std::snprintf(counter, sizeof(counter), "%02d / %02d", (std::max)(ammo, 0), (std::max)(reserve, 0));
+        const int width = (std::max)(MeasureText(counter, valueSize), MeasureText("AMMO", labelSize));
+        const float padX = 8.0f * uiScale;
+        const float padY = 5.0f * uiScale;
+        const float gap = 2.0f * uiScale;
+        DrawRectangleRounded({x - padX, y - padY, width + 2.0f * padX,
+                              labelSize + gap + valueSize + 2.0f * padY},
+                             0.18f, 6, Color{ 12, 10, 10, 195 });
+        DrawText("AMMO", static_cast<int>(x), static_cast<int>(y), labelSize, Color{ 200, 181, 162, 255 });
+        DrawText(counter, static_cast<int>(x), static_cast<int>(y + labelSize + gap), valueSize,
+                 ammo > 0 ? RAYWHITE : Color{ 235, 88, 78, 255 });
     }
 
 private:
@@ -134,13 +145,6 @@ private:
         std::size_t index;
         float progress;
     };
-
-    static void DrawShadowText(const char* text, int x, int y, int size, Color color, float scale)
-    {
-        const int offset = (std::max)(1, static_cast<int>(2.0f * scale));
-        DrawText(text, x + offset, y + offset, size, Color{ 12, 12, 12, 230 });
-        DrawText(text, x, y, size, color);
-    }
 
     void BuildArcMasks(int width, int height)
     {

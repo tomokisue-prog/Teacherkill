@@ -6,6 +6,7 @@
 #include "EnemyManager.h"
 #include "HorrorLighting.h"
 #include "BloodEffect.h"
+#include "LowHpBloodOverlay.h"
 #include "DoorMove.h"
 #include "TeleportPoint.h"
 #include "GameFade.h"
@@ -75,6 +76,7 @@ private:
 
     mutable HorrorLighting lighting_;
     BloodEffect bloodEffect_;
+    LowHpBloodOverlay lowHpBlood_;
     HorrorAudio horrorAudio_;
     bool checkpointRequested_ = false;
     CameraController cameraController_;

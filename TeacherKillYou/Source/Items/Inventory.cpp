@@ -18,7 +18,21 @@ namespace
 
 void Inventory::Init()
 {
+    End();
     Reset();
+    const char* path = "Data/Image/UI/Inventory.png";
+    if (FileExists(path))
+    {
+        slotBorder_ = LoadTexture(path);
+        if (slotBorder_.id != 0) SetTextureFilter(slotBorder_, TEXTURE_FILTER_BILINEAR);
+    }
+    else TraceLog(LOG_WARNING, "INVENTORY: Slot image not found: %s", path);
+}
+
+void Inventory::End()
+{
+    if (slotBorder_.id != 0) UnloadTexture(slotBorder_);
+    slotBorder_ = {};
 }
 
 void Inventory::Reset()
@@ -278,10 +292,14 @@ void Inventory::DrawHealingHUD() const
         return;
 
     const float progress = GetHealingProgress();
-    const float hudWidth = 600.0f;
-    const float hudHeight = 144.0f;
+    const float uiScale = Clamp((std::min)(GetScreenWidth() / 1280.0f,
+                                            GetScreenHeight() / 720.0f), 0.5f, 1.5f);
+    const float hudWidth = (std::min)(600.0f * uiScale, GetScreenWidth() - 20.0f * uiScale);
+    const float hudHeight = 144.0f * uiScale;
     const float x = (GetScreenWidth() - hudWidth) * 0.5f;
-    const float y = GetScreenHeight() - 195.0f;
+    const float slotHeight = 88.0f * uiScale * 586.0f / 606.0f;
+    const float inventoryTop = GetScreenHeight() - slotHeight - 20.0f * uiScale;
+    const float y = (std::max)(0.0f, inventoryTop - hudHeight - 12.0f * uiScale);
 
     const Texture2D* healingBarPtr = RM().GetTexture(ResourceKeys::Icon_HealingBar);
     if (healingBarPtr != nullptr && healingBarPtr->id != 0)
@@ -372,51 +390,63 @@ void Inventory::DrawHUD() const
     }
 
     // インベントリスロットの描画
-    const int slotWidth = 80;
-    const int slotHeight = 70;
-    const int gap = 8;
+    // Four slots using the supplied circular border image.
+    const float uiScale = Clamp((std::min)(GetScreenWidth() / 1280.0f,
+                                            GetScreenHeight() / 720.0f), 0.5f, 1.5f);
+    const int slotWidth = static_cast<int>(88.0f * uiScale);
+    const int slotHeight = static_cast<int>(slotWidth * 586.0f / 606.0f);
+    const int gap = static_cast<int>(6.0f * uiScale);
     const int totalWidth = MAX_SLOTS * slotWidth + (MAX_SLOTS - 1) * gap;
     const int startX = (GetScreenWidth() - totalWidth) / 2;
-    const int y = GetScreenHeight() - slotHeight - 25;
+    const int y = GetScreenHeight() - slotHeight - static_cast<int>(20.0f * uiScale);
 
     for (int i = 0; i < MAX_SLOTS; ++i)
     {
         const int x = startX + i * (slotWidth + gap);
-        const Rectangle rect{ static_cast<float>(x), static_cast<float>(y), static_cast<float>(slotWidth), static_cast<float>(slotHeight) };
+        const Rectangle rect{ static_cast<float>(x), static_cast<float>(y),
+                              static_cast<float>(slotWidth), static_cast<float>(slotHeight) };
         const bool selected = (i == selectedSlot_);
-        const Color bg = selected ? Color{ 50, 60, 45, 215 } : Color{ 20, 20, 25, 190 };
+        const float centerX = x + slotWidth * 0.478f;
+        const float centerY = y + slotHeight * 0.590f;
 
-        DrawRectangleRec(rect, bg);
-        DrawRectangleLinesEx(rect, selected ? 3.0f : 1.0f, selected ? LIME : GRAY);
-        DrawText(TextFormat("%d", i + 1), x + 7, y + 6, 16, LIGHTGRAY);
-
+        if (slotBorder_.id != 0)
+        {
+            const Rectangle source{ 0, 0, static_cast<float>(slotBorder_.width),
+                                          static_cast<float>(slotBorder_.height) };
+            const Color tint = selected ? WHITE : Color{ 205, 205, 205, 230 };
+            DrawTexturePro(slotBorder_, source, rect, { 0, 0 }, 0.0f, tint);
+            if (selected)
+                DrawCircleLines(static_cast<int>(centerX), static_cast<int>(centerY),
+                                slotWidth * 0.235f, Color{ 225, 195, 150, 230 });
+        }
+        else
+        {
+            // Keep the original slots usable if the image has not been copied yet.
+            DrawRectangleRec(rect, selected ? Color{ 50, 60, 45, 215 } : Color{ 20, 20, 25, 190 });
+            DrawRectangleLinesEx(rect, selected ? 3.0f : 1.0f, selected ? LIME : GRAY);
+        }
         const ItemType type = slots_[i];
-        if (type == ItemType::None)
-            continue;
+        if (type == ItemType::None) continue;
 
         const Texture2D* icon = GetItemIcon(type);
         if (icon != nullptr && icon->id != 0 && icon->width > 0 && icon->height > 0)
         {
-            const float maxWidth = 52.0f;
-            const float maxHeight = 45.0f;
-            const float sx = maxWidth / icon->width;
-            const float sy = maxHeight / icon->height;
-            const float scale = (std::min)(sx, sy);
+            const float maxWidth = 42.0f * uiScale;
+            const float maxHeight = 40.0f * uiScale;
+            const float scale = (std::min)(maxWidth / icon->width, maxHeight / icon->height);
             const float width = icon->width * scale;
             const float height = icon->height * scale;
-
             DrawTexturePro(*icon,
                 { 0.0f, 0.0f, static_cast<float>(icon->width), static_cast<float>(icon->height) },
-                { x + (slotWidth - width) / 2.0f,
-                  y + 18.0f + (maxHeight - height) / 2.0f,
-                  width, height },
+                { centerX - width * 0.5f, centerY - height * 0.5f, width, height },
                 { 0.0f, 0.0f }, 0.0f, WHITE);
         }
         else
         {
             const char* name = Item::GetName(type);
-            const int fontSize = 14;
-            DrawText(name, x + (slotWidth - MeasureText(name, fontSize)) / 2, y + 37, fontSize, WHITE);
+            const int fontSize = (std::max)(9, static_cast<int>(11.0f * uiScale));
+            DrawText(name, static_cast<int>(centerX) - MeasureText(name, fontSize) / 2,
+                     static_cast<int>(centerY) - fontSize / 2, fontSize, WHITE);
         }
     }
 

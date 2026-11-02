@@ -111,6 +111,8 @@
     <ClCompile Include="Source\Scenes\TitleScene.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="IntroVideoPlayer.h" />
+    <ClInclude Include="LowHpBloodOverlay.h" />
     <ClInclude Include="PlayerStatusHud.h" />
     <ClInclude Include="Source\Audio\AudioManager.h" />
     <ClInclude Include="Source\Camera\CameraController.h" />
