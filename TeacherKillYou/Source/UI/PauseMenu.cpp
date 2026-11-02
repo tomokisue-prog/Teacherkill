@@ -71,7 +71,6 @@ void PauseMenu::End()
     background_ = {};
 }
 
-void PauseMenu::Open()
 void PauseMenu::Open(bool debugEnabled)
 {
     settingsPage_ = false;

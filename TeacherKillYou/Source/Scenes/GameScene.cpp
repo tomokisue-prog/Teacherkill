@@ -55,7 +55,6 @@ void GameScene::Init()
     gameOverScreen_.Reset();
 
     pauseMenu_.Init();
-    gameOverScreen_.Reset();
 #ifndef NDEBUG
     debugMenu_.Close();
 #endif
