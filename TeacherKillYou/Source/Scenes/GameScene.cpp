@@ -44,9 +44,17 @@ void GameScene::Init()
 {
     finished = false;
     nextScene = nullptr;
+    introFadeActive_ = introFadeRequested_;
+    introFadeRequested_ = false;
+    introFadeClockStarted_ = false;
+    introFadeStart_ = 0.0;
+    introFadeAlpha_ = introFadeActive_ ? 1.0f : 0.0f;
     gameOver_ = paused_ = settingsDirty_ = false;
     resumeInputDelay_ = noticeTime_ = 0;
+    gameOverScreen_.Init();
     gameOverScreen_.Reset();
+
+    pauseMenu_.Init();
 #ifndef NDEBUG
     debugMenu_.Close();
 #endif
@@ -77,6 +85,8 @@ void GameScene::Init()
     AM().PlayBgm(BgmId::Game);
     AM().PlayAmbience();
     DisableCursor();
+
+    resumeInputDelay_ = 0.1f;
 }
 
 void GameScene::BeginGameOver()
@@ -166,6 +176,19 @@ bool GameScene::LoadCheckpoint()
 void GameScene::Update(float deltaTime)
 {
     if (!gameContext) return;
+    if (introFadeActive_) {
+        // Start after the first black frame, even if scene initialization was slow.
+        if (!introFadeClockStarted_) {
+            introFadeClockStarted_ = true;
+            introFadeStart_ = GetTime();
+        }
+        const float progress = static_cast<float>((std::max)(0.0, (std::min)(1.0,
+            (GetTime() - introFadeStart_) / IntroFadeInSeconds)));
+        const float eased = progress * progress * (3.0f - 2.0f * progress);
+        introFadeAlpha_ = 1.0f - eased;
+        if (progress < 1.0f) return; // Keep gameplay and tutorial timers still during the reveal.
+        introFadeActive_ = false;
+    }
     if (noticeTime_ > 0) noticeTime_ = (std::max)(0.0f, noticeTime_ - deltaTime);
     if (gameOver_) {
         switch (gameOverScreen_.Update(deltaTime)) {
@@ -244,6 +267,9 @@ void GameScene::Render() const
         if (font.IsLoaded()) font.DrawText(notice_.c_str(), int((GetScreenWidth() - font.MeasureText(notice_.c_str(), size).x) / 2), int(GetScreenHeight() * .12f), size, {217, 231, 202, 255});
         else DrawText(fallbackNotice_.c_str(), (GetScreenWidth() - MeasureText(fallbackNotice_.c_str(), int(size))) / 2, int(GetScreenHeight() * .12f), int(size), RAYWHITE);
     }
+    if (introFadeAlpha_ > 0.0f)
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(),
+                      Color{0, 0, 0, static_cast<unsigned char>(introFadeAlpha_ * 255.0f + 0.5f)});
 }
 
 void GameScene::End()
@@ -251,6 +277,10 @@ void GameScene::End()
 #ifndef NDEBUG
     debugMenu_.Close();
 #endif
+    introFadeRequested_ = introFadeActive_ = introFadeClockStarted_ = false;
+    introFadeAlpha_ = 0.0f;
+    gameOverScreen_.End();
+    pauseMenu_.End();
     SaveSettings();
     AM().StopBgm();
     AM().StopAmbience();

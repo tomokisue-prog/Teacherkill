@@ -1,5 +1,6 @@
 #pragma once
 #include "Scene.h"
+#include "IntroVideoPlayer.h"
 
 class TitleScene final : public Scene
 {
@@ -12,4 +13,5 @@ public:
     void End() override;
 private:
     bool checkpointAvailable_ = false;
+    IntroVideoPlayer intro_;
 };

@@ -49,7 +49,11 @@ void SceneManager::Init()
 
 void SceneManager::Shutdown()
 {
-    gameContext.End();
+    // End the active scene before destroying resources and the window.
+    if (currentScene) {
+        currentScene->End();
+        currentScene = nullptr;
+    }
     RM().UnloadAll();
     AM().Shutdown();
     rlImGuiShutdown();
@@ -139,6 +143,8 @@ void SceneManager::Run()
                 }
                 else
                 {
+                    // This scene has already ended. Avoid ending it twice in Shutdown.
+                    currentScene = nullptr;
                     break;
                 }
             }
