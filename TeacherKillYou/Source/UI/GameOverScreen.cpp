@@ -6,7 +6,14 @@
 namespace
 {
     constexpr const char* GameOverImagePath = "Data/Image/UI/Gamelose.png";
-    constexpr float GameOverFadeSeconds = 0.6f;
+    constexpr const char* YouDiedImagePath = "Data/Image/UI/YouDied.png";
+    constexpr float BlackFadeSeconds = 0.5f;       // Gameplay fades to black.
+    constexpr float YouFadeInSeconds = 0.65f;      // YOU appears first.
+    constexpr float DiedStartSeconds = 0.85f;      // DIED starts after YOU.
+    constexpr float DiedFadeInSeconds = 0.65f;
+    constexpr float YouDiedHoldSeconds = 0.4f;     // Keep both words visible briefly.
+    constexpr float GameOverFadeSeconds = 0.6f;    // Crossfade to the game-over menu.
+    constexpr float YouDiedIntroSeconds = DiedStartSeconds + DiedFadeInSeconds + YouDiedHoldSeconds;
 
     // Button artwork positions in Mitsuki's 1888 x 833 GameOver.png.
     // The same rectangles are used for highlighting and mouse clicks.
@@ -91,6 +98,56 @@ namespace
                      static_cast<int>(y), fontSize, color);
         }
     }
+
+    float SmoothStep01(float value)
+    {
+        const float t = Clamp(value, 0.0f, 1.0f);
+        return t * t * (3.0f - 2.0f * t);
+    }
+
+    void DrawYouDied(const Texture2D& image, float youOpacity, float diedOpacity)
+    {
+        if (youOpacity <= 0.0f && diedOpacity <= 0.0f) return;
+        const float screenWidth = static_cast<float>(GetScreenWidth());
+        const float screenHeight = static_cast<float>(GetScreenHeight());
+        if (image.id != 0 && image.width > 0 && image.height > 0)
+        {
+            // Both parts use the same original image and preserve their spacing.
+            // The transparent gap between the words lies around x = 940.
+            const float x = image.width * (31.0f / 2048.0f);
+            const float y = image.height * (696.0f / 2048.0f);
+            const float totalWidth = image.width * (1976.0f / 2048.0f);
+            const float height = image.height * (547.0f / 2048.0f);
+            const float leftWidth = image.width * (909.0f / 2048.0f);
+            const Rectangle youSource{x, y, leftWidth, height};
+            const Rectangle diedSource{x + leftWidth, y, totalWidth - leftWidth, height};
+            const float aspect = totalWidth / height;
+            const float drawWidth = (std::min)(screenWidth * 0.72f, screenHeight * 0.26f * aspect);
+            const float drawHeight = drawWidth / aspect;
+            const float drawX = (screenWidth - drawWidth) * 0.5f;
+            const float drawY = (screenHeight - drawHeight) * 0.5f;
+            const float leftDrawWidth = drawWidth * leftWidth / totalWidth;
+            if (youOpacity > 0.0f)
+                DrawTexturePro(image, youSource, {drawX, drawY, leftDrawWidth, drawHeight},
+                               {0.0f, 0.0f}, 0.0f, Fade(WHITE, youOpacity));
+            if (diedOpacity > 0.0f)
+                DrawTexturePro(image, diedSource, {drawX + leftDrawWidth, drawY, drawWidth - leftDrawWidth, drawHeight},
+                               {0.0f, 0.0f}, 0.0f, Fade(WHITE, diedOpacity));
+        }
+        else
+        {
+            const int size = (std::max)(20, static_cast<int>(screenHeight * 0.09f));
+            const int youWidth = MeasureText("YOU", size);
+            const int diedWidth = MeasureText("DIED", size);
+            const int gap = static_cast<int>(size * 0.3f);
+            const int startX = (GetScreenWidth() - youWidth - gap - diedWidth) / 2;
+            const int drawY = (GetScreenHeight() - size) / 2;
+            if (youOpacity > 0.0f)
+                DrawText("YOU", startX, drawY, size, Fade(Color{185, 30, 34, 255}, youOpacity));
+            if (diedOpacity > 0.0f)
+                DrawText("DIED", startX + youWidth + gap, drawY, size, Fade(Color{185, 30, 34, 255}, diedOpacity));
+        }
+    }
 }
 
 void GameOverScreen::Init()
@@ -105,12 +162,22 @@ void GameOverScreen::Init()
 
     if (image_.id == 0)
         TraceLog(LOG_WARNING, "GAME OVER: Could not load %s; using the text fallback.", GameOverImagePath);
+
+    if (FileExists(YouDiedImagePath))
+    {
+        youDied_ = LoadTexture(YouDiedImagePath);
+        if (youDied_.id != 0) SetTextureFilter(youDied_, TEXTURE_FILTER_BILINEAR);
+    }
+    if (youDied_.id == 0)
+        TraceLog(LOG_WARNING, "GAME OVER: Could not load %s; using the text fallback.", YouDiedImagePath);
 }
 
 void GameOverScreen::End()
 {
     if (image_.id != 0) UnloadTexture(image_);
+    if (youDied_.id != 0) UnloadTexture(youDied_);
     image_ = {};
+    youDied_ = {};
     checkpointAvailable_ = false;
     Reset();
 }
@@ -130,8 +197,8 @@ GameOverAction GameOverScreen::Update(float deltaTime)
 {
     elapsed_ += (std::max)(deltaTime, 0.0f);
 
-    // Ignore the death-causing input while the screen fades in.
-    if (elapsed_ < GameOverFadeSeconds) return GameOverAction::None;
+    // Do not activate a button while YOU DIED or the menu is fading in.
+    if (elapsed_ < YouDiedIntroSeconds + GameOverFadeSeconds) return GameOverAction::None;
 
     const GameOverLayout layout = MenuLayout(image_);
     const Vector2 mouse = GetMousePosition();
@@ -167,10 +234,19 @@ GameOverAction GameOverScreen::Update(float deltaTime)
 void GameOverScreen::Draw() const
 {
     const GameOverLayout layout = MenuLayout(image_);
-    const float fade = Clamp(elapsed_ / GameOverFadeSeconds, 0.0f, 1.0f);
+    const float black = SmoothStep01(elapsed_ / BlackFadeSeconds);
+    const float youOpacity = SmoothStep01(elapsed_ / YouFadeInSeconds);
+    const float diedOpacity = SmoothStep01((elapsed_ - DiedStartSeconds) / DiedFadeInSeconds);
+    const float fade = SmoothStep01((elapsed_ - YouDiedIntroSeconds) / GameOverFadeSeconds);
     const float centerX = layout.canvas.x + layout.canvas.width * 0.5f;
 
-    DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, 0.65f + 0.35f * fade));
+    // YOU fades in first; DIED appears beside it a moment later.
+    DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, black));
+    if (elapsed_ < YouDiedIntroSeconds)
+    {
+        DrawYouDied(youDied_, youOpacity, diedOpacity);
+        return;
+    }
     const bool hasImage = image_.id != 0 && image_.width > 0 && image_.height > 0;
     if (hasImage)
     {
@@ -191,6 +267,7 @@ void GameOverScreen::Draw() const
                 : static_cast<int>(topMargin + 10.0f * layout.scale);
             DrawText("[C] CONTINUE FROM CHECKPOINT", x, y, size, Fade(RAYWHITE, fade));
         }
+        DrawYouDied(youDied_, youOpacity * (1.0f - fade), diedOpacity * (1.0f - fade));
         return;
     }
 
@@ -227,4 +304,5 @@ void GameOverScreen::Draw() const
         DrawCenteredText(u8"[C] チェックポイントから再開", "[C] CONTINUE FROM CHECKPOINT",
                          centerX, hintY + 30.0f * layout.scale, 19.0f * layout.scale,
                          Fade(Color{ 164, 169, 166, 255 }, fade));
+    DrawYouDied(youDied_, youOpacity * (1.0f - fade), diedOpacity * (1.0f - fade));
 }
