@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "EnemyConfig.h"
 #include "Item.h"
+#include"DoorMove.h"
 #include <array>
 #include <vector>
 
@@ -34,13 +35,16 @@ struct DoorCheckpoint {
     float radius = 1.5f;
     float progress = 0;
     bool open = false;
+    DoorLockType lockType;
 };
+
 struct EnemyCheckpoint {
     demo::EnemyConfig config;
     Vector3 position{};
     float yaw = 0;
     int hp = 100;
 };
+
 struct TeleportCheckpoint {
     TransformCheckpoint transform;
     int number = 0;

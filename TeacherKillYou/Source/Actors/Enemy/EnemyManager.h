@@ -1,41 +1,60 @@
 ﻿#pragma once
 #include "Enemy.h"
-
+#include "GameObject.h"
 #include <vector>
+
+class Inventory; // 前方宣言
 
 namespace demo {
 
-// Enemyを値で所有する。更新中は要素を削除せず、RemoveExpiredでまとめて削除する。
-class EnemyManager {
-public:
-    // 生成した敵のIDを返す。IDとvectorの配列添字は一致するとは限らない。
-    EnemyId Spawn(Vector3 position, const EnemyConfig& config, float yaw = 0.0f);
-    // 敵一覧を破棄する。ID発行カウンターは維持する。
-    void Clear();
-    void Update(float dt, const TargetInfo& target, const Stage& stage);
-    void Update(float dt, const Player& player, const Stage& stage);
-    // 生存状態を毎回取り直し、各攻撃イベントを1回だけPlayerへ適用する。
-    void Update(float dt, Player& player, const Stage& stage, const BoundingBox* blocker = nullptr);
-    // 未検出のIDには既定結果（applied=false、hp=0、becameDead=false）を返す。
-    EnemyDamageResult ApplyDamage(EnemyId id, int amount);
-    // 更新・敵一覧の走査が終わった後に呼ぶ。削除待ち時間を過ぎた死体を除去する。
-    void RemoveExpired();
-    // 呼び出し側でBeginMode3D～EndMode3Dを開始・終了する。
-    void Draw() const;
+    // 敵のスポーン条件の種類
+    enum class EnemySpawnCondition {
+        None,               // 何も選択していなければスポーンしない
+        Normal,             // 「通常」
+        LostItemCollected,  // 「忘れ物を拾った後スポーンする」
+    };
 
-    // 未検出時はnullptr。Spawnによる再配置や削除でポインターが無効になり得る。
-    // 長期保存にはEnemyIdを使い、必要な時点で再検索する。
-    Enemy* Find(EnemyId id);
-    const Enemy* Find(EnemyId id) const;
-    // 要素への参照・イテレーターにも、Findのポインターと同じ有効期間の制約がある。
-    const std::vector<Enemy>& GetEnemies() const { return enemies_; }
-    // 表示中の死体を除いた、生存中の敵の数。
-    int AliveCount() const;
+    // スポーン設定データ
+    struct EnemySpawnData : public GameObject {
+        EnemyConfig config{};
+        float yaw = 0.0f;
+        EnemySpawnCondition condition = EnemySpawnCondition::None;
+        bool spawned = false;
 
-private:
-    // Clearでは巻き戻さず、シーン再開後の敵へ過去のIDが対応することを防ぐ。
-    EnemyId nextId_ = 1;
-    std::vector<Enemy> enemies_;
-};
+        EnemySpawnData() : GameObject(GameObjectType::Enemy, "EnemySpawner") {}
+    };
 
-} // namespace demo
+    class EnemyManager {
+    public:
+        EnemyId Spawn(Vector3 position, const EnemyConfig& config, float yaw = 0.0f);
+
+        // スポーンポイント（条件付き）の追加
+        void AddSpawnPoint(const Vector3& position, const EnemyConfig& config, EnemySpawnCondition condition, float yaw = 0.0f);
+
+        void Clear();
+
+        // Inventory を受け取って条件判定できるように引数を追加
+		void Update(float dt, const TargetInfo& target, const Stage& stage, const Inventory* inventory = nullptr);
+		void Update(float dt, const Player& player, const Stage& stage, const Inventory* inventory = nullptr);
+		void Update(float dt, Player& player, const Stage& stage, const BoundingBox* blocker = nullptr, const Inventory* inventory = nullptr);
+
+        EnemyDamageResult ApplyDamage(EnemyId id, int amount);
+        void RemoveExpired();
+        void Draw() const;
+
+        Enemy* Find(EnemyId id);
+        const Enemy* Find(EnemyId id) const;
+        const std::vector<Enemy>& GetEnemies() const { return enemies_; }
+        int AliveCount() const;
+
+        // インスペクター編集用アクセサ
+        std::vector<EnemySpawnData>& GetSpawnPoints() { return spawnPoints_; }
+        const std::vector<EnemySpawnData>& GetSpawnPoints() const { return spawnPoints_; }
+
+    private:
+        EnemyId nextId_ = 1;
+        std::vector<Enemy> enemies_;
+        std::vector<EnemySpawnData> spawnPoints_; //スポーン設定のリスト
+    };
+
+}

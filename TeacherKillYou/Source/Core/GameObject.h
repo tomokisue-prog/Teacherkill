@@ -10,7 +10,8 @@ enum class GameObjectType
     Enemy,
     Stage,
     Item,
-    Door
+    Door,
+    SecurityPC
 };
 
 class GameObject
@@ -27,9 +28,9 @@ public:
     GameObjectType GetType() const { return type_; }
     const std::string& GetName() const { return name_; }
 
-    Vector3 GetPosition() const { return position_; }
-    Vector3 GetRotation() const { return rotation_; }
-    Vector3 GetScale() const { return scale_; }
+    virtual Vector3 GetPosition() const { return position_; }
+    virtual Vector3 GetRotation() const { return rotation_; }
+    virtual Vector3 GetScale() const { return scale_; }
 
     void SetPosition(Vector3 position) { position_ = position; }
     void SetRotation(Vector3 rotation) { rotation_ = rotation; }

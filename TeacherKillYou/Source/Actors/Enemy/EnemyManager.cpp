@@ -1,6 +1,6 @@
 ﻿#include "EnemyManager.h"
 #include "Player.h"
-
+#include "Inventory.h"
 #include <algorithm>
 
 namespace demo {
@@ -12,19 +12,79 @@ EnemyId EnemyManager::Spawn(Vector3 position, const EnemyConfig& config, float y
     return id;
 }
 
+static bool HasLostItemBeenCollected(const Inventory* inventory) {
+    if (!inventory) return false;
+    for (const auto& item : inventory->GetWorldItems()) {
+        if (item.GetType() == ItemType::LostItem && item.IsCollected()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+void EnemyManager::AddSpawnPoint(const Vector3& position, const EnemyConfig& config, EnemySpawnCondition condition, float yaw) {
+    EnemySpawnData sp;
+    sp.SetPosition(position);
+    sp.config = config;
+    sp.condition = condition;
+    sp.yaw = yaw;
+	spawnPoints_.push_back(sp);
+}
+
 void EnemyManager::Clear() {
     enemies_.clear();
 }
 
-void EnemyManager::Update(float dt, const TargetInfo& target, const Stage& stage) {
+void EnemyManager::Update(float dt, const TargetInfo& target, const Stage& stage, const Inventory* inventory) {
+    // 条件付きスポーンのチェック
+    for (auto& sp : spawnPoints_) {
+        if (sp.spawned) continue;
+
+        bool shouldSpawn = false;
+        if (sp.condition == EnemySpawnCondition::Normal) {
+            shouldSpawn = true;
+        }
+        else if (sp.condition == EnemySpawnCondition::LostItemCollected) {
+            if (HasLostItemBeenCollected(inventory)) {
+                shouldSpawn = true;
+            }
+        }
+
+        if (shouldSpawn) {
+            Spawn(sp.GetPosition(), sp.config, sp.yaw);
+            sp.spawned = true;
+        }
+    }
+
     for (auto& enemy : enemies_) enemy.Update(dt, target, stage);
 }
 
-void EnemyManager::Update(float dt, const Player& player, const Stage& stage) {
-    Update(dt, TargetInfo::FromPlayer(player), stage);
+void EnemyManager::Update(float dt, const Player& player, const Stage& stage, const Inventory* inventory) {
+    Update(dt, TargetInfo::FromPlayer(player), stage, inventory);
 }
 
-void EnemyManager::Update(float dt, Player& player, const Stage& stage, const BoundingBox* blocker) {
+void EnemyManager::Update(float dt, Player& player, const Stage& stage, const BoundingBox* blocker, const Inventory* inventory) {
+
+    for (auto& sp : spawnPoints_) {
+        if (sp.spawned) continue;
+
+        bool shouldSpawn = false;
+        if (sp.condition == EnemySpawnCondition::Normal) {
+            shouldSpawn = true;
+        }
+        else if (sp.condition == EnemySpawnCondition::LostItemCollected) {
+            if (HasLostItemBeenCollected(inventory)) {
+                shouldSpawn = true;
+            }
+        }
+
+        if (shouldSpawn) {
+            Spawn(sp.GetPosition(), sp.config, sp.yaw);
+            sp.spawned = true;
+        }
+    }
+
     for (auto& enemy : enemies_) {
         enemy.Update(dt, TargetInfo::FromPlayer(player), stage, blocker);
         player.TakeDamage(enemy.ConsumeAttackDamage());
@@ -59,6 +119,7 @@ void EnemyManager::RemoveExpired() {
 }
 
 void EnemyManager::Draw() const {
+
     for (const auto& enemy : enemies_) enemy.Draw();
 }
 

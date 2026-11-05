@@ -21,7 +21,7 @@ namespace ResourceKeys {
     // ステージのモデル
     
     inline constexpr const char* Model_Stage1 = "Model_Stage1";
-
+	
     // アイテムモデル用キー
     inline constexpr const char* Model_KeyCard = "Model_KeyCard";
     inline constexpr const char* Model_Medkit = "Model_Medkit";
@@ -33,9 +33,11 @@ namespace ResourceKeys {
     inline constexpr const char* Icon_Medkit = "Icon_Medkit";
     inline constexpr const char* Icon_HealingBar = "Icon_HealingBar";
 	inline constexpr const char* Icon_Ammo = "Icon_Ammo";
-	inline constexpr const char* Icon_LostItem = "Icon_LostItem";
 	// UI用キー
 
 	inline constexpr const char* WASD_UI = "WASD_UI";
+
+    // ObjectModel用のキー
+	inline constexpr const char* Security_PC = "Security_PC";
 
 }

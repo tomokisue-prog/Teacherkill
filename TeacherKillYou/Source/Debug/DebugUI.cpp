@@ -42,6 +42,29 @@ void DebugUI::Draw(GameContext& gameContext)
         {
             targetObj = &gameContext.GetGoalPoint();
         }
+        // 追加：Enemy（スポーンポイント）が選択された場合のギズモターゲット設定
+        else if (selectedObject_ == SelectedObjectType::Enemy)
+        {
+            auto& spawnPoints = gameContext.GetEnemyManager().GetSpawnPoints();
+            if (selectedEnemyIndex_ >= 0 &&
+                selectedEnemyIndex_ < static_cast<int>(spawnPoints.size()))
+            {
+                targetObj = &spawnPoints[selectedEnemyIndex_];
+            }
+        }
+        else if (selectedObject_ == SelectedObjectType::SecurityPC)
+        {
+            targetObj = &gameContext.GetSecurityPC();
+        }
+        else if (selectedObject_ == SelectedObjectType::EventDialoguePoint)
+        {
+            auto& eventPoints = gameContext.GetEventDialoguePoints();
+            if (selectedEventPointIndex_ >= 0 &&
+                selectedEventPointIndex_ < static_cast<int>(eventPoints.size()))
+            {
+                targetObj = static_cast<GameObject*>(&eventPoints[selectedEventPointIndex_]);
+            }
+        }
 
         if (selectedObject_ == SelectedObjectType::Items)
         {
@@ -64,6 +87,7 @@ void DebugUI::Draw(GameContext& gameContext)
         }
         else
         {
+            // Enemy が選択されている場合もここで gizmoDrawer_.Draw(gameContext, targetObj) が動くよう条件から外す
             gizmoDrawer_.Draw(
                 gameContext,
                 targetObj
@@ -90,9 +114,59 @@ void DebugUI::DrawHierarchy(GameContext& gameContext)
         selectedObject_ = SelectedObjectType::Player;
     }
 
-    if (ImGui::Selectable("Enemy Manager", selectedObject_ == SelectedObjectType::EnemyManager))
+    if (ImGui::Selectable("Security PC", selectedObject_ == SelectedObjectType::SecurityPC))
     {
-        selectedObject_ = SelectedObjectType::EnemyManager;
+        selectedObject_ = SelectedObjectType::SecurityPC;
+    }
+
+    // TeleportPoint と同様に、登録されている敵を個別にリスト表示する
+    auto& spawnPoints = gameContext.GetEnemyManager().GetSpawnPoints();
+    for (size_t i = 0; i < spawnPoints.size(); ++i)
+    {
+        char label[64];
+        const char* typeStr = (spawnPoints[i].config.type == demo::EnemyType::FemaleZombie) ? "FemaleZombie" : "Monster";
+        snprintf(label, sizeof(label), "Enemy %d [%s]", (int)i, typeStr);
+
+        bool isSelected = (selectedObject_ == SelectedObjectType::Enemy && selectedEnemyIndex_ == (int)i);
+        if (ImGui::Selectable(label, isSelected))
+        {
+            selectedObject_ = SelectedObjectType::Enemy;
+            selectedEnemyIndex_ = static_cast<int>(i);
+        }
+    }
+
+    // 敵を追加するボタン
+    if (ImGui::Button("+ Add Enemy"))
+    {
+        demo::EnemySpawnData newSp;
+		newSp.SetPosition(gameContext.GetPlayer().GetPosition());
+        newSp.condition = demo::EnemySpawnCondition::None; // 最初はスポーンしない状態
+        spawnPoints.push_back(newSp);
+        selectedObject_ = SelectedObjectType::Enemy;
+        selectedEnemyIndex_ = static_cast<int>(spawnPoints.size()) - 1;
+    }
+
+    auto& eventPoints = gameContext.GetEventDialoguePoints();
+    for (size_t i = 0; i < eventPoints.size(); ++i)
+    {
+        char label[64];
+        snprintf(label, sizeof(label), "Event Point %d [%s]", (int)i, eventPoints[i].GetDialogueId().c_str());
+
+        bool isSelected = (selectedObject_ == SelectedObjectType::EventDialoguePoint && selectedEventPointIndex_ == (int)i);
+        if (ImGui::Selectable(label, isSelected))
+        {
+            selectedObject_ = SelectedObjectType::EventDialoguePoint;
+            selectedEventPointIndex_ = static_cast<int>(i);
+        }
+    }
+
+    if (ImGui::Button("+ Add Event Point"))
+    {
+        EventDialoguePoint newEp;
+        newEp.SetPosition(gameContext.GetPlayer().GetPosition());
+        eventPoints.push_back(newEp);
+        selectedObject_ = SelectedObjectType::EventDialoguePoint;
+        selectedEventPointIndex_ = static_cast<int>(eventPoints.size()) - 1;
     }
 
     if (ImGui::Selectable("Stage", selectedObject_ == SelectedObjectType::Stage))
@@ -139,7 +213,7 @@ void DebugUI::DrawHierarchy(GameContext& gameContext)
         selectedTeleportIndex_ = static_cast<int>(tps.size()) - 1;
     }
 
-	// --- World Items ---
+    // --- World Items ---
     if (ImGui::TreeNode("Items"))
     {
         auto& items =
@@ -253,9 +327,90 @@ void DebugUI::DrawInspector(GameContext& gameContext)
         break;
     }
 
-    case SelectedObjectType::EnemyManager:
-        ImGui::Text("Enemy Manager");
+    case SelectedObjectType::Enemy:
+    {
+        auto& enemyMgr = gameContext.GetEnemyManager();
+        auto& spawnPoints = enemyMgr.GetSpawnPoints();
+
+        if (!spawnPoints.empty())
+        {
+            if (selectedEnemyIndex_ >= static_cast<int>(spawnPoints.size()))
+            {
+                selectedEnemyIndex_ = static_cast<int>(spawnPoints.size()) - 1;
+            }
+            if (selectedEnemyIndex_ < 0) selectedEnemyIndex_ = 0;
+
+            ImGui::Text("Enemies Count: %d", (int)spawnPoints.size());
+            if (ImGui::Button("Add Enemy"))
+            {
+                demo::EnemySpawnData newSp;
+                newSp.SetPosition(gameContext.GetPlayer().GetPosition());
+                newSp.condition = demo::EnemySpawnCondition::None;
+                spawnPoints.push_back(newSp);
+                selectedEnemyIndex_ = static_cast<int>(spawnPoints.size()) - 1;
+            }
+
+            ImGui::Separator();
+
+            demo::EnemySpawnData& sp = spawnPoints[selectedEnemyIndex_];
+            Vector3 pos = sp.GetPosition();
+
+            // インデックス変更用
+            ImGui::DragInt("Enemy Index", &selectedEnemyIndex_, 1.0f, 0, (int)spawnPoints.size() - 1);
+            if (selectedEnemyIndex_ < 0) selectedEnemyIndex_ = 0;
+            if (selectedEnemyIndex_ >= static_cast<int>(spawnPoints.size()))
+            {
+                selectedEnemyIndex_ = static_cast<int>(spawnPoints.size()) - 1;
+            }
+
+            ImGui::Text("Transform");
+            if (ImGui::DragFloat3("Position", &pos.x, 0.1f))
+            {
+                sp.SetPosition(pos);
+            }
+
+            // 敵の種類選択やスポーン条件などのUIをここに記述...
+            int typeVal = static_cast<int>(sp.config.type);
+            const char* typeNames[] = { "Monster", "FemaleZombie" };
+            if (ImGui::Combo("Enemy Type", &typeVal, typeNames, IM_ARRAYSIZE(typeNames))) {
+                sp.config.type = static_cast<demo::EnemyType>(typeVal);
+            }
+
+            int condVal = static_cast<int>(sp.condition);
+            const char* condNames[] = {
+                "None (Do Not Spawn)",
+                "Normal (Always Spawn)",
+                "LostItem Collected"
+            };
+            if (ImGui::Combo("Spawn Condition", &condVal, condNames, IM_ARRAYSIZE(condNames))) {
+                sp.condition = static_cast<demo::EnemySpawnCondition>(condVal);
+            }
+
+            ImGui::Text("Status: %s", sp.spawned ? "Spawned" : "Waiting");
+
+            if (ImGui::Button("Reset Spawn Status")) {
+                sp.spawned = false;
+            }
+
+            if (ImGui::Button("Delete Enemy")) {
+                spawnPoints.erase(spawnPoints.begin() + selectedEnemyIndex_);
+                selectedEnemyIndex_--;
+                if (selectedEnemyIndex_ < 0) selectedEnemyIndex_ = 0;
+            }
+        }
+        else
+        {
+            if (ImGui::Button("Add Enemy"))
+            {
+                demo::EnemySpawnData newSp;
+                newSp.SetPosition(gameContext.GetPlayer().GetPosition());
+                newSp.condition = demo::EnemySpawnCondition::None;
+                spawnPoints.push_back(newSp);
+                selectedEnemyIndex_ = 0;
+            }
+        }
         break;
+    }
 
     case SelectedObjectType::Stage:
         ImGui::Text("Stage");
@@ -282,11 +437,32 @@ void DebugUI::DrawInspector(GameContext& gameContext)
         if (ImGui::DragFloat3("Scale", &scale.x, 0.05f, 0.1f, 10.0f)) door.SetScale(scale);
 
         ImGui::Separator();
-        ImGui::Text("Door Controls");
+        ImGui::Text("Door Controls & Logic");
 
         // スライド速度・移動距離の調整
         if (ImGui::SliderFloat("Slide Speed", &speed, 0.1f, 10.0f)) door.SetSlideSpeed(speed);
         if (ImGui::DragFloat("Open Distance", &distance, 0.1f)) door.SetOpenDistance(distance);
+
+        // 何をしたら開かなくなるのか（ロック条件）の選択 UI
+        int lockTypeVal = static_cast<int>(door.GetLockType());
+        const char* lockTypeNames[] = {
+            "None (Always Operable)",     // 何も選択していない場合は普通に開け閉め可能
+            "LostItem Collected"          // 忘れ物を取得したとき開かなくなる
+        };
+        if (ImGui::Combo("Lock Condition", &lockTypeVal, lockTypeNames, IM_ARRAYSIZE(lockTypeNames)))
+        {
+            door.SetLockType(static_cast<DoorLockType>(lockTypeVal));
+        }
+
+        int openCondVal = static_cast<int>(door.GetOpenConditionType());
+        const char* openCondNames[] = {
+            "None (Normal Open)",         // 条件なし
+            "Test: Press M Key"           // テスト用：Mキーを押す
+        };
+        if (ImGui::Combo("Open Condition", &openCondVal, openCondNames, IM_ARRAYSIZE(openCondNames)))
+        {
+            door.SetOpenConditionType(static_cast<DoorOpenConditionType>(openCondVal));
+        }
 
         // インスペクター上でのテスト開閉ボタン
         if (ImGui::Button("Toggle Door"))
@@ -301,7 +477,7 @@ void DebugUI::DrawInspector(GameContext& gameContext)
         auto& tps = gameContext.GetTeleportPoints();
         if (!tps.empty())
         {
-            if (selectedTeleportIndex_ >= tps.size()) selectedTeleportIndex_ = 0;
+            if (selectedTeleportIndex_ >= static_cast<int>(tps.size())) selectedTeleportIndex_ = 0;
 
             ImGui::Text("Teleport Points Count: %d", (int)tps.size());
             if (ImGui::Button("Add Point"))
@@ -325,7 +501,7 @@ void DebugUI::DrawInspector(GameContext& gameContext)
             // インデックス変更用
             ImGui::DragInt("Point Index", &selectedTeleportIndex_, 1.0f, 0, (int)tps.size() - 1);
             if (selectedTeleportIndex_ < 0) selectedTeleportIndex_ = 0;
-            if (selectedTeleportIndex_ >= tps.size()) selectedTeleportIndex_ = static_cast<int>(tps.size()) - 1;
+            if (selectedTeleportIndex_ >= static_cast<int>(tps.size())) selectedTeleportIndex_ = static_cast<int>(tps.size()) - 1;
 
             ImGui::Text("Transform");
             if (ImGui::DragFloat3("Position", &pos.x, 0.1f)) tp.SetPosition(pos);
@@ -399,7 +575,7 @@ void DebugUI::DrawInspector(GameContext& gameContext)
         if (ImGui::DragFloat3(
             "Position", &position.x, 0.05f))
         {
-            item.SetPosition(position);
+			item.SetPosition(position);
         }
 
         if (ImGui::Button("Move To Player"))
@@ -413,6 +589,94 @@ void DebugUI::DrawInspector(GameContext& gameContext)
 
         break;
     }
+    case SelectedObjectType::SecurityPC:
+    {
+        SecurityPC& pc = gameContext.GetSecurityPC();
+        Vector3 position = pc.GetPosition();
+        Vector3 rotation = pc.GetRotation();
+        Vector3 scale = pc.GetScale();
+
+        ImGui::Text("Security PC Transform");
+        if (ImGui::DragFloat3("Position", &position.x, 0.1f)) pc.SetPosition(position);
+        if (ImGui::DragFloat3("Rotation", &rotation.x, 1.0f)) pc.SetRotation(rotation);
+        if (ImGui::DragFloat3("Scale", &scale.x, 0.05f, 0.1f, 10.0f)) pc.SetScale(scale);
+        break;
+    }
+
+    case SelectedObjectType::EventDialoguePoint:
+    {
+        auto& eventPoints = gameContext.GetEventDialoguePoints();
+        if (!eventPoints.empty())
+        {
+            if (selectedEventPointIndex_ >= static_cast<int>(eventPoints.size())) selectedEventPointIndex_ = 0;
+
+            ImGui::Text("Event Points Count: %d", (int)eventPoints.size());
+            if (ImGui::Button("Add Point"))
+            {
+                EventDialoguePoint newEp;
+                newEp.SetPosition(gameContext.GetPlayer().GetPosition());
+                eventPoints.push_back(newEp);
+                selectedEventPointIndex_ = static_cast<int>(eventPoints.size()) - 1;
+            }
+
+            ImGui::Separator();
+
+            EventDialoguePoint& ep = eventPoints[selectedEventPointIndex_];
+            Vector3 pos = ep.GetPosition();
+            Vector3 rot = ep.GetRotation();
+            Vector3 scale = ep.GetScale();
+            float radius = ep.GetRadius();
+
+            ImGui::DragInt("Point Index", &selectedEventPointIndex_, 1.0f, 0, (int)eventPoints.size() - 1);
+            if (selectedEventPointIndex_ < 0) selectedEventPointIndex_ = 0;
+            if (selectedEventPointIndex_ >= static_cast<int>(eventPoints.size()))
+            {
+                selectedEventPointIndex_ = static_cast<int>(eventPoints.size()) - 1;
+            }
+
+            ImGui::Text("Transform");
+            if (ImGui::DragFloat3("Position", &pos.x, 0.1f)) ep.SetPosition(pos);
+            if (ImGui::DragFloat3("Rotation", &rot.x, 1.0f)) ep.SetRotation(rot);
+            if (ImGui::DragFloat3("Scale", &scale.x, 0.05f, 0.1f, 10.0f)) ep.SetScale(scale);
+
+            ImGui::Separator();
+            ImGui::Text("Event Settings");
+
+            // ダイアログIDの入力欄 (例: "zombie_encounter")
+            char idBuffer[128];
+            strncpy_s(idBuffer, ep.GetDialogueId().c_str(), sizeof(idBuffer));
+            if (ImGui::InputText("Dialogue ID", idBuffer, sizeof(idBuffer)))
+            {
+                ep.SetDialogueId(std::string(idBuffer));
+            }
+
+            if (ImGui::DragFloat("Radius", &radius, 0.1f, 0.1f, 20.0f)) ep.SetRadius(radius);
+
+            bool triggered = ep.IsTriggered();
+            if (ImGui::Checkbox("Triggered", &triggered))
+            {
+                ep.SetTriggered(triggered);
+            }
+
+            if (ImGui::Button("Delete Event Point"))
+            {
+                eventPoints.erase(eventPoints.begin() + selectedEventPointIndex_);
+                selectedEventPointIndex_--;
+                if (selectedEventPointIndex_ < 0) selectedEventPointIndex_ = 0;
+            }
+        }
+        else
+        {
+            if (ImGui::Button("Add Point"))
+            {
+                EventDialoguePoint newEp;
+                eventPoints.push_back(newEp);
+                selectedEventPointIndex_ = 0;
+            }
+        }
+        break;
+    }
+
     default:
         ImGui::Text("No object selected.");
         break;

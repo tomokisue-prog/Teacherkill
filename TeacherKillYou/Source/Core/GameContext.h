@@ -16,7 +16,8 @@
 #include "CheckpointData.h"
 #include "../Events/EventManager.h"
 #include "../Events/Tutorial4FFloorEvent.h"
-
+#include "../Events/SecurityPC.h"
+#include "../Events/EventDialoguePoint.h"
 #include <vector>
 
 class GameContext
@@ -53,6 +54,9 @@ public:
     std::vector<TeleportPoint>& GetTeleportPoints() { return teleportPoints_; }
     const std::vector<TeleportPoint>& GetTeleportPoints() const { return teleportPoints_; }
 
+    std::vector<EventDialoguePoint>& GetEventDialoguePoints() { return eventDialoguePoints_; }
+    const std::vector<EventDialoguePoint>& GetEventDialoguePoints() const { return eventDialoguePoints_; }
+
     // IDを指定して1行でセリフを呼び出す関数
     void ShowDialogue(const std::string& dialogueId);
 
@@ -65,6 +69,9 @@ public:
     void RestoreCheckpoint(const CheckpointData& data);
     bool CanSaveCheckpoint() const;
     bool ConsumeCheckpointRequest();
+
+    SecurityPC& GetSecurityPC() { return securityPC_; }
+    const SecurityPC& GetSecurityPC() const { return securityPC_; }
 
 private:
     void PlaceCharacters();
@@ -87,9 +94,12 @@ private:
     GoalPoint goalPoint_;
 	MessageWindow messageWindow_;
 	Tutorial4FFloorEvent tutorial4FFloorEvent;
+    SecurityPC securityPC_;
 
     Vector3 paladinPosition_{ 0.0f, 0.0f, 3.0f };
     std::vector<TeleportPoint> teleportPoints_;
+
+    std::vector<EventDialoguePoint> eventDialoguePoints_;
 
     float hitMarkerTimer_{ 0.0f };
     bool hitMarkerKill_{ false };
@@ -115,4 +125,6 @@ private:
     std::vector<BulletMark> bulletMarks_;
     static constexpr float bulletMarkLifetime_ = 2.0f;
     static constexpr int maxBulletMarks_ = 40;
+
+    bool hasTriggeredLostItemDialogue_{ false };
 };

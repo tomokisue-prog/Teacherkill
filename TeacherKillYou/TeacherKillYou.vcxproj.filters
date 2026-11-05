@@ -255,6 +255,12 @@
     <ClCompile Include="Source\Events\Tutorial4FFloorEvent.cpp">
       <Filter>Source\Events\Tutorial</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Events\SecurityPC.cpp">
+      <Filter>Source\Events</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Events\EventDialoguePoint.cpp">
+      <Filter>Source\Events</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Audio\AudioManager.h">
@@ -469,6 +475,12 @@
     </ClInclude>
     <ClInclude Include="Source\Events\Tutorial4FFloorEvent.h">
       <Filter>Source\Events\Tutorial</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Events\SecurityPC.h">
+      <Filter>Source\Events</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Events\EventDialoguePoint.h">
+      <Filter>Source\Events</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

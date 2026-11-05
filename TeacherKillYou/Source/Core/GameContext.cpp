@@ -141,6 +141,15 @@ void GameContext::Init()
     EventMgr().StartEvent("Tutorial_4F");
 
     ShowDialogue("opening_4f");
+    securityPC_.Init();
+
+    // ゾンビ遭遇エリアのイベントポイントを初期化・配置
+    eventDialoguePoints_.clear();
+    EventDialoguePoint zombieEvent;
+    zombieEvent.SetPosition({ 5.0f, 0.0f, -5.0f }); // ゾンビ手前の通路の座標などに調整
+    zombieEvent.SetRadius(3.0f);                    // 範囲
+    zombieEvent.SetDialogueId("zombie_encounter");  // JSONで設定したID
+    eventDialoguePoints_.push_back(zombieEvent);
 }
 
 void GameContext::Reset()
@@ -189,16 +198,11 @@ void GameContext::ShowDialogue(const std::string& dialogueId)
 void GameContext::PlaceCharacters()
 {
     inventory_.PlaceOnStage(stage_);
-    // PlayerのTransformは維持し、足元の高さだけをステージの床へ合わせる。
+
     player_.SetPosition(stage_.FindGroundPosition(player_.GetPosition()));
+    
     enemyManager_.Clear();
-    enemyManager_.Spawn(stage_.FindGroundPosition({ 0.9f, 0.0f, 2.5f }), {});
-    demo::EnemyConfig femaleConfig;
-    femaleConfig.type = demo::EnemyType::FemaleZombie;
-    // 旧マップの寸法を埋め込まず、現行校舎の共通基準から設定する。
-    femaleConfig.bodyHeight = WorldScale::Zombie.height;
-    femaleConfig.bodyRadius = WorldScale::Zombie.radius;
-    enemyManager_.Spawn(stage_.FindGroundPosition({ -0.9f, 0.0f, 2.5f }), femaleConfig);
+
     paladinPosition_ = stage_.FindGroundPosition({ 0.0f, 0.0f, 3.0f });
     cameraController_.GetPlayerCamera().SetEyeHeight(player_.GetHeight() * WorldScale::EyeHeightRatio);
     cameraController_.GetPlayerCamera().SetPlayerPosition(player_.GetPosition());
@@ -452,7 +456,8 @@ void GameContext::Update(float deltaTime)
         inventory_.CancelHealing();
         return;
     }
-    if(IsMessageActive())
+
+    if (IsMessageActive())
     {
         messageWindow_.Update(deltaTime);
         return;
@@ -473,7 +478,6 @@ void GameContext::Update(float deltaTime)
 
     lighting_.Update();
     bool isPlayerCameraActive = (cameraController_.GetActiveType() == CameraType::Player);
-
 
     // 1. プレイヤーの移動入力更新（プレイヤーカメラ使用時のみ移動入力受付）
     if (isPlayerCameraActive)
@@ -567,11 +571,11 @@ void GameContext::Update(float deltaTime)
     }
 
 
-    door_.Update(deltaTime, player_);
+    door_.Update(deltaTime, player_, &inventory_);
 
     // 2. ワールドオブジェクト（ステージ・敵）の更新
     const BoundingBox doorBounds = door_.GetBoundingBox();
-    enemyManager_.Update(deltaTime, player_, stage_, &doorBounds);
+    enemyManager_.Update(deltaTime, player_, stage_, &doorBounds, &inventory_);
     enemyManager_.RemoveExpired();
 
     // 3. ギズモ編集結果も含め、常に最新の Player 位置を PlayerCamera へ同期
@@ -610,6 +614,38 @@ void GameContext::Update(float deltaTime)
         {
             player_.Heal(MEDKIT_HEAL_AMOUNT);
         }
+
+        // LostItemが回収された状態になった瞬間を監視し、1度だけセリフを再生する
+        if (!hasTriggeredLostItemDialogue_ && inventory_.IsLostItemCollected())
+        {
+            hasTriggeredLostItemDialogue_ = true;
+            ShowDialogue("second_line_of_dialogue");
+        }
+
+        if (inventory_.IsLostItemCollected() && securityPC_.CanInteract(player_.GetPosition()))
+        {
+            if (IsKeyPressed(KEY_E))
+            {
+                if (!securityPC_.IsActivated())
+                {
+                    securityPC_.SetActivated(true);
+                    ShowDialogue("security_pc_activated");
+                }
+            }
+        }
+
+        if (!IsMessageActive())
+        {
+            for (auto& eventPoint : eventDialoguePoints_)
+            {
+                if (eventPoint.CheckPlayerInArea(player_.GetPosition()))
+                {
+                    eventPoint.SetTriggered(true); // 2回目以降が出ないようにフラグを立てる
+                    ShowDialogue(eventPoint.GetDialogueId()); // セリフウィンドウを開く
+                    break;
+                }
+            }
+        }
     }
     else
     {
@@ -645,7 +681,7 @@ void GameContext::Draw() const
     }
 
     stage_.Draw();
-
+ 
     if (!playerView)
     {
         for (const auto& tp : teleportPoints_)
@@ -654,6 +690,11 @@ void GameContext::Draw() const
         }
 
         goalPoint_.Draw();
+
+        for (const auto& ep : eventDialoguePoints_)
+        {
+            ep.Draw();
+        }
     }
 
     // プレイヤーカメラ
@@ -673,6 +714,9 @@ void GameContext::Draw() const
     DrawShotEffects();
     inventory_.DrawWorld();
     bloodEffect_.Draw(cameraController_.GetActiveRaylibCamera());
+
+    securityPC_.Draw();
+
     EndMode3D();
     lighting_.EndFrame(playerView && player_.IsAlive());
 
@@ -696,6 +740,59 @@ void GameContext::Draw() const
 
         // インベントリHUD表示
         inventory_.DrawHUD();
+
+        float distToDoor = Vector3Distance(player_.GetPosition(), door_.GetPosition());
+        if (distToDoor <= door_.GetInteractRadius())
+        {
+            std::string prompt = "";
+
+            // 閉じる条件が発動済み、または閉じる条件がNoneで開ける条件が未達の場合のみ [M] Unlock を表示
+            bool isClosedByCondition = (door_.GetLockType() != DoorLockType::None && door_.IsLocked(&inventory_)); // ※忘れ物取得後など
+            bool needsUnlock = false;
+
+            if (door_.GetLockType() == DoorLockType::None)
+            {
+                needsUnlock = (door_.GetOpenConditionType() == DoorOpenConditionType::TestMKey && !door_.IsOpenConditionSatisfied());
+            }
+            else
+            {
+                // 閉じる条件がある場合は、実際にその条件でロックされた時だけMキーを要求
+                needsUnlock = (door_.IsLocked(&inventory_) && door_.GetOpenConditionType() == DoorOpenConditionType::TestMKey && !door_.IsOpenConditionSatisfied());
+            }
+
+            if (needsUnlock)
+            {
+                prompt = "[M] Unlock";
+            }
+            else
+            {
+                prompt = door_.IsOpen() ? "[E] Close" : "[E] Open";
+            }
+
+            if (!prompt.empty())
+            {
+                const float fontSize = 48.0f;
+                Vector2 textSize = JPFont().MeasureText(prompt, fontSize);
+                const int x = static_cast<int>((GetScreenWidth() - textSize.x) / 2.0f);
+                const int y = static_cast<int>((GetScreenHeight() / 2.0f) + 30.0f);
+
+                JPFont().DrawText(prompt, x + 2, y + 2, fontSize, BLACK);
+                JPFont().DrawText(prompt, x, y, fontSize, RAYWHITE);
+            }
+        }
+
+        if (inventory_.IsLostItemCollected() && securityPC_.CanInteract(player_.GetPosition()))
+        {
+            std::string prompt = securityPC_.IsActivated() ? "PC Activated" : "[E] Examine PC";
+
+            const float fontSize = 20.0f;
+            Vector2 textSize = JPFont().MeasureText(prompt, fontSize);
+            const int x = static_cast<int>((GetScreenWidth() - textSize.x) / 2.0f);
+            const int y = static_cast<int>((GetScreenHeight() / 2.0f) + 60.0f);
+
+            JPFont().DrawText(prompt, x + 2, y + 2, fontSize, BLACK);
+            JPFont().DrawText(prompt, x, y, fontSize, RAYWHITE);
+        }
     }
 
     gameFade_.Draw();
@@ -705,7 +802,6 @@ void GameContext::Draw() const
     {
         messageWindow_.Draw();
     }
-
 }
 
 

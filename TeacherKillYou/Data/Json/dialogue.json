@@ -1,10 +1,18 @@
 {
-  "opening_4f": {
+ "opening_4f": {
     "speaker": "主人公",
     "text": "ここは4階のエレベーター前か…。教室に忘れ物をしたから取りに行かないと。"
   },
   "door_locked": {
     "speaker": "主人公",
     "text": "ここは鍵がかかっているようだ…"
+  },
+  "second_line_of_dialogue": {
+    "speaker": "主人公",
+    "text": "忘れ物を取ったし何か出る前に帰ろう"
+  },
+  "zombie_encounter": {
+    "speaker": "主人公",
+    "text": "なぜこんなところにゾンビが！ とりあえず警備室まで逃げよう。"
   }
 }

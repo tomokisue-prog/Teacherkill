@@ -28,6 +28,25 @@ bool SaveSystem::SaveScene(const GameContext& gameContext, const std::string& fi
     root["player"]["rotation"] = Vector3ToJson(player.GetRotation());
     root["player"]["scale"] = Vector3ToJson(player.GetScale());
 
+
+	// Enemy
+
+    nlohmann::json enemyArray = nlohmann::json::array();
+    for (const auto& sp : gameContext.GetEnemyManager().GetSpawnPoints())
+    {
+        nlohmann::json spJson;
+        spJson["position"] = Vector3ToJson(sp.GetPosition());
+        spJson["type"] = static_cast<int>(sp.config.type);
+        spJson["condition"] = static_cast<int>(sp.condition);
+        spJson["spawned"] = sp.spawned;
+
+        spJson["bodyHeight"] = sp.config.bodyHeight;
+        spJson["bodyRadius"] = sp.config.bodyRadius;
+
+        enemyArray.push_back(spJson);
+    }
+    root["enemies"] = enemyArray;
+
     // 2. Door
     const auto& door = gameContext.GetDoor();
     root["door"]["position"] = Vector3ToJson(door.GetPosition());
@@ -35,6 +54,16 @@ bool SaveSystem::SaveScene(const GameContext& gameContext, const std::string& fi
     root["door"]["scale"] = Vector3ToJson(door.GetScale());
     root["door"]["slideSpeed"] = door.GetSlideSpeed();
     root["door"]["openDistance"] = door.GetOpenDistance();
+	// ロック条件の種類を保存
+	root["door"]["lockType"] = static_cast<int>(door.GetLockType());
+	// 開ける条件の種類を保存
+	root["door"]["openConditionType"] = static_cast<int>(door.GetOpenConditionType());
+
+    const auto& securityPC = gameContext.GetSecurityPC();
+    root["securityPC"]["position"] = Vector3ToJson(securityPC.GetPosition());
+    root["securityPC"]["rotation"] = Vector3ToJson(securityPC.GetRotation());
+    root["securityPC"]["scale"] = Vector3ToJson(securityPC.GetScale());
+    root["securityPC"]["isActivated"] = securityPC.IsActivated();
 
     // 3. TeleportPoints
     nlohmann::json tpArray = nlohmann::json::array();
@@ -99,6 +128,28 @@ bool SaveSystem::LoadScene(GameContext& gameContext, const std::string& filepath
         if (p.contains("scale"))    player.SetScale(JsonToVector3(p["scale"]));
     }
 
+	// Enemy
+    if (root.contains("enemies") && root["enemies"].is_array())
+    {
+        auto& spawnPoints = gameContext.GetEnemyManager().GetSpawnPoints();
+        spawnPoints.clear();
+        gameContext.GetEnemyManager().Clear(); // 実際に湧いている敵もリセット
+
+        for (const auto& spJson : root["enemies"])
+        {
+            demo::EnemySpawnData sp;
+            if (spJson.contains("position")) sp.SetPosition(JsonToVector3(spJson["position"]));
+            if (spJson.contains("type"))     sp.config.type = static_cast<demo::EnemyType>(spJson["type"].get<int>());
+            if (spJson.contains("condition")) sp.condition = static_cast<demo::EnemySpawnCondition>(spJson["condition"].get<int>());
+            if (spJson.contains("spawned"))  sp.spawned = spJson["spawned"].get<bool>();
+
+            if (spJson.contains("bodyHeight")) sp.config.bodyHeight = spJson["bodyHeight"].get<float>();
+            if (spJson.contains("bodyRadius")) sp.config.bodyRadius = spJson["bodyRadius"].get<float>();
+
+            spawnPoints.push_back(sp);
+        }
+    }
+
     // 2. Door
     if (root.contains("door"))
     {
@@ -109,6 +160,18 @@ bool SaveSystem::LoadScene(GameContext& gameContext, const std::string& filepath
         if (d.contains("scale"))        door.SetScale(JsonToVector3(d["scale"]));
         if (d.contains("slideSpeed"))   door.SetSlideSpeed(d["slideSpeed"].get<float>());
         if (d.contains("openDistance")) door.SetOpenDistance(d["openDistance"].get<float>());
+		if (d.contains("lockType"))     door.SetLockType(static_cast<DoorLockType>(d["lockType"].get<int>()));
+		if (d.contains("openConditionType")) door.SetOpenConditionType(static_cast<DoorOpenConditionType>(d["openConditionType"].get<int>()));
+    }
+
+    if (root.contains("securityPC"))
+    {
+        const auto& s = root["securityPC"];
+        auto& securityPC = gameContext.GetSecurityPC();
+        if (s.contains("position"))    securityPC.SetPosition(JsonToVector3(s["position"]));
+        if (s.contains("rotation"))    securityPC.SetRotation(JsonToVector3(s["rotation"]));
+        if (s.contains("scale"))       securityPC.SetScale(JsonToVector3(s["scale"]));
+        if (s.contains("isActivated")) securityPC.SetActivated(s["isActivated"].get<bool>());
     }
 
     // 3. TeleportPoints

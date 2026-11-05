@@ -51,7 +51,10 @@ namespace {
         {LoadKind::Texture, ResourceKeys::Icon_KeyCard,    "Data/Image/Items/Key_Card.png"},
         {LoadKind::Texture, ResourceKeys::Icon_Medkit,     "Data/Image/Items/Med_Kit.png"},
         {LoadKind::Texture, ResourceKeys::Icon_HealingBar, "Data/Image/Items/Healing_bar.png"},
-        {LoadKind::Texture, ResourceKeys::Icon_LostItem, "Data/Image/Items/Key_Card.png"},
+
+		// ObjectModel用のロード
+		{LoadKind::Model, ResourceKeys::Security_PC, "Data/Image/COMPUTER.glb"},
+
     };
     constexpr std::size_t GameResourceCount = sizeof(GameResources) / sizeof(GameResources[0]);
 }
@@ -85,7 +88,7 @@ float ResourceManager::GetGameLoadProgress() const {
 void ResourceManager::LoadJapaneseFont()
 {
     if (japaneseFont_.IsLoaded()) return;
-    japaneseFont_.Load("Data/Font/NotoSansJP-Regular.ttf", 32);
+    japaneseFont_.Load("Data/Font/NotoSansJP-Regular.ttf", 50);
 
     if (japaneseFont_.IsLoaded()) {
         TraceLog(LOG_INFO, u8"SUCCESS: 日本語フォントがロードされました");

@@ -8,13 +8,15 @@ enum class SelectedObjectType
 {
     None,
     Player,
-    EnemyManager,
+    Enemy,
     Stage,
     PaladinModel,
     Door,
     TeleportPoint,
     GoalPoint,
-    Items
+    Items,
+	SecurityPC,
+    EventDialoguePoint
 };
 
 class GameContext;
@@ -38,6 +40,7 @@ private:
     DoorMove door_;
 
     int selectedTeleportIndex_{ 0 };
-
+    int selectedEnemyIndex_{ 0 };
     int selectedItemIndex_{ 0 };
+    int selectedEventPointIndex_{ 0 };
 };

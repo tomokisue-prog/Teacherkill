@@ -44,6 +44,8 @@ public:
     std::vector<Item>& GetWorldItems() { return items_; }
     const std::vector<Item>& GetWorldItems() const { return items_; }
 
+    bool IsLostItemCollected() const;
+
 private:
     static constexpr int MAX_SLOTS = 4;
     static constexpr float HEAL_DURATION = 3.0f;

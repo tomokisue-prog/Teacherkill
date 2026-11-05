@@ -178,6 +178,13 @@ void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage)
             pickedUpItem_ = ItemType::Ammo;
             message_ = TextFormat("+%d AMMO", AMMO_PICKUP_AMOUNT);
         }
+        else if (type == ItemType::LostItem)
+        {
+            // LostItem はインベントリに入れず、回収（取得）のみ行う
+            item.Collect();
+            pickedUpItem_ = ItemType::LostItem;
+            message_ = "Picked up LOST ITEM";
+        }
         else if (AddItem(type))
         {
             item.Collect();
@@ -251,7 +258,6 @@ const Texture2D* Inventory::GetItemIcon(ItemType type) const
     {
     case ItemType::KeyCard:  return RM().GetTexture(ResourceKeys::Icon_KeyCard);
     case ItemType::Medkit:   return RM().GetTexture(ResourceKeys::Icon_Medkit);
-    case ItemType::LostItem: return RM().GetTexture(ResourceKeys::Icon_LostItem);
     default:                 return nullptr;
     }
 }
@@ -488,4 +494,16 @@ void Inventory::RestoreCheckpoint(const InventoryCheckpoint& data)
         items_.emplace_back(saved.type, saved.position);
         if (saved.collected) items_.back().Collect();
     }
+}
+
+bool Inventory::IsLostItemCollected() const
+{
+    for (const auto& item : items_)
+    {
+        if (item.GetType() == ItemType::LostItem)
+        {
+            return item.IsCollected();
+        }
+    }
+    return false;
 }
