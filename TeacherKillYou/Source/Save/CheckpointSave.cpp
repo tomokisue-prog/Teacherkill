@@ -1,4 +1,4 @@
-ï»¿#include "CheckpointSave.h"
+#include "CheckpointSave.h"
 #include "WorldScale.h"
 #include "PlayerCamera.h"
 #include "SaveData.h"
@@ -9,18 +9,8 @@
 namespace {
     using Json = nlohmann::json;
     void Require(bool valid) { if (!valid) throw std::runtime_error("invalid checkpoint field"); }
-    float Number(const Json& data, float low, float high) {
-        Require(data.is_number());
-        const float value = data.get<float>();
-        Require(std::isfinite(value) && value >= low && value <= high);
-        return value;
-    }
-    int Integer(const Json& data, int low, int high) {
-        Require(data.is_number_integer());
-        const auto value = data.get<std::int64_t>();
-        Require(value >= low && value <= high);
-        return static_cast<int>(value);
-    }
+    using SaveData::Number;
+    using SaveData::Integer;
     Json Pack(Vector3 value) { return Json::array({value.x, value.y, value.z}); }
     Vector3 Vector(const Json& data) {
         Require(data.is_array() && data.size() == 3);
@@ -33,34 +23,6 @@ namespace {
         TransformCheckpoint result{Vector(data.at("position")), Vector(data.at("rotation")), Vector(data.at("scale"))};
         Require(result.scale.x > 0 && result.scale.y > 0 && result.scale.z > 0);
         return result;
-    }
-    Json Pack(const demo::EnemyConfig& c) {
-        return {{"type", int(c.type)}, {"maxHp", c.maxHp}, {"moveSpeed", c.moveSpeed}, {"turnSpeed", c.turnSpeed},
-            {"bodyRadius", c.bodyRadius}, {"bodyHeight", c.bodyHeight}, {"detectionRange", c.detectionRange},
-            {"loseRange", c.loseRange}, {"stopDistance", c.stopDistance}, {"resumeDistance", c.resumeDistance},
-            {"corpseDuration", c.corpseDuration}, {"attackDamage", c.attackDamage}, {"attackRange", c.attackRange},
-            {"attackHitFraction", c.attackHitFraction}, {"attackRecovery", c.attackRecovery}, {"animationSpeed", c.animationSpeed}};
-    }
-    demo::EnemyConfig Config(const Json& j) {
-        demo::EnemyConfig c;
-        c.type = static_cast<demo::EnemyType>(Integer(j.at("type"), 0, 1));
-        c.maxHp = Integer(j.at("maxHp"), 1, 100000);
-        c.moveSpeed = Number(j.at("moveSpeed"), 0, 100);
-        c.turnSpeed = Number(j.at("turnSpeed"), 0, 100);
-        c.bodyRadius = Number(j.at("bodyRadius"), .01f, 100);
-        c.bodyHeight = Number(j.at("bodyHeight"), .01f, 100);
-        c.detectionRange = Number(j.at("detectionRange"), 0, 10000);
-        c.loseRange = Number(j.at("loseRange"), 0, 10000);
-        c.stopDistance = Number(j.at("stopDistance"), 0, 100);
-        c.resumeDistance = Number(j.at("resumeDistance"), 0, 100);
-        c.corpseDuration = Number(j.at("corpseDuration"), 0, 10000);
-        c.attackDamage = Integer(j.at("attackDamage"), 0, 100000);
-        c.attackRange = Number(j.at("attackRange"), 0, 100);
-        c.attackHitFraction = Number(j.at("attackHitFraction"), 0, 1);
-        c.attackRecovery = Number(j.at("attackRecovery"), 0, 10000);
-        c.animationSpeed = Number(j.at("animationSpeed"), .01f, 100);
-        c.Validate();
-        return c;
     }
     Json Pack(const CheckpointData& data) {
         Json j{{"version", 2}, {"player", {{"position", Pack(data.player.position)}, {"hp", data.player.hp},
@@ -75,10 +37,11 @@ namespace {
         j["inventory"]["selected"] = data.inventory.selectedSlot;
         j["inventory"]["items"] = Json::array();
         for (const auto& item : data.inventory.items)
-            j["inventory"]["items"].push_back({{"type", int(item.type)}, {"position", Pack(item.position)}, {"collected", item.collected}});
+            j["inventory"]["items"].push_back({{"type", int(item.type)}, {"position", Pack(item.position)}, {"collected", item.collected},
+                {"yaw", item.yaw}, {"scale", item.scale}});
         j["enemies"] = Json::array();
         for (const auto& e : data.enemies)
-            j["enemies"].push_back({{"config", Pack(e.config)}, {"position", Pack(e.position)}, {"yaw", e.yaw}, {"hp", e.hp}});
+            j["enemies"].push_back({{"config", SaveData::PackEnemyConfig(e.config)}, {"position", Pack(e.position)}, {"yaw", e.yaw}, {"hp", e.hp}});
         j["teleports"] = Json::array();
         for (const auto& tp : data.teleports)
             j["teleports"].push_back({{"transform", Pack(tp.transform)}, {"number", tp.number}, {"type", tp.type}, {"radius", tp.radius}});
@@ -103,20 +66,23 @@ namespace {
         const auto& inv = j.at("inventory");
         Require(inv.at("slots").is_array() && inv.at("slots").size() == d.inventory.slots.size());
         for (int i = 0; i < 4; ++i) {
-            const int slot = Integer(inv["slots"][i], 0, int(ItemType::Ammo) - 1);
+            const int slot = Integer(inv["slots"][i], 0, int(ItemType::LostItem));
+            Require(slot != int(ItemType::Ammo));
             d.inventory.slots[i] = static_cast<ItemType>(slot);
         }
         d.inventory.selectedSlot = Integer(inv.at("selected"), 0, 3);
-        Require(inv.at("items").is_array() && inv.at("items").size() <= 1024);
+        Require(inv.at("items").is_array() && inv.at("items").size() <= MaxItemPlacements);
         for (const auto& item : inv["items"])
-            d.inventory.items.push_back({static_cast<ItemType>(Integer(item.at("type"), 1, int(ItemType::Ammo))),
-                Vector(item.at("position")), item.at("collected").get<bool>()});
-        Require(j.at("enemies").is_array() && j.at("enemies").size() <= 512);
+            d.inventory.items.push_back({static_cast<ItemType>(Integer(item.at("type"), 1, int(ItemType::Count) - 1)),
+                Vector(item.at("position")), item.at("collected").get<bool>(),
+                item.contains("yaw") ? Number(item.at("yaw"), -PI, PI) : 0.0f,
+                item.contains("scale") ? Number(item.at("scale"), .05f, 20) : 1.0f});
+        Require(j.at("enemies").is_array() && j.at("enemies").size() <= demo::MaxEnemyPlacements);
         for (const auto& e : j["enemies"]) {
-            auto c = Config(e.at("config"));
+            auto c = SaveData::ParseEnemyConfig(e.at("config"));
             if (version == 1) {
-                // ä»¥å‰ã®ãƒã‚§ãƒƒã‚¯ãƒã‚¤ãƒ³ãƒˆã§ã‚‚ã€HPã‚„æ‰€æŒå“ã‚’ä¿ã£ã¦ç¾è¡Œãƒžãƒƒãƒ—ã®ä½“æ ¼ã¸ç§»è¡Œã™ã‚‹ã€‚
-                const auto size = c.type == demo::EnemyType::FemaleZombie ? WorldScale::Zombie : WorldScale::Monster;
+                // ˆÈ‘O‚Ìƒ`ƒFƒbƒNƒ|ƒCƒ“ƒg‚Å‚àAHP‚âŠŽ•i‚ð•Û‚Á‚ÄŒ»sƒ}ƒbƒv‚Ì‘ÌŠi‚ÖˆÚs‚·‚éB
+                const auto size = c.type == demo::EnemyType::Monster ? WorldScale::Monster : WorldScale::Zombie;
                 c.bodyHeight = size.height;
                 c.bodyRadius = size.radius;
             }
@@ -134,7 +100,7 @@ bool CheckpointSave::Save(const CheckpointData& data, const std::string& path)
 {
     try {
         auto json = Pack(data);
-        Parse(json); // Apply the same constraints on both sides; never replace a good save with bad state.
+        Parse(json); 
         return SaveData::Write(path, json);
     }
     catch (const std::exception& error) {
@@ -148,7 +114,7 @@ bool CheckpointSave::Load(CheckpointData& data, const std::string& path)
     try {
         nlohmann::json json;
         if (!SaveData::Read(path, json)) return false;
-        auto parsed = Parse(json); // Do not touch the live world until every field has been validated.
+        auto parsed = Parse(json); 
         data = std::move(parsed);
         return true;
     }

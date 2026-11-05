@@ -4,17 +4,17 @@
 #include "GameContext.h"
 #include "raymath.h"
 #include "GameObject.h"
-#include "Item.h"
 
 #include <algorithm>
 #include <cstring>
+#include <cmath>
 
-void GizmoDrawer::Draw(
+bool GizmoDrawer::Draw(
     GameContext& gameContext,
-    GameObject* targetObj)
+    GameObject* targetObj, bool uprightOnly)
 {
     if (!targetObj)
-        return;
+        return false;
 
     // ImGuiがキーボード入力を使用中は、ギズモ用ショートカットを処理しない。
     if (!ImGui::GetIO().WantCaptureKeyboard)
@@ -31,7 +31,7 @@ void GizmoDrawer::Draw(
             currentOperation_ = ImGuizmo::ROTATE;
         }
 
-        if (IsKeyPressed(KEY_R) &&
+        if (!uprightOnly && IsKeyPressed(KEY_R) &&
             IsKeyDown(KEY_LEFT_CONTROL))
         {
             currentOperation_ = ImGuizmo::SCALE;
@@ -47,7 +47,7 @@ void GizmoDrawer::Draw(
     ImGuiIO& io = ImGui::GetIO();
 
     if (io.DisplaySize.y <= 0.0f)
-        return;
+        return false;
 
     ImGuizmo::SetDrawlist(ImGui::GetForegroundDrawList());
 
@@ -112,10 +112,13 @@ void GizmoDrawer::Draw(
 
     Matrix modelMat = MatrixTranspose(rlModel);
 
-    bool manipulated = ImGuizmo::Manipulate(
+    ImGuizmo::OPERATION operation = currentOperation_;
+    if (uprightOnly)
+        operation = currentOperation_ == ImGuizmo::ROTATE ? ImGuizmo::ROTATE_Y : ImGuizmo::TRANSLATE;
+    const bool manipulated = ImGuizmo::Manipulate(
         &viewMat.m0,
         &projMat.m0,
-        currentOperation_,
+        operation,
         ImGuizmo::WORLD,
         &modelMat.m0
     );
@@ -156,11 +159,12 @@ void GizmoDrawer::Draw(
             matrixTranslation[2]
             });
 
-        targetObj->SetRotation({
-            matrixRotation[0],
-            matrixRotation[1],
-            matrixRotation[2]
-            });
+        if (uprightOnly) {
+            const float yaw = std::atan2(-matrix[2], matrix[0]) * RAD2DEG;
+            targetObj->SetRotation({0, yaw, 0});
+        } else {
+            targetObj->SetRotation({matrixRotation[0], matrixRotation[1], matrixRotation[2]});
+        }
 
         targetObj->SetScale({
             matrixScale[0],
@@ -168,92 +172,5 @@ void GizmoDrawer::Draw(
             matrixScale[2]
             });
     }
-}
-
-void GizmoDrawer::DrawItem(
-    GameContext& gameContext,
-    Item* item)
-{
-    if (item == nullptr || item->IsCollected())
-        return;
-
-    auto& cameraController =
-        gameContext.GetCameraController();
-
-    const Camera3D& camera =
-        cameraController.GetActiveRaylibCamera();
-
-    ImGuiIO& io = ImGui::GetIO();
-
-    if (io.DisplaySize.y <= 0.0f)
-        return;
-
-    ImGuizmo::SetDrawlist(
-        ImGui::GetForegroundDrawList()
-    );
-
-    ImGuizmo::SetRect(
-        0.0f,
-        0.0f,
-        io.DisplaySize.x,
-        io.DisplaySize.y
-    );
-
-    ImGuizmo::Enable(true);
-
-    const float aspect =
-        io.DisplaySize.x / io.DisplaySize.y;
-
-    Matrix rlView = GetCameraMatrix(camera);
-
-    Matrix rlProj = MatrixPerspective(
-        camera.fovy * DEG2RAD,
-        aspect,
-        0.01f,
-        1000.0f
-    );
-
-    Matrix viewMat = MatrixTranspose(rlView);
-    Matrix projMat = MatrixTranspose(rlProj);
-
-    // Item world position
-    Vector3 position = item->GetPosition();
-
-    // Create translation-only matrix
-    Matrix rlModel = MatrixTranslate(
-        position.x,
-        position.y,
-        position.z
-    );
-
-    Matrix modelMat = MatrixTranspose(rlModel);
-
-    // Items currently support translation only
-    bool manipulated = ImGuizmo::Manipulate(
-        &viewMat.m0,
-        &projMat.m0,
-        ImGuizmo::TRANSLATE,
-        ImGuizmo::WORLD,
-        &modelMat.m0
-    );
-
-    if (manipulated)
-    {
-        float translation[3];
-        float rotation[3];
-        float scale[3];
-
-        ImGuizmo::DecomposeMatrixToComponents(
-            &modelMat.m0,
-            translation,
-            rotation,
-            scale
-        );
-
-        item->SetPosition({
-            translation[0],
-            translation[1],
-            translation[2]
-            });
-    }
+    return manipulated;
 }

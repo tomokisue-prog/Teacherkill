@@ -1,10 +1,11 @@
 #pragma once
 #include "raylib.h"
 #include "WorldScale.h"
+#include <cstddef>
 
 namespace demo {
 
-    enum class EnemyType { Monster, FemaleZombie };
+    enum class EnemyType { Monster, FemaleZombie, MonsterMale2 };
 
     struct EnemyConfig {
         int maxHp = 100;
@@ -27,6 +28,14 @@ namespace demo {
 
         // ïsê≥Ç»ílÇ™ì¸ÇÁÇ»Ç¢ÇÊÇ§Ç…é©ìÆÇ≈í≤êÆÇ∑ÇÈä÷êî
         void Validate();
+        static EnemyConfig ForType(EnemyType type);
     };
 
+    struct EnemyPlacement {
+        Vector3 position{};
+        float yaw = 0.0f;
+        EnemyConfig config;
+    };
+
+    inline constexpr std::size_t MaxEnemyPlacements = 512;
 }

@@ -11,9 +11,20 @@ namespace {
 
 namespace demo {
 
+    EnemyConfig EnemyConfig::ForType(EnemyType type) {
+        EnemyConfig config;
+        config.type = type;
+        if (type == EnemyType::FemaleZombie || type == EnemyType::MonsterMale2) {
+            config.bodyHeight = WorldScale::Zombie.height;
+            config.bodyRadius = WorldScale::Zombie.radius;
+        }
+        config.Validate();
+        return config;
+    }
+
     void EnemyConfig::Validate() {
         const EnemyConfig defaults;
-        if (type != EnemyType::Monster && type != EnemyType::FemaleZombie) type = defaults.type;
+        if (type != EnemyType::Monster && type != EnemyType::FemaleZombie && type != EnemyType::MonsterMale2) type = defaults.type;
         maxHp = (std::max)(1, maxHp);
         moveSpeed = AtLeast(moveSpeed, 0.0f, defaults.moveSpeed);
         animationSpeed = Clamp(AtLeast(animationSpeed, 0.1f, defaults.animationSpeed), 0.1f, 4.0f);
