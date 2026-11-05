@@ -86,6 +86,36 @@ bool SaveSystem::SaveScene(const GameContext& gameContext, const std::string& fi
     root["goalPoint"]["scale"] = Vector3ToJson(goalPoint.GetScale());
     root["goalPoint"]["radius"] = goalPoint.GetRadius();
 
+    // EventDialoguePoints
+    nlohmann::json epArray = nlohmann::json::array();
+    for (const auto& ep : gameContext.GetEventDialoguePoints())
+    {
+        nlohmann::json epJson;
+        epJson["position"] = Vector3ToJson(ep.GetPosition());
+        epJson["rotation"] = Vector3ToJson(ep.GetRotation());
+        epJson["scale"] = Vector3ToJson(ep.GetScale());
+        epJson["radius"] = ep.GetRadius();
+        epJson["dialogueId"] = ep.GetDialogueId();
+        epJson["triggered"] = ep.IsTriggered();
+        epJson["condition"] = static_cast<int>(ep.GetCondition());
+        epArray.push_back(epJson);
+    }
+    root["eventDialoguePoints"] = epArray;
+
+    nlohmann::json secTpArray = nlohmann::json::array();
+    for (const auto& stp : gameContext.GetSecurityTeleportPoints())
+    {
+        nlohmann::json stpJson;
+        stpJson["position"] = Vector3ToJson(stp.GetPosition());
+        stpJson["rotation"] = Vector3ToJson(stp.GetRotation());
+        stpJson["scale"] = Vector3ToJson(stp.GetScale());
+        stpJson["pointNumber"] = stp.GetPointNumber();
+        stpJson["type"] = static_cast<int>(stp.GetTeleportType());
+        stpJson["radius"] = stp.GetRadius();
+        secTpArray.push_back(stpJson);
+    }
+    root["securityTeleportPoints"] = secTpArray;
+
     std::ofstream file(filepath);
     if (file.is_open())
     {
@@ -201,6 +231,43 @@ bool SaveSystem::LoadScene(GameContext& gameContext, const std::string& filepath
         if (g.contains("rotation")) goalPoint.SetRotation(JsonToVector3(g["rotation"]));
         if (g.contains("scale"))    goalPoint.SetScale(JsonToVector3(g["scale"]));
         if (g.contains("radius"))   goalPoint.SetRadius(g["radius"].get<float>());
+    }
+
+    // EventDialoguePoints
+    if (root.contains("eventDialoguePoints") && root["eventDialoguePoints"].is_array())
+    {
+        auto& eventPoints = gameContext.GetEventDialoguePoints();
+        eventPoints.clear();
+        for (const auto& epJson : root["eventDialoguePoints"])
+        {
+            EventDialoguePoint ep;
+            if (epJson.contains("position"))   ep.SetPosition(JsonToVector3(epJson["position"]));
+            if (epJson.contains("rotation"))   ep.SetRotation(JsonToVector3(epJson["rotation"]));
+            if (epJson.contains("scale"))      ep.SetScale(JsonToVector3(epJson["scale"]));
+            if (epJson.contains("radius"))     ep.SetRadius(epJson["radius"].get<float>());
+            if (epJson.contains("dialogueId")) ep.SetDialogueId(epJson["dialogueId"].get<std::string>());
+            if (epJson.contains("triggered"))  ep.SetTriggered(epJson["triggered"].get<bool>());
+            if (epJson.contains("condition"))  ep.SetCondition(static_cast<EventDialogueCondition>(epJson["condition"].get<int>()));
+
+            eventPoints.push_back(ep);
+        }
+    }
+
+    if (root.contains("securityTeleportPoints") && root["securityTeleportPoints"].is_array())
+    {
+        auto& stps = gameContext.GetSecurityTeleportPoints();
+        stps.clear();
+        for (const auto& stpJson : root["securityTeleportPoints"])
+        {
+            SecurityTeleportPoint stp;
+            if (stpJson.contains("position"))    stp.SetPosition(JsonToVector3(stpJson["position"]));
+            if (stpJson.contains("rotation"))    stp.SetRotation(JsonToVector3(stpJson["rotation"]));
+            if (stpJson.contains("scale"))       stp.SetScale(JsonToVector3(stpJson["scale"]));
+            if (stpJson.contains("pointNumber")) stp.SetPointNumber(stpJson["pointNumber"].get<int>());
+            if (stpJson.contains("type"))        stp.SetTeleportType(static_cast<SecurityTeleportType>(stpJson["type"].get<int>()));
+            if (stpJson.contains("radius"))      stp.SetRadius(stpJson["radius"].get<float>());
+            stps.push_back(stp);
+        }
     }
 
     // ínå`í≤êÆÇ»Ç«ÇÃå„èàóù

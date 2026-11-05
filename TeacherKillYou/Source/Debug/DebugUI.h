@@ -13,6 +13,7 @@ enum class SelectedObjectType
     PaladinModel,
     Door,
     TeleportPoint,
+    SecurityTeleportPoint,
     GoalPoint,
     Items,
 	SecurityPC,
@@ -41,6 +42,7 @@ private:
 
     int selectedTeleportIndex_{ 0 };
     int selectedEnemyIndex_{ 0 };
+    int selectedSecurityTeleportIndex_{ 0 };
     int selectedItemIndex_{ 0 };
     int selectedEventPointIndex_{ 0 };
 };

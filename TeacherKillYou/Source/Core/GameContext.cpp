@@ -561,6 +561,50 @@ void GameContext::Update(float deltaTime)
             }
         }
 
+        // 警備室一方通行テレポート判定
+        if (!gameFade_.IsFading())
+        {
+            for (auto& sourcePt : securityTeleportPoints_)
+            {
+                if (sourcePt.GetTeleportType() == SecurityTeleportType::Source)
+                {
+                    float dist = Vector3Distance(player_.GetPosition(), sourcePt.GetPosition());
+                    if (dist <= sourcePt.GetRadius())
+                    {
+                        gameFade_.StartFade(2.5f);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 画面が完全に暗転した瞬間にテレポート先へ移動（一方通行なのでDestinationからSourceへは戻らない）
+        if (gameFade_.IsMidpoint())
+        {
+            for (auto& sourcePt : securityTeleportPoints_)
+            {
+                if (sourcePt.GetTeleportType() == SecurityTeleportType::Source)
+                {
+                    if (Vector3Distance(player_.GetPosition(), sourcePt.GetPosition()) <= sourcePt.GetRadius())
+                    {
+                        for (const auto& destPt : securityTeleportPoints_)
+                        {
+                            if (destPt.GetTeleportType() == SecurityTeleportType::Destination &&
+                                destPt.GetPointNumber() == sourcePt.GetPointNumber())
+                            {
+                                Vector3 targetPos = stage_.FindGroundPosition(destPt.GetPosition());
+                                player_.SetPosition(targetPos);
+                                AM().PlaySe(SeId::Teleport);
+                                checkpointRequested_ = true;
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
         float distToGoal = Vector3Distance(player_.GetPosition(), goalPoint_.GetPosition());
         if (distToGoal <= goalPoint_.GetRadius())
         {
@@ -638,7 +682,7 @@ void GameContext::Update(float deltaTime)
         {
             for (auto& eventPoint : eventDialoguePoints_)
             {
-                if (eventPoint.CheckPlayerInArea(player_.GetPosition()))
+				if (eventPoint.CheckPlayerInArea(player_.GetPosition(), inventory_))
                 {
                     eventPoint.SetTriggered(true); // 2回目以降が出ないようにフラグを立てる
                     ShowDialogue(eventPoint.GetDialogueId()); // セリフウィンドウを開く
@@ -687,6 +731,11 @@ void GameContext::Draw() const
         for (const auto& tp : teleportPoints_)
         {
             tp.Draw();
+        }
+
+        for (const auto& stp : securityTeleportPoints_)
+        {
+            stp.Draw();
         }
 
         goalPoint_.Draw();

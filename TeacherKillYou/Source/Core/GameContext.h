@@ -18,6 +18,7 @@
 #include "../Events/Tutorial4FFloorEvent.h"
 #include "../Events/SecurityPC.h"
 #include "../Events/EventDialoguePoint.h"
+#include "../Events/SecurityTeleportPoint.h"
 #include <vector>
 
 class GameContext
@@ -56,6 +57,9 @@ public:
 
     std::vector<EventDialoguePoint>& GetEventDialoguePoints() { return eventDialoguePoints_; }
     const std::vector<EventDialoguePoint>& GetEventDialoguePoints() const { return eventDialoguePoints_; }
+
+    std::vector<SecurityTeleportPoint>& GetSecurityTeleportPoints() { return securityTeleportPoints_; }
+    const std::vector<SecurityTeleportPoint>& GetSecurityTeleportPoints() const { return securityTeleportPoints_; }
 
     // IDを指定して1行でセリフを呼び出す関数
     void ShowDialogue(const std::string& dialogueId);
@@ -100,6 +104,7 @@ private:
     std::vector<TeleportPoint> teleportPoints_;
 
     std::vector<EventDialoguePoint> eventDialoguePoints_;
+    std::vector<SecurityTeleportPoint> securityTeleportPoints_;
 
     float hitMarkerTimer_{ 0.0f };
     bool hitMarkerKill_{ false };

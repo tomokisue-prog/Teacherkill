@@ -36,6 +36,7 @@
     <ClCompile Include="Source\Events\EventDialoguePoint.cpp" />
     <ClCompile Include="Source\Events\EventManager.cpp" />
     <ClCompile Include="Source\Events\SecurityPC.cpp" />
+    <ClCompile Include="Source\Events\SecurityTeleportPoint.cpp" />
     <ClCompile Include="Source\Events\Tutorial4FFloorEvent.cpp" />
     <ClCompile Include="Source\UI\DialogueManager.cpp" />
     <ClCompile Include="Source\World\DoorMove.cpp" />
@@ -120,6 +121,7 @@
     <ClInclude Include="Source\Events\EventDialoguePoint.h" />
     <ClInclude Include="Source\Events\EventManager.h" />
     <ClInclude Include="Source\Events\SecurityPC.h" />
+    <ClInclude Include="Source\Events\SecurityTeleportPoint.h" />
     <ClInclude Include="Source\Events\Tutorial4FFloorEvent.h" />
     <ClInclude Include="Source\UI\DialogueEntry.h" />
     <ClInclude Include="Source\UI\DialogueManager.h" />

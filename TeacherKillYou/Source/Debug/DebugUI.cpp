@@ -3,6 +3,7 @@
 #include "imgui.h"
 #include "SceneManager.h"
 #include "SaveSystem.h"
+#include "../Events/SecurityTeleportPoint.h"
 
 
 void DebugUI::Draw(GameContext& gameContext)
@@ -63,6 +64,16 @@ void DebugUI::Draw(GameContext& gameContext)
                 selectedEventPointIndex_ < static_cast<int>(eventPoints.size()))
             {
                 targetObj = static_cast<GameObject*>(&eventPoints[selectedEventPointIndex_]);
+            }
+        }
+        else if (selectedObject_ == SelectedObjectType::SecurityTeleportPoint)
+        {
+            auto& stps = gameContext.GetSecurityTeleportPoints();
+
+            if (selectedSecurityTeleportIndex_ >= 0 &&
+                selectedSecurityTeleportIndex_ < static_cast<int>(stps.size()))
+            {
+                targetObj = &stps[selectedSecurityTeleportIndex_];
             }
         }
 
@@ -211,6 +222,30 @@ void DebugUI::DrawHierarchy(GameContext& gameContext)
         tps.push_back(newTp);
         selectedObject_ = SelectedObjectType::TeleportPoint;
         selectedTeleportIndex_ = static_cast<int>(tps.size()) - 1;
+    }
+
+    auto& stps = gameContext.GetSecurityTeleportPoints();
+    for (size_t i = 0; i < stps.size(); ++i)
+    {
+        char label[64];
+        const char* typeStr = (stps[i].GetTeleportType() == SecurityTeleportType::Source) ? "Source (In)" : "Destination (Out)";
+        snprintf(label, sizeof(label), "Security Teleport %d [%s]", (int)i, typeStr);
+
+        bool isSelected = (selectedObject_ == SelectedObjectType::SecurityTeleportPoint && selectedSecurityTeleportIndex_ == (int)i);
+        if (ImGui::Selectable(label, isSelected))
+        {
+            selectedObject_ = SelectedObjectType::SecurityTeleportPoint;
+            selectedSecurityTeleportIndex_ = static_cast<int>(i);
+        }
+    }
+
+    if (ImGui::Button("+ Add Security Teleport Point"))
+    {
+        SecurityTeleportPoint newStp;
+        newStp.SetPosition(gameContext.GetPlayer().GetPosition());
+        stps.push_back(newStp);
+        selectedObject_ = SelectedObjectType::SecurityTeleportPoint;
+        selectedSecurityTeleportIndex_ = static_cast<int>(stps.size()) - 1;
     }
 
     // --- World Items ---
@@ -642,12 +677,23 @@ void DebugUI::DrawInspector(GameContext& gameContext)
             ImGui::Separator();
             ImGui::Text("Event Settings");
 
-            // ダイアログIDの入力欄 (例: "zombie_encounter")
             char idBuffer[128];
             strncpy_s(idBuffer, ep.GetDialogueId().c_str(), sizeof(idBuffer));
             if (ImGui::InputText("Dialogue ID", idBuffer, sizeof(idBuffer)))
             {
                 ep.SetDialogueId(std::string(idBuffer));
+            }
+
+            // 有効化条件を選択するコンボボックス
+            int condVal = static_cast<int>(ep.GetCondition());
+            const char* condNames[] = {
+                "None (Do Not Trigger)",
+                "Normal (Always Active)",
+                "LostItem Collected"
+            };
+            if (ImGui::Combo("Event Condition", &condVal, condNames, IM_ARRAYSIZE(condNames)))
+            {
+                ep.SetCondition(static_cast<EventDialogueCondition>(condVal));
             }
 
             if (ImGui::DragFloat("Radius", &radius, 0.1f, 0.1f, 20.0f)) ep.SetRadius(radius);
@@ -672,6 +718,72 @@ void DebugUI::DrawInspector(GameContext& gameContext)
                 EventDialoguePoint newEp;
                 eventPoints.push_back(newEp);
                 selectedEventPointIndex_ = 0;
+            }
+        }
+        break;
+    }
+
+    case SelectedObjectType::SecurityTeleportPoint:
+    {
+        auto& stps = gameContext.GetSecurityTeleportPoints();
+        if (!stps.empty())
+        {
+            if (selectedSecurityTeleportIndex_ >= static_cast<int>(stps.size())) selectedSecurityTeleportIndex_ = 0;
+
+            ImGui::Text("Security Teleport Points Count: %d", (int)stps.size());
+            if (ImGui::Button("Add Point"))
+            {
+                SecurityTeleportPoint newStp;
+                newStp.SetPosition(gameContext.GetPlayer().GetPosition());
+                stps.push_back(newStp);
+                selectedSecurityTeleportIndex_ = static_cast<int>(stps.size()) - 1;
+            }
+
+            ImGui::Separator();
+
+            SecurityTeleportPoint& stp = stps[selectedSecurityTeleportIndex_];
+            Vector3 pos = stp.GetPosition();
+            Vector3 rot = stp.GetRotation();
+            Vector3 scale = stp.GetScale();
+            int pointNum = stp.GetPointNumber();
+            int typeVal = static_cast<int>(stp.GetTeleportType());
+            float radius = stp.GetRadius();
+
+            ImGui::DragInt("Point Index", &selectedSecurityTeleportIndex_, 1.0f, 0, (int)stps.size() - 1);
+            if (selectedSecurityTeleportIndex_ < 0) selectedSecurityTeleportIndex_ = 0;
+            if (selectedSecurityTeleportIndex_ >= static_cast<int>(stps.size())) selectedSecurityTeleportIndex_ = static_cast<int>(stps.size()) - 1;
+
+            ImGui::Text("Transform");
+            if (ImGui::DragFloat3("Position", &pos.x, 0.1f)) stp.SetPosition(pos);
+            if (ImGui::DragFloat3("Rotation", &rot.x, 1.0f)) stp.SetRotation(rot);
+            if (ImGui::DragFloat3("Scale", &scale.x, 0.05f, 0.1f, 10.0f)) stp.SetScale(scale);
+
+            ImGui::Separator();
+            ImGui::Text("Security Teleport Settings");
+            if (ImGui::DragInt("Pair Number", &pointNum, 1.0f, 0, 99)) stp.SetPointNumber(pointNum);
+
+            const char* types[] = { "Source (Origin - Hallway)", "Destination (Target - Security Room)" };
+            if (ImGui::Combo("Type (One-Way)", &typeVal, types, IM_ARRAYSIZE(types)))
+            {
+                stp.SetTeleportType(static_cast<SecurityTeleportType>(typeVal));
+            }
+            if (ImGui::DragFloat("Radius", &radius, 0.1f, 0.1f, 10.0f)) stp.SetRadius(radius);
+
+            if (ImGui::Button("Delete Security Teleport Point"))
+            {
+                stps.erase(stps.begin() + selectedSecurityTeleportIndex_);
+                selectedSecurityTeleportIndex_--;
+                if (selectedSecurityTeleportIndex_ < 0) selectedSecurityTeleportIndex_ = 0;
+            }
+        }
+        else
+        {
+            if (ImGui::Button("Add Point"))
+            {
+                SecurityTeleportPoint newStp;
+                newStp.SetPosition(gameContext.GetPlayer().GetPosition());
+                stps.push_back(newStp);
+                selectedSecurityTeleportIndex_ = 0;
             }
         }
         break;

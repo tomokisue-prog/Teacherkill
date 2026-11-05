@@ -2,6 +2,15 @@
 #include "GameObject.h"
 #include "raymath.h"
 #include <string>
+#include "Inventory.h"
+
+// イベントポイントの有効化条件
+enum class EventDialogueCondition
+{
+    None,               // 無効 / 条件なし
+    Normal,             // 通常（常時有効）
+    LostItemCollected,  // LostItem回収後に有効
+};
 
 class EventDialoguePoint : public GameObject
 {
@@ -23,16 +32,28 @@ public:
     bool IsTriggered() const { return triggered_; }
     void SetTriggered(bool triggered) { triggered_ = triggered; }
 
-    // プレイヤーが範囲内に入ったか判定
-    bool CheckPlayerInArea(Vector3 playerPos) const
+    EventDialogueCondition GetCondition() const { return condition_; }
+    void SetCondition(EventDialogueCondition cond) { condition_ = cond; }
+
+    // inventory を引数として受け取る
+    bool CheckPlayerInArea(Vector3 playerPos, const Inventory& inventory) const
     {
         if (triggered_) return false;
+
+        // 条件チェック
+        if (condition_ == EventDialogueCondition::None) return false;
+        if (condition_ == EventDialogueCondition::LostItemCollected && !inventory.IsLostItemCollected())
+        {
+            return false;
+        }
+
         float dist = Vector3Distance(position_, playerPos);
         return dist <= radius_;
     }
 
 private:
-    float radius_{ 2.0f };               // 判定の広さ
-    std::string dialogueId_{ "zombie_encounter" }; // 再生するセリフID
-    bool triggered_{ false };            // 一度再生したか
+    float radius_{ 2.0f };
+    std::string dialogueId_{ "zombie_encounter" };
+    bool triggered_{ false };
+    EventDialogueCondition condition_{ EventDialogueCondition::Normal };
 };

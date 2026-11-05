@@ -261,6 +261,9 @@
     <ClCompile Include="Source\Events\EventDialoguePoint.cpp">
       <Filter>Source\Events</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Events\SecurityTeleportPoint.cpp">
+      <Filter>Source\Events</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Audio\AudioManager.h">
@@ -480,6 +483,9 @@
       <Filter>Source\Events</Filter>
     </ClInclude>
     <ClInclude Include="Source\Events\EventDialoguePoint.h">
+      <Filter>Source\Events</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Events\SecurityTeleportPoint.h">
       <Filter>Source\Events</Filter>
     </ClInclude>
   </ItemGroup>
