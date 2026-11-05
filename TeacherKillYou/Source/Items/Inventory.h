@@ -17,14 +17,14 @@ public:
     ~Inventory() = default;
 
     // --- 初期化 / 破棄 / リセット ---
-    void Init();
+    void Init(const Stage& stage);
     void Reset();
-    void PlaceOnStage(const Stage& stage);
+    void ApplyPlacements();
     void End(); // Release the inventory slot texture.
 
     // --- 更新 & 描画 ---
     void Update(float deltaTime, const Camera3D& camera, Stage* stage = nullptr);
-    void DrawWorld() const;
+    void DrawWorld(bool editing = false) const;
     void DrawHUD() const;
 
     // --- 回復アクション制御 ---
@@ -43,6 +43,8 @@ public:
     // --- ワールド内アイテム参照（DebugUI / ギズモ編集用） ---
     std::vector<Item>& GetWorldItems() { return items_; }
     const std::vector<Item>& GetWorldItems() const { return items_; }
+    std::vector<Item>& GetPlacements() { return placements_; }
+    const std::vector<Item>& GetPlacements() const { return placements_; }
 
 private:
     static constexpr int MAX_SLOTS = 4;
@@ -52,6 +54,7 @@ private:
     Texture2D slotBorder_{};
     std::array<ItemType, MAX_SLOTS> slots_{};
     std::vector<Item> items_;
+    std::vector<Item> placements_;
     CameraController cameraController_;
 
     Camera3D lastCamera_{};
@@ -75,8 +78,6 @@ private:
     int FindFocusedPickup(const Camera3D& camera, Stage* stage) const;
 
     // リソース連携用アクセサ
-    const char* GetItemModelKey(ItemType type) const;
-    float GetItemModelScale(ItemType type) const;
     const Texture2D* GetItemIcon(ItemType type) const;
 
     void DrawHealingHUD() const;

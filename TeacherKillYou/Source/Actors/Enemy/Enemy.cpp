@@ -15,11 +15,16 @@ namespace {
     constexpr float ContactEpsilon = 0.001f;
     constexpr float AnimationFrameDuration = 0.017f;
 
-    struct EnemyAssets { const char* model; const char* attack; const char* death; const char* hit; };
+    struct EnemyAssets { const char* model; const char* run; const char* attack; const char* death; const char* hit; };
     const EnemyAssets& AssetsFor(demo::EnemyType type) {
-        static constexpr EnemyAssets monster{ ResourceKeys::Model_Enemy, ResourceKeys::Animation_EnemyAttack, ResourceKeys::Animation_EnemyDeath, nullptr };
-        static constexpr EnemyAssets female{ ResourceKeys::Model_FemaleZombie, ResourceKeys::Animation_FemaleZombieAttack, ResourceKeys::Animation_FemaleZombieDeath, ResourceKeys::Animation_FemaleZombieHit };
-        return type == demo::EnemyType::FemaleZombie ? female : monster;
+        static constexpr EnemyAssets monster{ ResourceKeys::Model_Enemy, ResourceKeys::Model_Enemy, ResourceKeys::Animation_EnemyAttack, ResourceKeys::Animation_EnemyDeath, nullptr };
+        static constexpr EnemyAssets female{ ResourceKeys::Model_FemaleZombie, ResourceKeys::Model_FemaleZombie, ResourceKeys::Animation_FemaleZombieAttack, ResourceKeys::Animation_FemaleZombieDeath, ResourceKeys::Animation_FemaleZombieHit };
+        static constexpr EnemyAssets male2{ ResourceKeys::Model_MonsterMale2, ResourceKeys::Animation_MonsterMale2Run, ResourceKeys::Model_MonsterMale2, ResourceKeys::Animation_MonsterMale2Death, nullptr };
+        switch (type) {
+        case demo::EnemyType::FemaleZombie: return female;
+        case demo::EnemyType::MonsterMale2: return male2;
+        default: return monster;
+        }
     }
 
     bool IsFinite(Vector3 value) {
@@ -232,7 +237,7 @@ namespace demo {
         attackPose_ = false;
         const Vector3 currentPos = movement_.GetPosition();
         const bool moved = currentPos.x != previousPosition.x || currentPos.z != previousPosition.z;
-        const char* walkAnimKey = AssetsFor(config_.type).model;
+        const char* walkAnimKey = AssetsFor(config_.type).run;
         const ModelAnimation animation = RM().GetModelAnimation(walkAnimKey);
 
         if (IsMoving() && moved && animation.frameCount > 0) {
@@ -348,7 +353,7 @@ namespace demo {
             const bool deathPose = !IsAlive() && RM().GetModelAnimation(assets.death).frameCount > 0;
             const bool hitPose = IsAlive() && hitTime_ >= 0.0f && assets.hit;
             const char* clipKey = deathPose ? assets.death : hitPose ? assets.hit :
-                attackPose_ && RM().GetModelAnimation(assets.attack).frameCount > 0 ? assets.attack : assets.model;
+                attackPose_ && RM().GetModelAnimation(assets.attack).frameCount > 0 ? assets.attack : assets.run;
             const ModelAnimation animation = RM().GetModelAnimation(clipKey);
             if (animation.frameCount > 0) {
                 const float poseTime = hitPose ? hitTime_ : animationTime_;

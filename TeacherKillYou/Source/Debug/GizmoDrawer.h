@@ -7,7 +7,6 @@
 
 class GameContext;
 class GameObject;
-class Item;
 
 // 対象の所有権は取得せず、移動・回転・拡縮のギズモ操作を反映する。
 class GizmoDrawer
@@ -15,9 +14,8 @@ class GizmoDrawer
 public:
     GizmoDrawer() = default;
 
-    void Draw(GameContext& gameContext, GameObject* targetObj);
+    bool Draw(GameContext& gameContext, GameObject* targetObj, bool uprightOnly = false);
 
-    void DrawItem(GameContext& gameContext, Item* item);
 
     ImGuizmo::OPERATION GetOperation() const
     {

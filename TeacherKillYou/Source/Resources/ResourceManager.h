@@ -28,7 +28,8 @@ public:
     void LoadModelAnimations(const std::string& key, const std::string& path);
 
     // Register an animation-only FBX against an already loaded model.
-    void LoadFbxAnimation(const std::string& animationKey, const std::string& modelKey, const std::string& path);
+    void LoadFbxAnimation(const std::string& animationKey, const std::string& modelKey, const std::string& path,
+                          const FbxAnimationOptions& options = {});
 
     // FBXはシアーを含む行列で再生し、通常のモデルはraylibへ委譲する。
     void ApplyModelAnimation(const std::string& key, int frame, int animationIndex = 0);

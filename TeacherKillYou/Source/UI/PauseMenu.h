@@ -10,7 +10,6 @@ public:
     void Open(bool debugEnabled = false);
     void Init();
     void End();
-    void Open();
     PauseAction Update(float deltaTime, GameSettings& settings, bool canLoad, bool canSave);
     void Draw(const GameSettings& settings, bool canLoad, bool canSave) const;
     void SetMessage(const std::string& japanese, const std::string& english);

@@ -53,6 +53,13 @@ namespace {
         const auto back=Vector3Subtract(tip,Vector3Scale(unit,.25f)),side=Vector3Scale(Vector3CrossProduct(unit,{0,1,0}),.12f);
         DrawLine3D(from,tip,color);DrawLine3D(tip,Vector3Add(back,side),color);DrawLine3D(tip,Vector3Subtract(back,side),color);
     }
+    const char* EnemyName(demo::EnemyType type) {
+        switch (type) {
+        case demo::EnemyType::MonsterMale2: return "MONSTER MALE 2";
+        case demo::EnemyType::FemaleZombie: return "ZOMBIE";
+        default: return "MONSTER";
+        }
+    }
     const char* State(demo::EnemyState state) {
         switch (state) {
         case demo::EnemyState::Chase: return u8"追跡";
@@ -146,12 +153,12 @@ bool DebugMenu::Draw(GameContext& context, GameSettings& settings) {
                     ImGui::TableSetupColumn("ID"); ImGui::TableSetupColumn(u8"種類"); ImGui::TableSetupColumn("HP"); ImGui::TableSetupColumn(u8"状態"); ImGui::TableHeadersRow();
                     for (const auto& enemy : context.GetEnemyManager().GetEnemies()) {
                         ImGui::TableNextRow(); ImGui::TableNextColumn(); ImGui::Text("%llu", static_cast<unsigned long long>(enemy.GetId()));
-                        ImGui::TableNextColumn(); ImGui::TextUnformatted(enemy.GetType() == demo::EnemyType::Monster ? "MONSTER" : "ZOMBIE");
+                        ImGui::TableNextColumn(); ImGui::TextUnformatted(EnemyName(enemy.GetType()));
                         ImGui::TableNextColumn(); ImGui::Text("%d", enemy.GetHp()); ImGui::TableNextColumn(); ImGui::TextUnformatted(State(enemy.GetState()));
                     }
                     ImGui::EndTable();
                 }
-                for (const char* key : {ResourceKeys::Model_Enemy, ResourceKeys::Model_FemaleZombie}) {
+                for (const char* key : {ResourceKeys::Model_Enemy, ResourceKeys::Model_FemaleZombie, ResourceKeys::Model_MonsterMale2}) {
                     const Model model = RM().GetModel(key);
                     ImGui::Text("%s: %d meshes / %d bones", key, model.meshCount, model.boneCount);
                 }
@@ -247,7 +254,7 @@ void DebugMenu::DrawGameplay(GameContext& context) {
     const auto target=demo::TargetInfo::FromPlayer(player);const auto door=context.GetDoor().GetBoundingBox();
     for(const auto& enemy:context.GetEnemyManager().GetEnemies()) {
         ImGui::PushID(int(enemy.GetId()));
-        if(ImGui::TreeNode("Enemy", "%s #%llu - %s",enemy.GetType()==demo::EnemyType::Monster?"MONSTER":"ZOMBIE",static_cast<unsigned long long>(enemy.GetId()),State(enemy.GetState()))) {
+        if(ImGui::TreeNode("Enemy", "%s #%llu - %s",EnemyName(enemy.GetType()),static_cast<unsigned long long>(enemy.GetId()),State(enemy.GetState()))) {
             const auto info=enemy.GetDebugInfo(target,context.GetStage(),&door);
             ImGui::Text(u8"距離 %.2f / 索敵 %.2f / 攻撃 %.2f",info.distance,info.config.detectionRange,info.config.attackRange);
             ImGui::Text(u8"視認 %s / 捜索残り %.1f秒 / 行き詰まり %s",info.targetVisible?"YES":"NO",info.searchTime,info.movementBlocked?"YES":"NO");
