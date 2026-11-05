@@ -751,7 +751,10 @@ void DebugUI::DrawInspector(GameContext& gameContext)
 
             ImGui::DragInt("Point Index", &selectedSecurityTeleportIndex_, 1.0f, 0, (int)stps.size() - 1);
             if (selectedSecurityTeleportIndex_ < 0) selectedSecurityTeleportIndex_ = 0;
-            if (selectedSecurityTeleportIndex_ >= static_cast<int>(stps.size())) selectedSecurityTeleportIndex_ = static_cast<int>(stps.size()) - 1;
+            if (selectedSecurityTeleportIndex_ >= static_cast<int>(stps.size()))
+            {
+                selectedSecurityTeleportIndex_ = static_cast<int>(stps.size()) - 1;
+            }
 
             ImGui::Text("Transform");
             if (ImGui::DragFloat3("Position", &pos.x, 0.1f)) stp.SetPosition(pos);
@@ -767,7 +770,26 @@ void DebugUI::DrawInspector(GameContext& gameContext)
             {
                 stp.SetTeleportType(static_cast<SecurityTeleportType>(typeVal));
             }
+
+            int condVal = static_cast<int>(stp.GetCondition());
+            const char* condNames[] = {
+                "None (Do Not Trigger)",
+                "Normal (Always Active)",
+                "LostItem Collected"
+            };
+            if (ImGui::Combo("Condition", &condVal, condNames, IM_ARRAYSIZE(condNames)))
+            {
+                stp.SetCondition(static_cast<SecurityTeleportCondition>(condVal));
+            }
+
             if (ImGui::DragFloat("Radius", &radius, 0.1f, 0.1f, 10.0f)) stp.SetRadius(radius);
+
+            // ★ 追加：トリガー済みフラグ
+            bool triggered = stp.IsTriggered();
+            if (ImGui::Checkbox("Triggered (Used)", &triggered))
+            {
+                stp.SetTriggered(triggered);
+            }
 
             if (ImGui::Button("Delete Security Teleport Point"))
             {

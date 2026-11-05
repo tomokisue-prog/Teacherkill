@@ -112,6 +112,8 @@ bool SaveSystem::SaveScene(const GameContext& gameContext, const std::string& fi
         stpJson["pointNumber"] = stp.GetPointNumber();
         stpJson["type"] = static_cast<int>(stp.GetTeleportType());
         stpJson["radius"] = stp.GetRadius();
+        stpJson["condition"] = static_cast<int>(stp.GetCondition()); 
+        stpJson["triggered"] = stp.IsTriggered();                    
         secTpArray.push_back(stpJson);
     }
     root["securityTeleportPoints"] = secTpArray;
@@ -265,6 +267,8 @@ bool SaveSystem::LoadScene(GameContext& gameContext, const std::string& filepath
             if (stpJson.contains("scale"))       stp.SetScale(JsonToVector3(stpJson["scale"]));
             if (stpJson.contains("pointNumber")) stp.SetPointNumber(stpJson["pointNumber"].get<int>());
             if (stpJson.contains("type"))        stp.SetTeleportType(static_cast<SecurityTeleportType>(stpJson["type"].get<int>()));
+            if (stpJson.contains("condition"))   stp.SetCondition(static_cast<SecurityTeleportCondition>(stpJson["condition"].get<int>()));
+            if (stpJson.contains("triggered"))   stp.SetTriggered(stpJson["triggered"].get<bool>());
             if (stpJson.contains("radius"))      stp.SetRadius(stpJson["radius"].get<float>());
             stps.push_back(stp);
         }

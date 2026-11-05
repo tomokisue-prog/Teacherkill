@@ -184,6 +184,7 @@ void GameContext::Reset()
     tracerActive_ = false;
     tracerAge_ = 0.0f;
     goalPoint_.Reset();
+    securityTeleportUnlocked_ = false;
 }
 
 void GameContext::ShowDialogue(const std::string& dialogueId)
@@ -561,31 +562,35 @@ void GameContext::Update(float deltaTime)
             }
         }
 
-        // 警備室一方通行テレポート判定
-        if (!gameFade_.IsFading())
+        // 警備室一方通行テレポート判定（イベントが解放された後のみ有効）
+        if (!gameFade_.IsFading() && securityTeleportUnlocked_)
         {
             for (auto& sourcePt : securityTeleportPoints_)
             {
                 if (sourcePt.GetTeleportType() == SecurityTeleportType::Source)
                 {
-                    float dist = Vector3Distance(player_.GetPosition(), sourcePt.GetPosition());
-                    if (dist <= sourcePt.GetRadius())
+                    if (!sourcePt.IsTriggered())
                     {
-                        gameFade_.StartFade(2.5f);
-                        break;
+                        float dist = Vector3Distance(player_.GetPosition(), sourcePt.GetPosition());
+                        if (dist <= sourcePt.GetRadius())
+                        {
+                            gameFade_.StartFade(2.5f);
+                            break;
+                        }
                     }
                 }
             }
         }
 
-        // 画面が完全に暗転した瞬間にテレポート先へ移動（一方通行なのでDestinationからSourceへは戻らない）
-        if (gameFade_.IsMidpoint())
+        // 画面が完全に暗転した瞬間にテレポート先へ移動
+        if (gameFade_.IsMidpoint() && securityTeleportUnlocked_)
         {
             for (auto& sourcePt : securityTeleportPoints_)
             {
-                if (sourcePt.GetTeleportType() == SecurityTeleportType::Source)
+                if (sourcePt.GetTeleportType() == SecurityTeleportType::Source && !sourcePt.IsTriggered())
                 {
-                    if (Vector3Distance(player_.GetPosition(), sourcePt.GetPosition()) <= sourcePt.GetRadius())
+                    float dist = Vector3Distance(player_.GetPosition(), sourcePt.GetPosition());
+                    if (dist <= sourcePt.GetRadius())
                     {
                         for (const auto& destPt : securityTeleportPoints_)
                         {
@@ -596,6 +601,9 @@ void GameContext::Update(float deltaTime)
                                 player_.SetPosition(targetPos);
                                 AM().PlaySe(SeId::Teleport);
                                 checkpointRequested_ = true;
+
+                                // 一度使ったら無効化する
+                                sourcePt.SetTriggered(true);
                                 break;
                             }
                         }
@@ -686,6 +694,8 @@ void GameContext::Update(float deltaTime)
                 {
                     eventPoint.SetTriggered(true); // 2回目以降が出ないようにフラグを立てる
                     ShowDialogue(eventPoint.GetDialogueId()); // セリフウィンドウを開く
+
+                    securityTeleportUnlocked_ = true;
                     break;
                 }
             }
@@ -841,6 +851,50 @@ void GameContext::Draw() const
 
             JPFont().DrawText(prompt, x + 2, y + 2, fontSize, BLACK);
             JPFont().DrawText(prompt, x, y, fontSize, RAYWHITE);
+        }
+
+        // LostItem取得後に有効な警備室テレポートの移動元（Source）へピンで誘導
+       // イベントセリフを踏んで解放された後に、警備室テレポートの移動元（Source）へピンで誘導
+        if (securityTeleportUnlocked_)
+        {
+            for (const auto& stp : securityTeleportPoints_)
+            {
+                if (stp.GetTeleportType() == SecurityTeleportType::Source &&
+                    !stp.IsTriggered())
+                {
+                    Vector3 worldPos = stp.GetPosition();
+                    worldPos.y += stp.GetRadius() * 0.5f;
+
+                    const Camera3D& currentCam = cameraController_.GetPlayerCamera().GetRaylibCamera();
+                    Vector2 screenPos = GetWorldToScreen(worldPos, currentCam);
+
+                    Vector3 toPoint = Vector3Subtract(worldPos, currentCam.position);
+                    float forwardDot = Vector3DotProduct(
+                        Vector3Normalize(Vector3Subtract(currentCam.target, currentCam.position)),
+                        Vector3Normalize(toPoint)
+                    );
+
+                    if (forwardDot > 0.0f &&
+                        screenPos.x >= 0 && screenPos.x <= GetScreenWidth() &&
+                        screenPos.y >= 0 && screenPos.y <= GetScreenHeight())
+                    {
+                        float distance = Vector3Length(toPoint);
+                        float baseSize = 40.0f;
+                        float scaleFactor = Clamp(6.0f / (distance + 1.0f), 0.5f, 1.5f);
+                        float size = baseSize * scaleFactor;
+
+                        float floatOffset = std::sin(GetTime() * 4.0f) * 4.0f * scaleFactor;
+                        float centerY = screenPos.y + floatOffset;
+
+                        Vector2 tip = { screenPos.x, centerY + size * 0.5f };
+                        Vector2 topLeft = { screenPos.x - size * 0.45f, centerY - size * 0.5f };
+                        Vector2 topRight = { screenPos.x + size * 0.45f, centerY - size * 0.5f };
+
+                        DrawTriangle(topLeft, tip, topRight, GREEN);
+                        DrawTriangleLines(topLeft, tip, topRight, BLUE);
+                    }
+                }
+            }
         }
     }
 

@@ -132,4 +132,5 @@ private:
     static constexpr int maxBulletMarks_ = 40;
 
     bool hasTriggeredLostItemDialogue_{ false };
+    bool securityTeleportUnlocked_{ false };
 };
