@@ -45,4 +45,5 @@ private:
     int selectedSecurityTeleportIndex_{ 0 };
     int selectedItemIndex_{ 0 };
     int selectedEventPointIndex_{ 0 };
+    int selectedDoorIndex_{ 0 };
 };

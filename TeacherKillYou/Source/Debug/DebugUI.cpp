@@ -27,7 +27,13 @@ void DebugUI::Draw(GameContext& gameContext)
         }
         else if (selectedObject_ == SelectedObjectType::Door)
         {
-            targetObj = &gameContext.GetDoor();
+            // 複数ドアのうち、選択されているインデックスのドアをギズモターゲットにする
+            auto& doors = gameContext.GetDoors();
+            if (selectedDoorIndex_ >= 0 &&
+                selectedDoorIndex_ < static_cast<int>(doors.size()))
+            {
+                targetObj = &doors[selectedDoorIndex_];
+            }
         }
         else if (selectedObject_ == SelectedObjectType::TeleportPoint)
         {
@@ -190,9 +196,28 @@ void DebugUI::DrawHierarchy(GameContext& gameContext)
         selectedObject_ = SelectedObjectType::PaladinModel;
     }
 
-    if (ImGui::Selectable("Door", selectedObject_ == SelectedObjectType::Door))
+    auto& doors = gameContext.GetDoors();
+    for (size_t i = 0; i < doors.size(); ++i)
     {
+        char label[64];
+        snprintf(label, sizeof(label), "Door %d", (int)i);
+
+        bool isSelected = (selectedObject_ == SelectedObjectType::Door && selectedDoorIndex_ == (int)i);
+        if (ImGui::Selectable(label, isSelected))
+        {
+            selectedObject_ = SelectedObjectType::Door;
+            selectedDoorIndex_ = static_cast<int>(i);
+        }
+    }
+
+    // ドアを追加するボタン
+    if (ImGui::Button("+ Add Door"))
+    {
+        DoorMove newDoor;
+        newDoor.SetPosition(gameContext.GetPlayer().GetPosition());
+        doors.push_back(newDoor);
         selectedObject_ = SelectedObjectType::Door;
+        selectedDoorIndex_ = static_cast<int>(doors.size()) - 1;
     }
 
     if (ImGui::Selectable("Goal Point", selectedObject_ == SelectedObjectType::GoalPoint))
@@ -421,6 +446,15 @@ void DebugUI::DrawInspector(GameContext& gameContext)
                 sp.condition = static_cast<demo::EnemySpawnCondition>(condVal);
             }
 
+            int despawnVal = static_cast<int>(sp.despawnCondition);
+            const char* despawnNames[] = {
+                "Normal (Do Not Despawn)",
+                "Despawn On Security Teleport"
+            };
+            if (ImGui::Combo("Despawn Type", &despawnVal, despawnNames, IM_ARRAYSIZE(despawnNames))) {
+                sp.despawnCondition = static_cast<demo::EnemyDespawnCondition>(despawnVal);
+            }
+
             ImGui::Text("Status: %s", sp.spawned ? "Spawned" : "Waiting");
 
             if (ImGui::Button("Reset Spawn Status")) {
@@ -457,52 +491,88 @@ void DebugUI::DrawInspector(GameContext& gameContext)
 
     case SelectedObjectType::Door:
     {
-        DoorMove& door = gameContext.GetDoor();
-
-        Vector3 position = door.GetPosition();
-        Vector3 rotation = door.GetRotation();
-        Vector3 scale = door.GetScale();
-        float speed = door.GetSlideSpeed();
-        float distance = door.GetOpenDistance();
-
-        ImGui::Text("Door Transform");
-
-        if (ImGui::DragFloat3("Position", &position.x, 0.1f)) door.SetPosition(position);
-        if (ImGui::DragFloat3("Rotation", &rotation.x, 1.0f)) door.SetRotation(rotation);
-        if (ImGui::DragFloat3("Scale", &scale.x, 0.05f, 0.1f, 10.0f)) door.SetScale(scale);
-
-        ImGui::Separator();
-        ImGui::Text("Door Controls & Logic");
-
-        // スライド速度・移動距離の調整
-        if (ImGui::SliderFloat("Slide Speed", &speed, 0.1f, 10.0f)) door.SetSlideSpeed(speed);
-        if (ImGui::DragFloat("Open Distance", &distance, 0.1f)) door.SetOpenDistance(distance);
-
-        // 何をしたら開かなくなるのか（ロック条件）の選択 UI
-        int lockTypeVal = static_cast<int>(door.GetLockType());
-        const char* lockTypeNames[] = {
-            "None (Always Operable)",     // 何も選択していない場合は普通に開け閉め可能
-            "LostItem Collected"          // 忘れ物を取得したとき開かなくなる
-        };
-        if (ImGui::Combo("Lock Condition", &lockTypeVal, lockTypeNames, IM_ARRAYSIZE(lockTypeNames)))
+        // 複数ドアの管理とインスペクター表示
+        auto& doors = gameContext.GetDoors();
+        if (!doors.empty())
         {
-            door.SetLockType(static_cast<DoorLockType>(lockTypeVal));
+            if (selectedDoorIndex_ >= static_cast<int>(doors.size())) selectedDoorIndex_ = 0;
+
+            ImGui::Text("Doors Count: %d", (int)doors.size());
+            if (ImGui::Button("Add Door"))
+            {
+                DoorMove newDoor;
+                newDoor.SetPosition(gameContext.GetPlayer().GetPosition());
+                doors.push_back(newDoor);
+                selectedDoorIndex_ = static_cast<int>(doors.size()) - 1;
+            }
+
+            ImGui::Separator();
+
+            DoorMove& door = doors[selectedDoorIndex_];
+            Vector3 position = door.GetPosition();
+            Vector3 rotation = door.GetRotation();
+            Vector3 scale = door.GetScale();
+            float speed = door.GetSlideSpeed();
+            float distance = door.GetOpenDistance();
+
+            ImGui::DragInt("Door Index", &selectedDoorIndex_, 1.0f, 0, (int)doors.size() - 1);
+            if (selectedDoorIndex_ < 0) selectedDoorIndex_ = 0;
+            if (selectedDoorIndex_ >= static_cast<int>(doors.size())) selectedDoorIndex_ = static_cast<int>(doors.size()) - 1;
+
+            ImGui::Text("Door Transform");
+
+            if (ImGui::DragFloat3("Position", &position.x, 0.1f)) door.SetPosition(position);
+            if (ImGui::DragFloat3("Rotation", &rotation.x, 1.0f)) door.SetRotation(rotation);
+            if (ImGui::DragFloat3("Scale", &scale.x, 0.05f, 0.1f, 10.0f)) door.SetScale(scale);
+
+            ImGui::Separator();
+            ImGui::Text("Door Controls & Logic");
+
+            if (ImGui::SliderFloat("Slide Speed", &speed, 0.1f, 10.0f)) door.SetSlideSpeed(speed);
+            if (ImGui::DragFloat("Open Distance", &distance, 0.1f)) door.SetOpenDistance(distance);
+
+            int lockTypeVal = static_cast<int>(door.GetLockType());
+            const char* lockTypeNames[] = {
+                "None (Always Operable)",
+                "LostItem Collected"
+            };
+            if (ImGui::Combo("Lock Condition", &lockTypeVal, lockTypeNames, IM_ARRAYSIZE(lockTypeNames)))
+            {
+                door.SetLockType(static_cast<DoorLockType>(lockTypeVal));
+            }
+
+            int openCondVal = static_cast<int>(door.GetOpenConditionType());
+            const char* openCondNames[] = {
+                "None (Normal Open)",
+                "Test: Press M Key",
+                "Security Teleport Entered"
+            };
+            if (ImGui::Combo("Open Condition", &openCondVal, openCondNames, IM_ARRAYSIZE(openCondNames)))
+            {
+                door.SetOpenConditionType(static_cast<DoorOpenConditionType>(openCondVal));
+            }
+
+            if (ImGui::Button("Toggle Door"))
+            {
+                door.Toggle();
+            }
+
+            if (ImGui::Button("Delete Door"))
+            {
+                doors.erase(doors.begin() + selectedDoorIndex_);
+                selectedDoorIndex_--;
+                if (selectedDoorIndex_ < 0) selectedDoorIndex_ = 0;
+            }
         }
-
-        int openCondVal = static_cast<int>(door.GetOpenConditionType());
-        const char* openCondNames[] = {
-            "None (Normal Open)",         // 条件なし
-            "Test: Press M Key"           // テスト用：Mキーを押す
-        };
-        if (ImGui::Combo("Open Condition", &openCondVal, openCondNames, IM_ARRAYSIZE(openCondNames)))
+        else
         {
-            door.SetOpenConditionType(static_cast<DoorOpenConditionType>(openCondVal));
-        }
-
-        // インスペクター上でのテスト開閉ボタン
-        if (ImGui::Button("Toggle Door"))
-        {
-            door.Toggle();
+            if (ImGui::Button("Add Door"))
+            {
+                DoorMove newDoor;
+                newDoor.SetPosition(gameContext.GetPlayer().GetPosition());
+                doors.push_back(newDoor);
+                selectedDoorIndex_ = 0;
+            }
         }
         break;
     }

@@ -51,7 +51,8 @@ bool DoorMove::IsOpenConditionSatisfied() const
     {
         return true;
     }
-    if (openConditionType_ == DoorOpenConditionType::TestMKey)
+    if (openConditionType_ == DoorOpenConditionType::TestMKey ||
+        openConditionType_ == DoorOpenConditionType::SecurityTeleportEntered)
     {
         return openConditionSatisfied_;
     }

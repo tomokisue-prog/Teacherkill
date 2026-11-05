@@ -86,7 +86,9 @@ void GameContext::Init()
     // 新しいラウンドへ、前回の暗転・会話・ドア開閉・ライト状態を持ち越さない。
     gameFade_.Reset();
     messageWindow_.Close();
-    door_.Init();
+    doors_.clear();
+    DoorMove defaultDoor;
+    doors_.push_back(defaultDoor);
     lighting_.Reset();
     cameraController_.Init();
     player_.Init();
@@ -99,6 +101,7 @@ void GameContext::Init()
     lighting_.Init(RM().GetModelShaders(), RM().GetModel(ResourceKeys::Model_Stage1));
     hitMarkerTimer_ = 0.0f;
     hitMarkerKill_ = false;
+    securityTeleportUnlocked_ = false;
 
     teleportPoints_.clear();
     TeleportPoint tp1;
@@ -134,7 +137,7 @@ void GameContext::Init()
     goalPoint_.Init();
     goalPoint_.SetPosition({ 5.0f, 0.0f, 5.0f });
 
-	DM().LoadFromJson("Data/Json/dialogue.json");
+    DM().LoadFromJson("Data/Json/dialogue.json");
     ShowDialogue("door_locked");
 
     EventMgr().RegisterEvent("Tutorial_4F", std::make_shared<Tutorial4FFloorEvent>());
@@ -142,7 +145,6 @@ void GameContext::Init()
 
     ShowDialogue("opening_4f");
     securityPC_.Init();
-
     // ゾンビ遭遇エリアのイベントポイントを初期化・配置
     eventDialoguePoints_.clear();
     EventDialoguePoint zombieEvent;
@@ -157,7 +159,9 @@ void GameContext::Reset()
     AM().StopAllSe();
     player_.Reset();
     stage_.Reset();
-    door_.Reset();
+    doors_.clear();
+    DoorMove defaultDoor;
+    doors_.push_back(defaultDoor);
     inventory_.Reset();
     bloodEffect_.Reset();
     PlaceCharacters();
@@ -201,7 +205,7 @@ void GameContext::PlaceCharacters()
     inventory_.PlaceOnStage(stage_);
 
     player_.SetPosition(stage_.FindGroundPosition(player_.GetPosition()));
-    
+
     enemyManager_.Clear();
 
     paladinPosition_ = stage_.FindGroundPosition({ 0.0f, 0.0f, 3.0f });
@@ -275,13 +279,9 @@ void GameContext::ProcessPlayerShot()
         }
     }
 
-    // Trigger the visual effects for EVERY shot, even when it misses.
-    // The raycast has already found the nearest wall or enemy distance.
     muzzleFlashTimer_ = 0.06f;
     muzzleFlashFrame_ = GetRandomValue(0, 3);
 
-    // The tracer starts at the visible gun muzzle, but aims at the
-    // point found by the crosshair's hitscan ray.
     tracerStart_ = player_.GetMuzzlePosition(camera);
     tracerEnd_ = Vector3Add(
         ray.position,
@@ -289,13 +289,8 @@ void GameContext::ProcessPlayerShot()
     tracerAge_ = 0.0f;
     tracerActive_ = true;
 
-    // =====================================
-    // Spawn a temporary mark on the wall.
-    // No mark if an enemy was hit before the wall.
-    // =====================================
     if (wallHit.hit && !foundTarget)
     {
-        // Only vertical-ish surfaces
         if (std::fabs(wallHit.normal.y) < 0.65f &&
             Vector3LengthSqr(wallHit.normal) > 0.0001f)
         {
@@ -326,7 +321,6 @@ void GameContext::ProcessPlayerShot()
 
     if (result.applied)
     {
-        // Spawn blood only when the shot hits a living enemy.
         bloodEffect_.Spawn(tracerEnd_, impactNormal);
         hitMarkerTimer_ = 0.12f;
         hitMarkerKill_ = result.becameDead;
@@ -358,15 +352,12 @@ void GameContext::UpdateShotEffects(float deltaTime)
     {
         muzzleFlashTimer_ = 0.0f;
     }
-    // =====================================
-    // Update the lifetime of bullet marks.
-    // =====================================
+
     for (BulletMark& mark : bulletMarks_)
     {
         mark.remainingTime -= deltaTime;
     }
 
-    // Remove expired marks
     bulletMarks_.erase(
         std::remove_if(
             bulletMarks_.begin(),
@@ -392,7 +383,6 @@ void GameContext::DrawShotEffects() const
     const Color flashColor = { 255, 225, 140, 255 };
     const Color tracerColor = { 255, 220, 110, 255 };
 
-    // Keep depth testing, but don't let the effect write depth.
     rlDrawRenderBatchActive();
     rlDisableDepthMask();
 
@@ -403,7 +393,6 @@ void GameContext::DrawShotEffects() const
         const float progress = Clamp(
             tracerAge_ / tracerDuration_, 0.0f, 1.0f);
 
-        // Show a short moving segment rather than a full laser beam.
         const float head = Clamp(
             progress * 1.25f + 0.15f, 0.0f, 1.0f);
 
@@ -491,30 +480,28 @@ void GameContext::Update(float deltaTime)
 
         // プレイヤー更新
         player_.Update(deltaTime, stage_, forward, right);
-        // HPが0になったフレームに、ゴール到達やテレポートを処理しない。
         if (!player_.IsAlive()) {
             inventory_.CancelHealing();
             return;
         }
 
-        // ドアとの当たり判定チェック
-        BoundingBox doorBox = door_.GetBoundingBox();
-
-        // プレイヤーを高さ方向を考慮した球（あるいはカプセル）に見立てて判定
-        Vector3 playerCenter = {
-            player_.GetPosition().x,
-            player_.GetPosition().y + player_.GetHeight() * 0.5f,
-            player_.GetPosition().z
-        };
-
-        // Raylib の関数でボックスと球の衝突をチェック
-        if (CheckCollisionBoxSphere(doorBox, playerCenter, player_.GetRadius()))
+        // 全てのドアとの当たり判定チェック（すり抜け防止）
+        for (auto& d : doors_)
         {
-            // 衝突している場合は移動前の位置に巻き戻す（すり抜け防止）
-            player_.SetPosition(oldPlayerPos);
+            BoundingBox doorBox = d.GetBoundingBox();
+            Vector3 playerCenter = {
+                player_.GetPosition().x,
+                player_.GetPosition().y + player_.GetHeight() * 0.5f,
+                player_.GetPosition().z
+            };
+
+            if (CheckCollisionBoxSphere(doorBox, playerCenter, player_.GetRadius()))
+            {
+                player_.SetPosition(oldPlayerPos);
+            }
         }
 
-        // 1. プレイヤーの移動処理後、テレポート判定を行う
+        // テレポート判定
         if (!gameFade_.IsFading())
         {
             for (auto& sourcePt : teleportPoints_)
@@ -524,7 +511,6 @@ void GameContext::Update(float deltaTime)
                     float dist = Vector3Distance(player_.GetPosition(), sourcePt.GetPosition());
                     if (dist <= sourcePt.GetRadius())
                     {
-                        // バイオ風のフェードアウトを開始
                         gameFade_.StartFade(2.5f);
                         break;
                     }
@@ -562,7 +548,7 @@ void GameContext::Update(float deltaTime)
             }
         }
 
-        // 警備室一方通行テレポート判定（イベントが解放された後のみ有効）
+        // 警備室一方通行テレポート判定
         if (!gameFade_.IsFading() && securityTeleportUnlocked_)
         {
             for (auto& sourcePt : securityTeleportPoints_)
@@ -582,7 +568,6 @@ void GameContext::Update(float deltaTime)
             }
         }
 
-        // 画面が完全に暗転した瞬間にテレポート先へ移動
         if (gameFade_.IsMidpoint() && securityTeleportUnlocked_)
         {
             for (auto& sourcePt : securityTeleportPoints_)
@@ -602,8 +587,17 @@ void GameContext::Update(float deltaTime)
                                 AM().PlaySe(SeId::Teleport);
                                 checkpointRequested_ = true;
 
-                                // 一度使ったら無効化する
                                 sourcePt.SetTriggered(true);
+                                enemyManager_.DespawnBySecurityTeleport();
+
+                                // 警備室テレポートに入ったら条件付きの全ドアを開放状態にする
+                                for (auto& d : doors_)
+                                {
+                                    if (d.GetOpenConditionType() == DoorOpenConditionType::SecurityTeleportEntered)
+                                    {
+                                        d.SetOpenConditionSatisfied(true);
+                                    }
+                                }
                                 break;
                             }
                         }
@@ -616,58 +610,68 @@ void GameContext::Update(float deltaTime)
         float distToGoal = Vector3Distance(player_.GetPosition(), goalPoint_.GetPosition());
         if (distToGoal <= goalPoint_.GetRadius())
         {
-            AM().PlaySe(SeId::Confirm); // 必要に応じて効果音
+            AM().PlaySe(SeId::Confirm);
             SM().ChangeScene(SceneID::Goal);
-            return; // シーン切り替え時は以降の更新をスキップ
+            return;
         }
     }
 
-
-    door_.Update(deltaTime, player_, &inventory_);
+    // 全てのドアを更新
+    for (auto& d : doors_)
+    {
+        d.Update(deltaTime, player_, &inventory_);
+    }
 
     // 2. ワールドオブジェクト（ステージ・敵）の更新
-    const BoundingBox doorBounds = door_.GetBoundingBox();
-    enemyManager_.Update(deltaTime, player_, stage_, &doorBounds, &inventory_);
-    enemyManager_.RemoveExpired();
+    // 複数のドアがあるため、プレイヤーに最も近いドアのバウンディングボックスを敵の障害物として渡す
+    BoundingBox nearestDoorBox{};
+    bool hasValidDoor = false;
+    float minDist = 999.0f;
 
-    // 3. ギズモ編集結果も含め、常に最新の Player 位置を PlayerCamera へ同期
+    for (const auto& d : doors_)
+    {
+        float dist = Vector3Distance(player_.GetPosition(), d.GetPosition());
+        if (dist < minDist)
+        {
+            minDist = dist;
+            nearestDoorBox = d.GetBoundingBox();
+            hasValidDoor = true;
+        }
+    }
+
+    const BoundingBox* doorBoxPtr = hasValidDoor ? &nearestDoorBox : nullptr;
+    enemyManager_.Update(deltaTime, player_, stage_, doorBoxPtr, &inventory_);
+    enemyManager_.RemoveExpired();
 
     if (player_.ConsumeDamageImpact())
     {
         cameraController_.GetPlayerCamera().StartDamageImpact();
     }
 
-    // 3. プレイヤー位置をカメラに同期
     cameraController_.GetPlayerCamera().SetEyeHeight(player_.GetHeight() * WorldScale::EyeHeightRatio);
     cameraController_.GetPlayerCamera().SetPlayerPosition(
         player_.GetPosition()
     );
 
-    // 4. カメラ更新
     cameraController_.Update();
 
-    // 5. Inventory: precise pickups, instant reserve ammo and hold-to-heal.
     if (isPlayerCameraActive && player_.IsAlive())
     {
         const Camera3D camera =
             cameraController_.GetPlayerCamera().GetRaylibCamera();
 
-        // Passing the Stage prevents picking up through stage walls.
         inventory_.Update(deltaTime, camera, &stage_);
 
-        // World ammo pickups never occupy an inventory slot.
         if (inventory_.GetPickedUpItem() == ItemType::Ammo)
         {
             player_.AddReserveAmmo(AMMO_PICKUP_AMOUNT);
         }
 
-        // This event occurs only after holding E for 3 uninterrupted seconds.
         if (inventory_.GetUsedItem() == ItemType::Medkit)
         {
             player_.Heal(MEDKIT_HEAL_AMOUNT);
         }
 
-        // LostItemが回収された状態になった瞬間を監視し、1度だけセリフを再生する
         if (!hasTriggeredLostItemDialogue_ && inventory_.IsLostItemCollected())
         {
             hasTriggeredLostItemDialogue_ = true;
@@ -690,10 +694,10 @@ void GameContext::Update(float deltaTime)
         {
             for (auto& eventPoint : eventDialoguePoints_)
             {
-				if (eventPoint.CheckPlayerInArea(player_.GetPosition(), inventory_))
+                if (eventPoint.CheckPlayerInArea(player_.GetPosition(), inventory_))
                 {
-                    eventPoint.SetTriggered(true); // 2回目以降が出ないようにフラグを立てる
-                    ShowDialogue(eventPoint.GetDialogueId()); // セリフウィンドウを開く
+                    eventPoint.SetTriggered(true);
+                    ShowDialogue(eventPoint.GetDialogueId());
 
                     securityTeleportUnlocked_ = true;
                     break;
@@ -703,15 +707,12 @@ void GameContext::Update(float deltaTime)
     }
     else
     {
-        // Camera switch or death interrupts any ongoing healing.
         inventory_.CancelHealing();
     }
-    // 6. プレイヤー射撃処理
+
     ProcessPlayerShot();
     horrorAudio_.Update(deltaTime, player_, cameraController_.GetPlayerCamera(), enemyManager_, stage_, isPlayerCameraActive);
-
 }
-
 
 void GameContext::Draw() const
 {
@@ -728,14 +729,13 @@ void GameContext::Draw() const
 
     BeginMode3D(cameraController_.GetActiveRaylibCamera());
 
-    // 編集用グリッド
     if (!playerView)
     {
         DrawGrid(20, 1.0f);
     }
 
     stage_.Draw();
- 
+
     if (!playerView)
     {
         for (const auto& tp : teleportPoints_)
@@ -756,7 +756,6 @@ void GameContext::Draw() const
         }
     }
 
-    // プレイヤーカメラ
     const PlayerCamera* activePlayerCam = nullptr;
 
     if (playerView)
@@ -765,7 +764,11 @@ void GameContext::Draw() const
             &cameraController_.GetPlayerCamera();
     }
 
-    door_.Draw();
+    // 全てのドアを描画
+    for (const auto& d : doors_)
+    {
+        d.Draw();
+    }
 
     player_.Draw(activePlayerCam);
     enemyManager_.Draw();
@@ -797,40 +800,56 @@ void GameContext::Draw() const
         player_.DrawStaminaHUD();
         player_.DrawAmmoHUD();
 
-        // インベントリHUD表示
         inventory_.DrawHUD();
 
-        float distToDoor = Vector3Distance(player_.GetPosition(), door_.GetPosition());
-        if (distToDoor <= door_.GetInteractRadius())
+        // プレイヤーに最も近いドアを探してインタラクションプロンプトを表示する
+        const DoorMove* nearestDoor = nullptr;
+        float minDoorDist = 999.0f;
+        for (const auto& d : doors_)
+        {
+            float dist = Vector3Distance(player_.GetPosition(), d.GetPosition());
+            if (dist < minDoorDist)
+            {
+                minDoorDist = dist;
+                nearestDoor = &d;
+            }
+        }
+
+        if (nearestDoor && minDoorDist <= nearestDoor->GetInteractRadius())
         {
             std::string prompt = "";
 
-            // 閉じる条件が発動済み、または閉じる条件がNoneで開ける条件が未達の場合のみ [M] Unlock を表示
-            bool isClosedByCondition = (door_.GetLockType() != DoorLockType::None && door_.IsLocked(&inventory_)); // ※忘れ物取得後など
+            bool isClosedByCondition = (nearestDoor->GetLockType() != DoorLockType::None && nearestDoor->IsLocked(&inventory_));
             bool needsUnlock = false;
 
-            if (door_.GetLockType() == DoorLockType::None)
+            if (nearestDoor->GetLockType() == DoorLockType::None)
             {
-                needsUnlock = (door_.GetOpenConditionType() == DoorOpenConditionType::TestMKey && !door_.IsOpenConditionSatisfied());
+                needsUnlock = (nearestDoor->GetOpenConditionType() != DoorOpenConditionType::None && !nearestDoor->IsOpenConditionSatisfied());
             }
             else
             {
-                // 閉じる条件がある場合は、実際にその条件でロックされた時だけMキーを要求
-                needsUnlock = (door_.IsLocked(&inventory_) && door_.GetOpenConditionType() == DoorOpenConditionType::TestMKey && !door_.IsOpenConditionSatisfied());
+                needsUnlock = (nearestDoor->IsLocked(&inventory_) && nearestDoor->GetOpenConditionType() != DoorOpenConditionType::None && !nearestDoor->IsOpenConditionSatisfied());
             }
 
             if (needsUnlock)
             {
-                prompt = "[M] Unlock";
+                if (nearestDoor->GetOpenConditionType() == DoorOpenConditionType::SecurityTeleportEntered)
+                {
+                    prompt = "Locked (Requires Security Teleport)";
+                }
+                else
+                {
+                    prompt = "[M] Unlock";
+                }
             }
             else
             {
-                prompt = door_.IsOpen() ? "[E] Close" : "[E] Open";
+                prompt = nearestDoor->IsOpen() ? "[E] Close" : "[E] Open";
             }
 
             if (!prompt.empty())
             {
-                const float fontSize = 48.0f;
+                const float fontSize = 36.0f;
                 Vector2 textSize = JPFont().MeasureText(prompt, fontSize);
                 const int x = static_cast<int>((GetScreenWidth() - textSize.x) / 2.0f);
                 const int y = static_cast<int>((GetScreenHeight() / 2.0f) + 30.0f);
@@ -840,21 +859,6 @@ void GameContext::Draw() const
             }
         }
 
-        if (inventory_.IsLostItemCollected() && securityPC_.CanInteract(player_.GetPosition()))
-        {
-            std::string prompt = securityPC_.IsActivated() ? "PC Activated" : "[E] Examine PC";
-
-            const float fontSize = 20.0f;
-            Vector2 textSize = JPFont().MeasureText(prompt, fontSize);
-            const int x = static_cast<int>((GetScreenWidth() - textSize.x) / 2.0f);
-            const int y = static_cast<int>((GetScreenHeight() / 2.0f) + 60.0f);
-
-            JPFont().DrawText(prompt, x + 2, y + 2, fontSize, BLACK);
-            JPFont().DrawText(prompt, x, y, fontSize, RAYWHITE);
-        }
-
-        // LostItem取得後に有効な警備室テレポートの移動元（Source）へピンで誘導
-       // イベントセリフを踏んで解放された後に、警備室テレポートの移動元（Source）へピンで誘導
         if (securityTeleportUnlocked_)
         {
             for (const auto& stp : securityTeleportPoints_)
@@ -907,13 +911,12 @@ void GameContext::Draw() const
     }
 }
 
-
 void GameContext::End()
 {
     AM().StopAllSe();
     enemyManager_.Clear();
     player_.End();
-    inventory_.End();  // Unload item GLB models
+    inventory_.End();
     stage_.End();
     bloodEffect_.Shutdown();
     lighting_.Shutdown();
@@ -929,11 +932,6 @@ void GameContext::End()
     bulletMarks_.clear();
 }
 
-
-// ================================================
-// Draw 2-second bullet holes on the stage surface.
-// This is geometry only: no texture/model needed.
-// ================================================
 void GameContext::DrawBulletMarks() const
 {
     constexpr int segments = 16;
@@ -954,7 +952,6 @@ void GameContext::DrawBulletMarks() const
 
         const Vector3 normal = Vector3Normalize(mark.normal);
 
-        // Build a local plane parallel to the impact surface.
         const Vector3 reference = std::fabs(normal.y) > 0.9f
             ? Vector3{ 1.0f, 0.0f, 0.0f }
         : Vector3{ 0.0f, 1.0f, 0.0f };
@@ -963,7 +960,6 @@ void GameContext::DrawBulletMarks() const
             Vector3CrossProduct(reference, normal));
         const Vector3 bitangent = Vector3CrossProduct(normal, tangent);
 
-        // Slightly offset the discs to prevent wall Z-fighting.
         auto drawDisc = [&](float radius, float offset, Color color)
             {
                 const Vector3 center = Vector3Add(
@@ -990,7 +986,6 @@ void GameContext::DrawBulletMarks() const
                 }
             };
 
-        // Outer gray impact edge, followed by a smaller black center.
         drawDisc(outerRadius, 0.008f, Fade(DARKGRAY, 0.65f * fade));
         drawDisc(innerRadius, 0.011f, Fade(BLACK, 0.95f * fade));
     }
@@ -1001,14 +996,18 @@ CheckpointData GameContext::CaptureCheckpoint() const
     CheckpointData data;
     data.player = player_.CaptureCheckpoint();
     data.inventory = inventory_.CaptureCheckpoint();
-    data.door = door_.CaptureCheckpoint();
+    // 複数ドアのうち最初のドア、またはチェックポイント用の処理（必要に応じて対応）
+    if (!doors_.empty())
+    {
+        data.door = doors_[0].CaptureCheckpoint();
+    }
     for (const auto& enemy : enemyManager_.GetEnemies())
         if (enemy.IsAlive()) data.enemies.push_back(enemy.CaptureCheckpoint());
     for (const auto& tp : teleportPoints_)
-        data.teleports.push_back({{tp.GetPosition(), tp.GetRotation(), tp.GetScale()}, tp.GetPointNumber(), int(tp.GetTeleportType()), tp.GetRadius()});
+        data.teleports.push_back({ {tp.GetPosition(), tp.GetRotation(), tp.GetScale()}, tp.GetPointNumber(), int(tp.GetTeleportType()), tp.GetRadius() });
     data.stagePosition = stage_.GetPosition();
     data.stageScale = stage_.GetScale();
-    data.goal = {goalPoint_.GetPosition(), goalPoint_.GetRotation(), goalPoint_.GetScale()};
+    data.goal = { goalPoint_.GetPosition(), goalPoint_.GetRotation(), goalPoint_.GetScale() };
     data.goalRadius = goalPoint_.GetRadius();
     const auto& camera = cameraController_.GetPlayerCamera();
     data.yaw = camera.GetYaw();
@@ -1019,7 +1018,6 @@ CheckpointData GameContext::CaptureCheckpoint() const
 
 void GameContext::RestoreCheckpoint(const CheckpointData& data)
 {
-    // Loaded models and HUD textures stay alive. Transient attacks and visual effects do not.
     AM().StopAllSe();
     gameFade_.Reset();
     messageWindow_.Close();
@@ -1033,7 +1031,10 @@ void GameContext::RestoreCheckpoint(const CheckpointData& data)
     player_.RestoreCheckpoint(data.player);
     inventory_.RestoreCheckpoint(data.inventory);
     inventory_.PlaceOnStage(stage_);
-    door_.RestoreCheckpoint(data.door);
+    if (!doors_.empty())
+    {
+        doors_[0].RestoreCheckpoint(data.door);
+    }
     enemyManager_.Clear();
     for (const auto& saved : data.enemies) {
         const auto id = enemyManager_.Spawn(saved.position, saved.config, saved.yaw);

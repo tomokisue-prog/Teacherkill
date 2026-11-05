@@ -52,8 +52,9 @@ void EnemyManager::Update(float dt, const TargetInfo& target, const Stage& stage
         }
 
         if (shouldSpawn) {
-            Spawn(sp.GetPosition(), sp.config, sp.yaw);
+            EnemyId id = Spawn(sp.GetPosition(), sp.config, sp.yaw);
             sp.spawned = true;
+            sp.spawnedEnemyId = id;
         }
     }
 
@@ -80,8 +81,9 @@ void EnemyManager::Update(float dt, Player& player, const Stage& stage, const Bo
         }
 
         if (shouldSpawn) {
-            Spawn(sp.GetPosition(), sp.config, sp.yaw);
+            EnemyId id = Spawn(sp.GetPosition(), sp.config, sp.yaw);
             sp.spawned = true;
+            sp.spawnedEnemyId = id;
         }
     }
 
@@ -126,6 +128,18 @@ void EnemyManager::Draw() const {
 int EnemyManager::AliveCount() const {
     return static_cast<int>(std::count_if(enemies_.begin(), enemies_.end(),
         [](const Enemy& enemy) { return enemy.IsAlive(); }));
+}
+
+void EnemyManager::DespawnBySecurityTeleport()
+{
+    for (auto& sp : spawnPoints_) {
+        if (sp.despawnCondition == EnemyDespawnCondition::OnSecurityTeleport && sp.spawned) {
+            Enemy* enemy = Find(sp.spawnedEnemyId);
+            if (enemy && enemy->IsAlive()) {
+                enemy->TakeDamage(9999); // 強制的にダメージを与えて撃破・デスポーンさせる
+            }
+        }
+    }
 }
 
 }

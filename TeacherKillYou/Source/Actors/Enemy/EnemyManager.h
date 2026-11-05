@@ -14,12 +14,20 @@ namespace demo {
         LostItemCollected,  // 「忘れ物を拾った後スポーンする」
     };
 
+    // 敵のデスポーン条件の種類
+    enum class EnemyDespawnCondition {
+        None,                   // デスポーンしない（通常）
+        OnSecurityTeleport,     // 警備室テレポートポイントにプレイヤーが入ったらデスポーン
+    };
+
     // スポーン設定データ
     struct EnemySpawnData : public GameObject {
         EnemyConfig config{};
         float yaw = 0.0f;
         EnemySpawnCondition condition = EnemySpawnCondition::None;
+        EnemyDespawnCondition despawnCondition = EnemyDespawnCondition::None;
         bool spawned = false;
+        EnemyId spawnedEnemyId = 0;
 
         EnemySpawnData() : GameObject(GameObjectType::Enemy, "EnemySpawner") {}
     };
@@ -46,7 +54,8 @@ namespace demo {
         const Enemy* Find(EnemyId id) const;
         const std::vector<Enemy>& GetEnemies() const { return enemies_; }
         int AliveCount() const;
-
+        // 警備室テレポート使用時に条件付き敵をデスポーンさせる
+        void DespawnBySecurityTeleport();
         // インスペクター編集用アクセサ
         std::vector<EnemySpawnData>& GetSpawnPoints() { return spawnPoints_; }
         const std::vector<EnemySpawnData>& GetSpawnPoints() const { return spawnPoints_; }
