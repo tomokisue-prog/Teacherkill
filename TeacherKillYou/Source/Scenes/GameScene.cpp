@@ -103,8 +103,8 @@ void GameScene::BeginGameOver()
     AM().StopAmbience();
     AM().StopAllSe();
     AM().SetPaused(false);
-    // StopAllSe also stopped the lethal hit this frame; replay it with YOU DIED.
-    AM().PlaySe(SeId::PlayerHit, 0.9f);
+    // Start the death voice after stopping gameplay sounds.
+    AM().PlaySe(SeId::PlayerDeath, 0.9f);
     AM().PlaySe(SeId::YouDied);
     EnableCursor();
 }
