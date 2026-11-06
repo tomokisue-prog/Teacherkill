@@ -1,4 +1,5 @@
 #include "Inventory.h"
+#include "ItemCatalog.h"
 #include "CheckpointData.h"
 #include "Stage.h"
 #include "WorldScale.h"
@@ -85,7 +86,7 @@ float Inventory::GetHealingProgress() const
 // 内部ロジック & ヘルパー
 bool Inventory::AddItem(ItemType item)
 {
-    if (item < ItemType::Medkit || item > ItemType::LostItem || item == ItemType::Ammo)
+    if (!GetItemDefinition(item).storedInInventory)
         return false;
 
     for (ItemType& slot : slots_)

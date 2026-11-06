@@ -56,7 +56,7 @@ private:
     int selectedDoorIndex_{ 0 };
     ItemType newItemType_ = ItemType::Medkit;
     std::optional<Item> pendingItem_;
-    int newEnemyType_ = 0;
+    demo::EnemyType newEnemyType_ = demo::EnemyType::FemaleZombie;
     std::optional<demo::EnemySpawnData> pendingEnemy_;
     const char* placementMessage_ = nullptr;
     const char* sceneSaveMessage_ = nullptr;

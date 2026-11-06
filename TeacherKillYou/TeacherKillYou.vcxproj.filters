@@ -273,6 +273,30 @@
     <ClCompile Include="Source\Events\SecurityTeleportPoint.cpp">
       <Filter>Source\Events</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Core\GameContextCombat.cpp">
+      <Filter>Source\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Core\GameContextDraw.cpp">
+      <Filter>Source\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Core\GameContextCheckpoint.cpp">
+      <Filter>Source\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\UI\PlayerStatusHud.cpp">
+      <Filter>Source\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\UI\GunTutorialUI.cpp">
+      <Filter>Source\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Scenes\IntroVideoPlayer.cpp">
+      <Filter>Source\Scenes</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Graphics\LowHpBloodOverlay.cpp">
+      <Filter>Source\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Items\ItemCatalog.cpp">
+      <Filter>Source\Items</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Audio\AudioManager.h">
@@ -506,6 +530,21 @@
     <ClInclude Include="Source\Events\SecurityTeleportPoint.h">
       <Filter>Source\Events</Filter>
     </ClInclude>
+    <ClInclude Include="Source\UI\PlayerStatusHud.h">
+      <Filter>Source\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\UI\GunTutorialUI.h">
+      <Filter>Source\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Scenes\IntroVideoPlayer.h">
+      <Filter>Source\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Graphics\LowHpBloodOverlay.h">
+      <Filter>Source\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Items\ItemCatalog.h">
+      <Filter>Source\Items</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config">
@@ -523,9 +562,6 @@
     <None Include="README.md">
       <Filter>Project</Filter>
     </None>
-    <None Include="Data\Audio\README.md">
-      <Filter>Data</Filter>
-    </None>
     <None Include="tools\FBX.md">
       <Filter>Tools</Filter>
     </None>
@@ -536,4 +572,5 @@
       <Filter>External\ufbx</Filter>
     </None>
   </ItemGroup>
+
 </Project>

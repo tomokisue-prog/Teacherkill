@@ -1,4 +1,5 @@
 ﻿#include "DebugUI.h"
+#include "ItemCatalog.h"
 #include "GameContext.h"
 #include "imgui.h"
 #include "SceneManager.h"
@@ -715,10 +716,32 @@ void DebugUI::DrawCameraController(CameraController& cameraController)
 }
 
 namespace {
-    constexpr const char* EnemyTypes[] = {"ZOMBIE", "MONSTER MALE 2"};
-    constexpr demo::EnemyType EnemyKinds[] = {demo::EnemyType::FemaleZombie, demo::EnemyType::MonsterMale2};
-    static_assert(IM_ARRAYSIZE(EnemyTypes) == IM_ARRAYSIZE(EnemyKinds));
-    int EnemyTypeIndex(demo::EnemyType type) { return type == demo::EnemyType::MonsterMale2 ? 1 : 0; }
+    // Persisted enemy IDs are not zero-based UI indices. Keep each label with its ID.
+    constexpr struct { demo::EnemyType type; const char* name; } EnemyChoices[] = {
+        {demo::EnemyType::FemaleZombie, "ZOMBIE"},
+        {demo::EnemyType::MonsterMale2, "MONSTER MALE 2"}
+    };
+
+    const char* EnemyTypeName(demo::EnemyType type) {
+        for (const auto& choice : EnemyChoices)
+            if (choice.type == type) return choice.name;
+        return "UNKNOWN";
+    }
+
+    bool EnemyTypeCombo(const char* label, demo::EnemyType& type) {
+        if (!ImGui::BeginCombo(label, EnemyTypeName(type))) return false;
+        bool changed = false;
+        for (const auto& choice : EnemyChoices) {
+            const bool selected = choice.type == type;
+            if (ImGui::Selectable(choice.name, selected)) {
+                type = choice.type;
+                changed = !selected;
+            }
+            if (selected) ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+        return changed;
+    }
 
     constexpr ImGuiSliderFlags ClampInput = ImGuiSliderFlags_AlwaysClamp;
 
@@ -734,35 +757,17 @@ namespace {
                 {p.x + c.bodyRadius, p.y + c.bodyHeight, p.z + c.bodyRadius} };
     }
 
-    constexpr struct { ItemType type; const char* name; } ItemChoices[] = {
-        {ItemType::Medkit, u8"回復キット"},
-        {ItemType::Ammo, u8"弾薬"},
-        {ItemType::KeyCard, u8"キーカード"},
-        {ItemType::LostItem, u8"携帯電話（忘れ物）"},
-        {ItemType::Books, u8"本"},
-        {ItemType::Chair1, u8"椅子 1"},
-        {ItemType::Chair2, u8"椅子 2"},
-        {ItemType::Computer, u8"パソコン"},
-        {ItemType::Locker, u8"ロッカー"},
-        {ItemType::Whiteboard, u8"ホワイトボード"},
-        {ItemType::TrashBin, u8"ごみ箱"},
-        {ItemType::Table, u8"机"},
-        {ItemType::HorrorTable, u8"ホラー調の机"},
-        {ItemType::SlideDoorProp, u8"スライドドア（装飾）"}
-    };
-
     const char* ItemName(ItemType type) {
-        for (const auto& option : ItemChoices)
-            if (type == option.type) return option.name;
-        return Item::GetName(type);
+        return GetItemDefinition(type).displayName;
     }
 
     bool ItemTypeCombo(const char* label, ItemType& type) {
         if (!ImGui::BeginCombo(label, ItemName(type))) return false;
         bool changed = false;
-        for (const auto& option : ItemChoices) {
+        for (const auto& option : GetItemDefinitions()) {
+            if (!option.modelKey) continue;
             const bool selected = option.type == type;
-            if (ImGui::Selectable(option.name, selected)) {
+            if (ImGui::Selectable(option.displayName, selected)) {
                 type = option.type;
                 changed = !selected;
             }
@@ -793,11 +798,11 @@ void DebugUI::DrawEnemyHierarchy(GameContext& gameContext)
     if (!ImGui::CollapsingHeader(u8"Enemies / 敵配置", ImGuiTreeNodeFlags_DefaultOpen)) return;
     auto& spawnPoints = gameContext.GetEnemyManager().GetSpawnPoints();
     ImGui::PushID("EnemyPlacements");
-    ImGui::Combo(u8"追加する種類", &newEnemyType_, EnemyTypes, IM_ARRAYSIZE(EnemyTypes));
+    EnemyTypeCombo(u8"追加する種類", newEnemyType_);
     ImGui::BeginDisabled(spawnPoints.size() >= demo::MaxEnemyPlacements);
     if (ImGui::Button(u8"+ 敵を配置")) {
         pendingEnemy_ = demo::EnemySpawnData{};
-        pendingEnemy_->config = demo::EnemyConfig::ForType(static_cast<demo::EnemyType>(newEnemyType_));
+        pendingEnemy_->config = demo::EnemyConfig::ForType(newEnemyType_);
         pendingEnemy_->condition = demo::EnemySpawnCondition::Normal;
         pendingEnemy_->despawnCondition = demo::EnemyDespawnCondition::None;
         selectedObject_ = SelectedObjectType::EnemyManager;
@@ -805,7 +810,7 @@ void DebugUI::DrawEnemyHierarchy(GameContext& gameContext)
     }
     ImGui::EndDisabled();
     if (pendingEnemy_) {
-        ImGui::TextWrapped(u8"%s を置く床をクリック", EnemyTypes[EnemyTypeIndex(pendingEnemy_->config.type)]);
+        ImGui::TextWrapped(u8"%s を置く床をクリック", EnemyTypeName(pendingEnemy_->config.type));
         if (ImGui::Button(u8"配置をキャンセル")) {
             pendingEnemy_.reset();
             placementMessage_ = nullptr;
@@ -817,7 +822,7 @@ void DebugUI::DrawEnemyHierarchy(GameContext& gameContext)
     for (int i = 0; i < static_cast<int>(spawnPoints.size()); ++i) {
         const bool selected = selectedObject_ == SelectedObjectType::EnemyManager && selectedEnemyIndex_ == i;
         const auto type = spawnPoints[i].config.type;
-        if (ImGui::Selectable(TextFormat("%d  %s##enemy%d", i + 1, EnemyTypes[int(type)], i), selected)) {
+        if (ImGui::Selectable(TextFormat("%d  %s##enemy%d", i + 1, EnemyTypeName(type), i), selected)) {
             selectedEnemyIndex_ = i;
             selectedObject_ = SelectedObjectType::EnemyManager;
             pendingEnemy_.reset();
@@ -857,9 +862,7 @@ void DebugUI::DrawEnemyInspector(GameContext& gameContext)
     ImGui::PushID(selectedEnemyIndex_);
     auto& placement = spawnPoints[selectedEnemyIndex_];
     auto& config = placement.config;
-    int type = static_cast<int>(config.type);
-    bool changed = ImGui::Combo(u8"種類", &type, EnemyTypes, IM_ARRAYSIZE(EnemyTypes));
-    config.type = static_cast<demo::EnemyType>(type);
+    bool changed = EnemyTypeCombo(u8"種類", config.type);
 
     Vector3 position = placement.GetPosition();
     changed |= ImGui::DragFloat3(u8"位置", &position.x, .05f, -100000, 100000, "%.2f", ClampInput);

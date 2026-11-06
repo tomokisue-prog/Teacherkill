@@ -16,7 +16,6 @@
 #include "HorrorAudio.h"
 #include "CheckpointData.h"
 #include "../Events/EventManager.h"
-#include "../Events/Tutorial4FFloorEvent.h"
 #include "../Events/SecurityPC.h"
 #include "../Events/EventDialoguePoint.h"
 #include "../Events/SecurityTeleportPoint.h"
@@ -119,7 +118,6 @@ private:
     Inventory inventory_;
     GoalPoint goalPoint_;
 	MessageWindow messageWindow_;
-	Tutorial4FFloorEvent tutorial4FFloorEvent;
     SecurityPC securityPC_;
     GunTutorialUI gunTutorialUI_;
 

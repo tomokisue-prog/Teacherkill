@@ -9,7 +9,6 @@ namespace ResourceKeys {
     inline constexpr const char* Model_MonsterMale2 = "Model_MonsterMale2";
     inline constexpr const char* Animation_MonsterMale2Run = "MonsterMale2Run";
     inline constexpr const char* Animation_MonsterMale2Death = "MonsterMale2Death";
-    inline constexpr const char* Model_Stage = "Model_Stage";
 
 	//Player用キー
     inline constexpr const char* Model_HandGunView = "HandGunView";

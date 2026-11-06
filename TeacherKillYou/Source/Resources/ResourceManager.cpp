@@ -3,6 +3,7 @@
 #include "FbxLoader.h"
 #include "GltfMaterials.h"
 #include "ItemMaterials.h"
+#include "ItemCatalog.h"
 #include "HorrorLighting.h"
 #include "raylib.h"
 #include "rlgl.h"
@@ -26,61 +27,45 @@ namespace {
     };
 
     // Keep model imports before the clips that reuse their mesh and rig.
-    const LoadJob GameResources[] = {
-        {LoadKind::Model, ResourceKeys::Model_HandGunView, "Data/Image/HandPov/idle_static (2).glb"},
-        {LoadKind::Model, "PlayerShoot", "Data/Image/HandPov/shoot_raylib.glb"},
-        {LoadKind::Animation, "PlayerShoot", "Data/Image/HandPov/shoot_raylib.glb"},
-        {LoadKind::Model, "PlayerReload", "Data/Image/HandPov/reload_raylib.glb"},
-        {LoadKind::Animation, "PlayerReload", "Data/Image/HandPov/reload_raylib.glb"},
-        {LoadKind::Model, ResourceKeys::Model_Stage1, "Data/Image/Floor 1.glb"},
-        {LoadKind::Model, ResourceKeys::Model_FemaleZombie, "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 running.fbx"},
-        {LoadKind::FbxAnimation, ResourceKeys::Animation_FemaleZombieAttack, "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 attack.fbx", ResourceKeys::Model_FemaleZombie},
-        {LoadKind::FbxAnimation, ResourceKeys::Animation_FemaleZombieDeath, "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 death.fbx", ResourceKeys::Model_FemaleZombie},
-        {LoadKind::FbxAnimation, ResourceKeys::Animation_FemaleZombieHit, "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 hit.fbx", ResourceKeys::Model_FemaleZombie},
-        // 攻撃FBXのメッシュは目が頭に付いている。走行と死亡の動作をこのモデルへ取り込む。
-        {LoadKind::Model, ResourceKeys::Model_MonsterMale2, "Data/Image/monster male 2/monster male_attack.fbx"},
-        {LoadKind::FbxAnimation, ResourceKeys::Animation_MonsterMale2Run, "Data/Image/monster male 2/monster male run.fbx", ResourceKeys::Model_MonsterMale2,
-            {"Armature", "Armature.001", true}},
-        {LoadKind::FbxAnimation, ResourceKeys::Animation_MonsterMale2Death, "Data/Image/monster male 2/monster male_dead.fbx", ResourceKeys::Model_MonsterMale2,
-            {"Armature", "Armature.001", true}},
-        {LoadKind::Model, ResourceKeys::Model_Door, "Data/Image/slide door.glb"},
-		{LoadKind::Texture, ResourceKeys::WASD_UI, "Data/Image/WASDUI.png"},
-		{LoadKind::Texture, ResourceKeys::Gun_UI1, "Data/Image/GunUI1.png"},
-		{LoadKind::Texture, ResourceKeys::Gun_UI2, "Data/Image/GunUI2.png"},
+    const std::vector<LoadJob> GameResources = [] {
+        std::vector<LoadJob> jobs = {
+            {LoadKind::Model, ResourceKeys::Model_HandGunView, "Data/Image/HandPov/idle_static (2).glb"},
+            {LoadKind::Model, "PlayerShoot", "Data/Image/HandPov/shoot_raylib.glb"},
+            {LoadKind::Animation, "PlayerShoot", "Data/Image/HandPov/shoot_raylib.glb"},
+            {LoadKind::Model, "PlayerReload", "Data/Image/HandPov/reload_raylib.glb"},
+            {LoadKind::Animation, "PlayerReload", "Data/Image/HandPov/reload_raylib.glb"},
+            {LoadKind::Model, ResourceKeys::Model_Stage1, "Data/Image/floor 4 uv warp all.glb"},
+            {LoadKind::Model, ResourceKeys::Model_FemaleZombie, "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 running.fbx"},
+            {LoadKind::FbxAnimation, ResourceKeys::Animation_FemaleZombieAttack, "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 attack.fbx", ResourceKeys::Model_FemaleZombie},
+            {LoadKind::FbxAnimation, ResourceKeys::Animation_FemaleZombieDeath, "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 death.fbx", ResourceKeys::Model_FemaleZombie},
+            {LoadKind::FbxAnimation, ResourceKeys::Animation_FemaleZombieHit, "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 hit.fbx", ResourceKeys::Model_FemaleZombie},
+            // 攻撃FBXのメッシュは目が頭に付いている。走行と死亡の動作をこのモデルへ取り込む。
+            {LoadKind::Model, ResourceKeys::Model_MonsterMale2, "Data/Image/monster male 2/monster male_attack.fbx"},
+            {LoadKind::FbxAnimation, ResourceKeys::Animation_MonsterMale2Run, "Data/Image/monster male 2/monster male run.fbx", ResourceKeys::Model_MonsterMale2,
+                {"Armature", "Armature.001", true}},
+            {LoadKind::FbxAnimation, ResourceKeys::Animation_MonsterMale2Death, "Data/Image/monster male 2/monster male_dead.fbx", ResourceKeys::Model_MonsterMale2,
+                {"Armature", "Armature.001", true}},
+            {LoadKind::Model, ResourceKeys::Model_Door, "Data/Image/slide door.glb"},
+            {LoadKind::Texture, ResourceKeys::WASD_UI, "Data/Image/WASDUI.png"},
+            {LoadKind::Texture, ResourceKeys::Gun_UI1, "Data/Image/GunUI1.png"},
+            {LoadKind::Texture, ResourceKeys::Gun_UI2, "Data/Image/GunUI2.png"},
 
-        // アイテムモデルのロード
-        {LoadKind::Model, ResourceKeys::Model_KeyCard, "Data/Image/Items/Key_Card.glb"},
-        {LoadKind::Model, ResourceKeys::Model_Medkit,  "Data/Image/Items/Med_Kit.glb"},
-        {LoadKind::Model, ResourceKeys::Model_Ammo,    "Data/Image/Items/Ammo.glb"},
-        {LoadKind::Model, ResourceKeys::Model_LostItem,    "Data/Image/Items/Key_Card.glb"},
-		{LoadKind::Model, ResourceKeys::Model_Gun,    "Data/Image/Items/Model_Gun.glb"},
-		{LoadKind::Model, ResourceKeys::Model_Authentication_Key, "Data/Image/Items/Key_Card.glb"},
-        {LoadKind::Model, ResourceKeys::Model_KeyCard, "Data/Image/Items/Placeables/key_card.fbx"},
-        {LoadKind::Model, ResourceKeys::Model_Medkit, "Data/Image/Items/Placeables/medkit.fbx"},
-        {LoadKind::Model, ResourceKeys::Model_Ammo, "Data/Image/Items/Placeables/ammo.fbx"},
-        {LoadKind::Model, ResourceKeys::Model_LostItem, "Data/Image/Items/Placeables/phone.fbx"},
-        {LoadKind::Model, ResourceKeys::Model_Books, "Data/Image/Items/Placeables/books.fbx"},
-        {LoadKind::Model, ResourceKeys::Model_Chair1, "Data/Image/Items/Placeables/chair_1.fbx"},
-        {LoadKind::Model, ResourceKeys::Model_Chair2, "Data/Image/Items/Placeables/chair_2.fbx"},
-        {LoadKind::Model, ResourceKeys::Model_Computer, "Data/Image/Items/Placeables/computer.fbx"},
-        {LoadKind::Model, ResourceKeys::Model_Locker, "Data/Image/Items/Placeables/locker.fbx"},
-        {LoadKind::Model, ResourceKeys::Model_Whiteboard, "Data/Image/Items/Placeables/whiteboard.fbx"},
-        {LoadKind::Model, ResourceKeys::Model_TrashBin, "Data/Image/Items/Placeables/trash_bin.fbx"},
-        {LoadKind::Model, ResourceKeys::Model_Table, "Data/Image/Items/Placeables/table.fbx"},
-        {LoadKind::Model, ResourceKeys::Model_HorrorTable, "Data/Image/Items/Placeables/table_horror.fbx"},
-        {LoadKind::Model, ResourceKeys::Model_SlideDoorProp, "Data/Image/Items/Placeables/slide_door.fbx"},
+            // アイテムアイコン・UIのロード
+            {LoadKind::Texture, ResourceKeys::Icon_KeyCard,    "Data/Image/Items/Key_Card.png"},
+            {LoadKind::Texture, ResourceKeys::Icon_Medkit,     "Data/Image/Items/Med_Kit.png"},
+            {LoadKind::Texture, ResourceKeys::Icon_HealingBar, "Data/Image/Items/Healing_bar.png"},
 
-        // アイテムアイコン・UIのロード
-        {LoadKind::Texture, ResourceKeys::Icon_KeyCard,    "Data/Image/Items/Key_Card.png"},
-        {LoadKind::Texture, ResourceKeys::Icon_Medkit,     "Data/Image/Items/Med_Kit.png"},
-        {LoadKind::Texture, ResourceKeys::Icon_HealingBar, "Data/Image/Items/Healing_bar.png"},
+            // ObjectModel用のロード
+            {LoadKind::Model, ResourceKeys::Security_PC, "Data/Image/COMPUTER.glb"},
 
-		// ObjectModel用のロード
-		{LoadKind::Model, ResourceKeys::Security_PC, "Data/Image/COMPUTER.glb"},
-
-        {LoadKind::Texture, ResourceKeys::Icon_LostItem, "Data/Image/Items/Placeables/phone.png"},
-    };
-    constexpr std::size_t GameResourceCount = sizeof(GameResources) / sizeof(GameResources[0]);
+            {LoadKind::Texture, ResourceKeys::Icon_LostItem, "Data/Image/Items/Placeables/phone.png"},
+        };
+        for (const auto& item : GetItemDefinitions()) {
+            if (item.modelKey) jobs.push_back({LoadKind::Model, item.modelKey, item.modelPath});
+        }
+        return jobs;
+    }();
+    const std::size_t GameResourceCount = GameResources.size();
 }
 
 // Compatibility entry point for tools that need every resource immediately.

@@ -6,26 +6,26 @@
 // アイテムの種別定義
 enum class ItemType
 {
-    None,
-    Medkit,
-    Battery,
-    Key,
-    KeyCard,
-    Ammo,
-    LostItem,
-    Gun,
-    AuthenticationKey,
-    Books,
-    Chair1,
-    Chair2,
-    Computer,
-    Locker,
-    Whiteboard,
-    TrashBin,
-    Table,
-    HorrorTable,
-    SlideDoorProp,
-    Count
+    None = 0,
+    Medkit = 1,
+    Battery = 2,
+    Key = 3,
+    KeyCard = 4,
+    Ammo = 5,
+    LostItem = 6,
+    Gun = 7,
+    AuthenticationKey = 8,
+    Books = 9,
+    Chair1 = 10,
+    Chair2 = 11,
+    Computer = 12,
+    Locker = 13,
+    Whiteboard = 14,
+    TrashBin = 15,
+    Table = 16,
+    HorrorTable = 17,
+    SlideDoorProp = 18,
+    Count = 19,
 };
 
 inline constexpr std::size_t MaxItemPlacements = 1024;
@@ -44,21 +44,7 @@ public:
     void SetYaw(float yaw) { yaw_ = yaw; }
     float GetScale() const { return scale_; }
     void SetScale(float scale) { scale_ = scale; }
-    bool IsPickup() const {
-        switch (type_) {
-        case ItemType::Medkit:
-        case ItemType::Battery:
-        case ItemType::Key:
-        case ItemType::KeyCard:
-        case ItemType::Ammo:
-        case ItemType::LostItem:
-        case ItemType::Gun:
-        case ItemType::AuthenticationKey:
-            return true;
-        default:
-            return false;
-        }
-    }
+    bool IsPickup() const;
 
     Vector3 GetRotation() const { return rotation_; }
     void SetRotation(Vector3 rotation) { rotation_ = rotation; }

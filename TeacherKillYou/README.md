@@ -16,16 +16,34 @@ raylibを使用した学校脱出ホラーゲームです。Visual Studioで `Te
 | `Source/Actors/Enemy` | 敵のAI、移動、攻撃、アニメーション |
 | `Source/World` | ステージ、ドア、テレポート、ゴール |
 | `Source/Camera` | プレイヤー用・デバッグ用カメラ |
-| `Source/Items` | アイテムとインベントリ |
+| `Source/Items` | アイテム定義、マテリアル補完、配置とインベントリ |
 | `Source/Audio` | BGM、SE、足音、環境音、敵の唸り |
 | `Source/Graphics` | ライト、画面効果、血のエフェクト |
 | `Source/Resources` | モデル、マテリアル、FBXとアニメーションの読み込み |
-| `Source/UI` | 日本語フォント、会話、ポーズ、ゲームオーバー画面 |
-| `Source/Save` | シーン配置、設定、チェックポイントの保存と読み込み |
+| `Source/UI` | HUD、日本語フォント、会話、ポーズ、ゲームオーバー画面 |
+| `Source/Save` | シーン配置とチェックポイントの保存・読み込み、共通JSON処理 |
+| `Source/Events` | チュートリアル、会話トリガー、警備室関連のイベント |
 | `Source/Debug` | ImGuiのデバッグ操作とギズモ |
 
 `TeacherKillYou.vcxproj` の `GameIncludeDirectories` に、ゲーム用ヘッダーの検索先を定義しています。
 既存の `#include "Player.h"` などはそのまま使えます。
+
+## 実装を変更する場所
+
+- `Source/Core/GameContext.cpp`：ワールドの初期化・更新・終了とイベントの進行。
+- `Source/Core/GameContextCombat.cpp`：射撃の命中処理と一時的な戦闘エフェクトの更新。
+- `Source/Core/GameContextDraw.cpp`：ワールド・HUD・弾痕・射撃エフェクトの描画。
+- `Source/Core/GameContextCheckpoint.cpp`：進行状態の取り出し・復元・保存要求。
+- `Source/Items/ItemCatalog.cpp`：アイテム名、配置編集での表示名、モデルのパス、表示サイズ、取得区分。
+- `Source/Items/ItemMaterials.cpp`：画像のない材質の補完。カタログに登録されたモデルキーを使用する。
+- `Source/UI/PlayerStatusHud.cpp`：HP・スタミナ・残弾の表示。
+- `Source/Graphics/LowHpBloodOverlay.cpp`：低HP時の血の画面効果。
+- `Source/Scenes/IntroVideoPlayer.cpp`：オープニング動画のフレームと音声の再生。
+
+アイテムを追加するときは `Item.h` の `ItemType` に未使用のIDを追加し、`ItemCatalog.cpp` に定義を追加します。
+モデルの読み込み・描画・配置編集は同じ定義を参照します。銃と認証キーも配置編集の一覧から選べます。
+既存のIDは保存データに使うため変更しません。並びと登録漏れはビルド時にも確認します。
+アイテムごとの取得後のイベント処理は `Inventory.cpp` と `GameContext.cpp` にあります。
 
 ## マップとキャラクターの大きさ
 
@@ -45,7 +63,7 @@ raylibを使用した学校脱出ホラーゲームです。Visual Studioで `Te
 ## データと外部ライブラリ
 
 - `Data/Image`：マップ、キャラクター、銃、UI、テクスチャ。FBXと材質補助ファイルは同じフォルダで管理します。
-- `Data/Audio`：BGM・SE。[音源の配置方法](Data/Audio/README.md)
+- `Data/Audio`：BGM・SE。音源の登録先は `Source/Audio/AudioManager.cpp`。
 - `Data/Font`：日本語フォント。
 - `Data/Json`：会話データ。
 - `Data/Save`：プレイヤー個人の設定と進行。Gitの管理対象外です。
