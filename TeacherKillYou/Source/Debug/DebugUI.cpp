@@ -715,8 +715,11 @@ void DebugUI::DrawCameraController(CameraController& cameraController)
 }
 
 namespace {
-    constexpr const char* EnemyTypes[] = { "MONSTER", "ZOMBIE", "MONSTER MALE 2" };
-    static_assert(IM_ARRAYSIZE(EnemyTypes) == int(demo::EnemyType::MonsterMale2) + 1);
+    constexpr const char* EnemyTypes[] = {"ZOMBIE", "MONSTER MALE 2"};
+    constexpr demo::EnemyType EnemyKinds[] = {demo::EnemyType::FemaleZombie, demo::EnemyType::MonsterMale2};
+    static_assert(IM_ARRAYSIZE(EnemyTypes) == IM_ARRAYSIZE(EnemyKinds));
+    int EnemyTypeIndex(demo::EnemyType type) { return type == demo::EnemyType::MonsterMale2 ? 1 : 0; }
+
     constexpr ImGuiSliderFlags ClampInput = ImGuiSliderFlags_AlwaysClamp;
 
     template<class Placement>
@@ -802,7 +805,7 @@ void DebugUI::DrawEnemyHierarchy(GameContext& gameContext)
     }
     ImGui::EndDisabled();
     if (pendingEnemy_) {
-        ImGui::TextWrapped(u8"%s を置く床をクリック", EnemyTypes[int(pendingEnemy_->config.type)]);
+        ImGui::TextWrapped(u8"%s を置く床をクリック", EnemyTypes[EnemyTypeIndex(pendingEnemy_->config.type)]);
         if (ImGui::Button(u8"配置をキャンセル")) {
             pendingEnemy_.reset();
             placementMessage_ = nullptr;
@@ -854,7 +857,6 @@ void DebugUI::DrawEnemyInspector(GameContext& gameContext)
     ImGui::PushID(selectedEnemyIndex_);
     auto& placement = spawnPoints[selectedEnemyIndex_];
     auto& config = placement.config;
-
     int type = static_cast<int>(config.type);
     bool changed = ImGui::Combo(u8"種類", &type, EnemyTypes, IM_ARRAYSIZE(EnemyTypes));
     config.type = static_cast<demo::EnemyType>(type);

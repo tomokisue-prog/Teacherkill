@@ -9,7 +9,6 @@ struct CharacterSize {
 namespace WorldScale {
     extern const float StageScale;
     extern const CharacterSize Player;
-    extern const CharacterSize Monster;
     extern const CharacterSize Zombie;
     extern const float EyeHeightRatio;
 }

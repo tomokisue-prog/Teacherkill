@@ -53,6 +53,8 @@ namespace {
         std::vector<demo::EnemyPlacement> placements;
         placements.reserve(entries.size());
         for (const auto& entry : entries) {
+            // Older scenes may still contain the retired enemy ID 0.
+            if (SaveData::Integer(entry.at("config").at("type"), 0, 2) == 0) continue;
             placements.push_back({ParsePlacementPosition(entry.at("position")),
                 SaveData::Number(entry.at("yaw"), -PI, PI),
                 SaveData::ParseEnemyConfig(entry.at("config"))});

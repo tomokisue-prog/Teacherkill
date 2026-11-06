@@ -75,6 +75,7 @@
     <ClCompile Include="imgui\imgui_widgets.cpp" />
     <ClCompile Include="Source\Items\Inventory.cpp" />
     <ClCompile Include="Source\Items\Item.cpp" />
+    <ClCompile Include="Source\Items\ItemMaterials.cpp" />
     <ClCompile Include="Source\UI\JapaneseFont.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Source\UI\MessageWindow.cpp" />
@@ -175,6 +176,7 @@
     <ClInclude Include="imgui\imstb_truetype.h" />
     <ClInclude Include="Source\Items\Inventory.h" />
     <ClInclude Include="Source\Items\Item.h" />
+    <ClInclude Include="Source\Items\ItemMaterials.h" />
     <ClInclude Include="Source\UI\JapaneseFont.h" />
     <ClInclude Include="Source\UI\MessageWindow.h" />
     <ClInclude Include="nlohmann\json.hpp" />

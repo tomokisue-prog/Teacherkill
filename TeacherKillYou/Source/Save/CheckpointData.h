@@ -13,8 +13,8 @@ struct TransformCheckpoint {
 struct PlayerCheckpoint {
     Vector3 position{};
     int hp = 100;
-    int ammo = 15;
-    int reserveAmmo = 90;
+    int ammo = 8;
+    int reserveAmmo = 32;
     float stamina = 100;
 };
 struct WorldItemCheckpoint {

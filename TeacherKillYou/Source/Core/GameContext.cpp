@@ -104,6 +104,7 @@ void GameContext::Init()
     PlaceCharacters();
     horrorAudio_.Reset(player_.GetPosition());
     checkpointRequested_ = false;
+    goalRequested_ = false;
     lighting_.Init(RM().GetModelShaders(), RM().GetModel(ResourceKeys::Model_Stage1));
     hitMarkerTimer_ = 0.0f;
     hitMarkerKill_ = false;
@@ -187,6 +188,7 @@ void GameContext::Reset()
     PlaceCharacters();
     horrorAudio_.Reset(player_.GetPosition());
     checkpointRequested_ = false;
+    goalRequested_ = false;
     lighting_.Init(RM().GetModelShaders(), RM().GetModel(ResourceKeys::Model_Stage1));
     hitMarkerTimer_ = 0.0f;
     hitMarkerKill_ = false;
@@ -1356,6 +1358,7 @@ void GameContext::RestoreCheckpoint(const CheckpointData& data)
     muzzleFlashTimer_ = hitMarkerTimer_ = tracerAge_ = 0;
     hitMarkerKill_ = tracerActive_ = false;
     checkpointRequested_ = false;
+    goalRequested_ = false;
     stage_.SetPosition(data.stagePosition);
     stage_.SetScale(data.stageScale);
     player_.RestoreCheckpoint(data.player);

@@ -57,7 +57,7 @@ namespace {
         switch (type) {
         case demo::EnemyType::MonsterMale2: return "MONSTER MALE 2";
         case demo::EnemyType::FemaleZombie: return "ZOMBIE";
-        default: return "MONSTER";
+        default: return "UNKNOWN";
         }
     }
     const char* State(demo::EnemyState state) {
@@ -158,7 +158,7 @@ bool DebugMenu::Draw(GameContext& context, GameSettings& settings) {
                     }
                     ImGui::EndTable();
                 }
-                for (const char* key : {ResourceKeys::Model_Enemy, ResourceKeys::Model_FemaleZombie, ResourceKeys::Model_MonsterMale2}) {
+                for (const char* key : {ResourceKeys::Model_FemaleZombie, ResourceKeys::Model_MonsterMale2}) {
                     const Model model = RM().GetModel(key);
                     ImGui::Text("%s: %d meshes / %d bones", key, model.meshCount, model.boneCount);
                 }

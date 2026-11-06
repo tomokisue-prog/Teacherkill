@@ -35,7 +35,7 @@ public:
     void ApplyModelAnimation(const std::string& key, int frame, int animationIndex = 0);
 
 	// 2D画像を読み込むための関数
-	void LoadTexture(const std::string& key, const std::string& path);
+	void LoadTexture(const std::string& key, const std::string& path, bool mipmaps = false);
 
     // 指定したキーのアニメーションを取得（存在しない場合は count = 0）
     ModelAnimation* GetModelAnimations(const std::string& key, int* count = nullptr) const;

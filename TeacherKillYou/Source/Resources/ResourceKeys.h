@@ -2,9 +2,6 @@
 
 namespace ResourceKeys {
     // 3Dモデル用キー
-    inline constexpr const char* Model_Enemy = "Model_Enemy";
-    inline constexpr const char* Animation_EnemyAttack = "EnemyAttack";
-    inline constexpr const char* Animation_EnemyDeath = "EnemyDeath";
     inline constexpr const char* Model_FemaleZombie = "Model_FemaleZombie";
     inline constexpr const char* Animation_FemaleZombieAttack = "FemaleZombieAttack";
     inline constexpr const char* Animation_FemaleZombieDeath = "FemaleZombieDeath";

@@ -196,7 +196,7 @@ Texture2D ReadTexture(const ufbx_texture* texture, const std::string& directory)
     // 制作PCの絶対パスが残っていても、FBXの横やtextures内に置いた画像を探す。
     for (const auto& candidate : { filename, directory + "/" + relative, directory + "/" + basename,
                                    directory + "/textures/" + basename, directory + "/textures/packed/" + basename }) {
-        // MONSTERのように画像名だけの参照でも、同名のPNG/JPEGなどを見つける。
+        // 画像名だけの参照でも、同名のPNG/JPEGなどを見つける。
         for (const char* extension : { "", ".png", ".jpg", ".jpeg", ".tga", ".bmp" }) {
             if (extension[0] != '\0' && !extensionMissing) break;
             const std::string imagePath = candidate + extension;
@@ -583,6 +583,7 @@ FbxModelData LoadFbxModel(const std::string& path, bool inPlaceLocomotion) {
                 }
             }
         }
+        data.materialNames = std::move(materialNames);
         if (!data.bakedFrames.empty()) ApplyBakedAnimation(data.model, data.bakedFrames[0], 0);
         TraceLog(LOG_INFO, "FBX: [%s] Loaded directly (%i meshes, %i bindings, %i clips, %s skinning)",
                  path.c_str(), data.model.meshCount, data.model.boneCount, data.animationCount, gpu ? "GPU" : "CPU");

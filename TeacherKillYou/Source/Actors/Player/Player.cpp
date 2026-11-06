@@ -133,9 +133,10 @@ void Player::Init()
     if (!statusHud_.Init("Data/Image/UI/HP_Bar.png"))
     {
         // Keep the original HUD as a fallback if the new PNG cannot load.
-        LoadHudTexture("Data/Image/GunUI.png", ammoHudTexture_, ammoHudSource_, "Data/Image/PistolUI.png");
         LoadHudTexture("Data/Image/HPBackUI.png", healthHudTexture_, healthHudSource_);
     }
+    // Load even when the main HP artwork is unavailable.
+    statusHud_.InitAmmoIcon("Data/Image/UI/Ammo_Bullet.jpg");
 }
 
 void Player::Reset()
@@ -157,7 +158,7 @@ void Player::Reset()
     reloadTimer_ = 0.0f;
 
     currentAmmo_ = magazineCapacity_;
-    reserveAmmo_ = 90;
+    reserveAmmo_ = 32;
 
     hp_ = maxHp_;
     damageFlashTimer_ = 0.0f;
@@ -574,7 +575,7 @@ void Player::DrawHealthHUD() const
 {
     if (statusHud_.IsReady())
     {
-        statusHud_.Draw(hp_, maxHp_, stamina_, maxStamina_, currentAmmo_, reserveAmmo_);
+        statusHud_.Draw(hp_, maxHp_, stamina_, maxStamina_);
         return;
     }
 
@@ -745,22 +746,9 @@ void Player::Draw(const PlayerCamera* camera) const
 
 void Player::DrawAmmoHUD() const
 {
-    if (statusHud_.IsReady()) return; // The main HUD already contains the graphic.
-    if (ammoHudTexture_.id && ammoHudSource_.width > 0 && ammoHudSource_.height > 0)
-    {
-        const float scale = HudScale();
-        const float width = 480.0f * scale;
-        const float height = width * ammoHudSource_.height / ammoHudSource_.width;
-        const float margin = 24.0f * scale;
-        const Rectangle panel{ GetScreenWidth() - width - margin,
-                               GetScreenHeight() - height - margin, width, height };
-        DrawTexturePro(ammoHudTexture_, ammoHudSource_, panel, {0, 0}, 0.0f, WHITE);
-    }
-    // The fallback keeps the ammo counter near the health HUD as well.
-    const Rectangle healthPanel = HealthHudPanel(healthHudSource_);
-    PlayerStatusHud::DrawAmmoCounter(currentAmmo_, reserveAmmo_,
-        healthPanel.x + healthPanel.width * 0.65f,
-        healthPanel.y + healthPanel.height * 0.30f, HudScale());
+    const bool isMainArtwork = statusHud_.IsReady();
+    const Rectangle healthPanel = isMainArtwork ? statusHud_.GetPanelRect() : HealthHudPanel(healthHudSource_);
+    statusHud_.DrawAmmoRow(currentAmmo_, reserveAmmo_, healthPanel, isMainArtwork);
 }
 
 // =======================================
@@ -809,7 +797,10 @@ void Player::RestoreCheckpoint(const PlayerCheckpoint& data)
     position_ = data.position;
     hp_ = std::clamp(data.hp, 1, maxHp_);
     currentAmmo_ = std::clamp(data.ammo, 0, magazineCapacity_);
+    // Older saves can contain 15 rounds in the magazine. Preserve the excess.
+    const int excess = (std::max)(0, data.ammo - magazineCapacity_);
     reserveAmmo_ = std::clamp(data.reserveAmmo, 0, 1000000);
+    reserveAmmo_ += (std::min)(excess, 1000000 - reserveAmmo_);
     stamina_ = Clamp(data.stamina, 0, maxStamina_);
 }
 
@@ -826,7 +817,7 @@ void Player::DebugRefillVitals() {
     hp_ = maxHp_; stamina_ = maxStamina_; staminaRecoveryTimer_ = 0;
     sprintExhausted_ = false; damageFlashTimer_ = 0; damageImpactPending_ = false;
 }
-void Player::DebugRefillAmmo() { currentAmmo_ = magazineCapacity_; reserveAmmo_ = (std::max)(reserveAmmo_, 90); }
+void Player::DebugRefillAmmo() { currentAmmo_ = magazineCapacity_; reserveAmmo_ = (std::max)(reserveAmmo_, 32); }
 bool Player::DebugMoveTo(Vector3 position) {
     if (!std::isfinite(position.x) || !std::isfinite(position.y) || !std::isfinite(position.z) || !IsAlive()) return false;
     position_ = position; velocity_ = {}; isGrounded_ = false; isSprinting_ = false;

@@ -79,10 +79,12 @@ namespace {
                 item.contains("scale") ? Number(item.at("scale"), .05f, 20) : 1.0f});
         Require(j.at("enemies").is_array() && j.at("enemies").size() <= demo::MaxEnemyPlacements);
         for (const auto& e : j["enemies"]) {
+            // Skip the retired type without shifting IDs of the remaining enemies.
+            if (Integer(e.at("config").at("type"), 0, 2) == 0) continue;
             auto c = SaveData::ParseEnemyConfig(e.at("config"));
             if (version == 1) {
                 // 以前のチェックポイントでも、HPや所持品を保って現行マップの体格へ移行する。
-                const auto size = c.type == demo::EnemyType::Monster ? WorldScale::Monster : WorldScale::Zombie;
+                const auto size = WorldScale::Zombie;
                 c.bodyHeight = size.height;
                 c.bodyRadius = size.radius;
             }
