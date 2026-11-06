@@ -244,6 +244,7 @@ void GameScene::Update(float deltaTime)
     }
     gameContext->Update(deltaTime);
     if (!gameContext->GetPlayer().IsAlive()) { BeginGameOver(); return; }
+    if (gameContext->ConsumeGoalRequest()) { SetNextScene(SM().GetScene(SceneID::Goal)); return; }
     if (gameContext->ConsumeCheckpointRequest()) {
         if (SaveCheckpoint()) ShowNotice(u8"チェックポイントを自動保存しました。", "Checkpoint saved automatically.");
         else ShowNotice(u8"チェックポイントを保存できませんでした。", "Cannot save checkpoint.");

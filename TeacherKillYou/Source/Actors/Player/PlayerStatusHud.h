@@ -65,9 +65,50 @@ public:
         return true;
     }
 
+    // The supplied JPG has a white background. Remove it in memory so the
+    // original bullet artwork can be drawn cleanly over the game.
+    bool InitAmmoIcon(const char* imagePath)
+    {
+        if (bulletTexture_.id) UnloadTexture(bulletTexture_);
+        bulletTexture_ = {};
+        bulletSource_ = {};
+        if (!imagePath || !FileExists(imagePath)) return false;
+        Image image = LoadImage(imagePath);
+        if (!image.data || image.width <= 0 || image.height <= 0)
+        {
+            if (image.data) UnloadImage(image);
+            return false;
+        }
+        ImageFormat(&image, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+        if (image.format != PIXELFORMAT_UNCOMPRESSED_R8G8B8A8)
+        {
+            UnloadImage(image);
+            return false;
+        }
+        Color* pixels = static_cast<Color*>(image.data);
+        const std::size_t count = static_cast<std::size_t>(image.width) * image.height;
+        for (std::size_t i = 0; i < count; ++i)
+        {
+            const int darkest = (std::min)(static_cast<int>(pixels[i].r),
+                (std::min)(static_cast<int>(pixels[i].g), static_cast<int>(pixels[i].b)));
+            const float alpha = Clamp((255.0f - darkest) / 28.0f, 0.0f, 1.0f);
+            pixels[i].a = static_cast<unsigned char>(alpha * 255.0f + 0.5f);
+        }
+        bulletSource_ = GetImageAlphaBorder(image, 0.10f);
+        if (bulletSource_.width > 0 && bulletSource_.height > 0)
+            bulletTexture_ = LoadTextureFromImage(image);
+        UnloadImage(image);
+        if (bulletTexture_.id) SetTextureFilter(bulletTexture_, TEXTURE_FILTER_BILINEAR);
+        else TraceLog(LOG_WARNING, "PLAYER HUD: Could not load ammo icon: %s", imagePath);
+        return bulletTexture_.id != 0;
+    }
+
     void End()
     {
         if (texture_.id != 0) UnloadTexture(texture_);
+        if (bulletTexture_.id != 0) UnloadTexture(bulletTexture_);
+        bulletTexture_ = {};
+        bulletSource_ = {};
         texture_ = {};
         std::vector<Color>().swap(originalPixels_);
         std::vector<Color>().swap(originalPatch_);
@@ -80,63 +121,80 @@ public:
 
     bool IsReady() const { return texture_.id != 0; }
 
-    void Draw(int hp, int maxHp, float stamina, float maxStamina, int ammo, int reserve)
+    Rectangle GetPanelRect() const
     {
-        if (!IsReady()) return;
-
-        RefreshArcs(hp, maxHp, stamina, maxStamina);
-
-        // Keep this HUD to the left of the existing four inventory slots.
-        float uiScale = Clamp((std::min)(GetScreenWidth() / 1920.0f,
-                                         GetScreenHeight() / 1080.0f), 0.45f, 1.5f);
+        if (!IsReady() || texture_.width <= 0) return {};
+        float scale = Clamp((std::min)(GetScreenWidth() / 1920.0f,
+                                       GetScreenHeight() / 1080.0f), 0.45f, 1.5f);
         const float inventoryStart = (GetScreenWidth() - 344.0f) * 0.5f;
         if (inventoryStart > 8.0f)
-            uiScale = (std::min)(uiScale, (inventoryStart - 8.0f) / 501.3f);
-        uiScale = (std::max)(0.15f, uiScale);
-
-        const float width = 370.0f * uiScale; // CHANGE: overall HUD size
+            scale = (std::min)(scale, (inventoryStart - 8.0f) / 501.3f);
+        scale = (std::max)(0.15f, scale);
+        const float width = 370.0f * scale;
         const float height = width * texture_.height / texture_.width;
-        const float x = 16.0f * uiScale; // CHANGE: distance from left edge
-        const float y = GetScreenHeight() - height - 16.0f * uiScale; // CHANGE: bottom margin
-        const Rectangle imageRect{ x, y, width, height };
-        const Rectangle source{ 0.0f, 0.0f, static_cast<float>(texture_.width), static_cast<float>(texture_.height) };
-        DrawTexturePro(texture_, source, imageRect, { 0.0f, 0.0f }, 0.0f, WHITE);
-
-        // Put the ammo count inside the circle, under the gun artwork.
-        char counter[48];
-        std::snprintf(counter, sizeof(counter), "%02d / %02d",
-                      (std::max)(ammo, 0), (std::max)(reserve, 0));
-        int valueSize = (std::max)(12, static_cast<int>(24.0f * uiScale));
-        const float maxTextWidth = width * (170.0f / 606.0f);
-        while (valueSize > 9 && MeasureText(counter, valueSize) > maxTextWidth) --valueSize;
-        const int textWidth = MeasureText(counter, valueSize);
-        const float centerX = x + width * (222.0f / 606.0f);
-        const float textY = y + height * (380.0f / 586.0f);
-        const float padX = 5.0f * uiScale;
-        const float padY = 3.0f * uiScale;
-        DrawRectangleRounded({centerX - textWidth * 0.5f - padX, textY - padY,
-                              textWidth + 2.0f * padX, valueSize + 2.0f * padY},
-                             0.18f, 6, Color{12, 10, 10, 180});
-        DrawText(counter, static_cast<int>(centerX - textWidth * 0.5f), static_cast<int>(textY),
-                 valueSize, ammo > 0 ? RAYWHITE : Color{235, 88, 78, 255});
+        return {16.0f * scale, GetScreenHeight() - height - 16.0f * scale, width, height};
     }
 
-    static void DrawAmmoCounter(int ammo, int reserve, float x, float y, float uiScale)
+    // A small, borderless row under the HP artwork: loaded bullets + spare
+    // full magazines. A remainder is shown only for incomplete spare magazines.
+    void DrawAmmoRow(int ammo, int reserve, Rectangle healthPanel, bool isMainArtwork) const
     {
-        const int valueSize = (std::max)(15, static_cast<int>(30.0f * uiScale));
-        const int labelSize = (std::max)(9, static_cast<int>(14.0f * uiScale));
-        char counter[48];
-        std::snprintf(counter, sizeof(counter), "%02d / %02d", (std::max)(ammo, 0), (std::max)(reserve, 0));
-        const int width = (std::max)(MeasureText(counter, valueSize), MeasureText("AMMO", labelSize));
-        const float padX = 8.0f * uiScale;
-        const float padY = 5.0f * uiScale;
-        const float gap = 2.0f * uiScale;
-        DrawRectangleRounded({x - padX, y - padY, width + 2.0f * padX,
-                              labelSize + gap + valueSize + 2.0f * padY},
-                             0.18f, 6, Color{ 12, 10, 10, 195 });
-        DrawText("AMMO", static_cast<int>(x), static_cast<int>(y), labelSize, Color{ 200, 181, 162, 255 });
-        DrawText(counter, static_cast<int>(x), static_cast<int>(y + labelSize + gap), valueSize,
-                 ammo > 0 ? RAYWHITE : Color{ 235, 88, 78, 255 });
+        const float screenW = static_cast<float>((std::max)(GetScreenWidth(), 1));
+        const float screenH = static_cast<float>((std::max)(GetScreenHeight(), 1));
+        const float scale = Clamp(healthPanel.width / 370.0f, 0.15f, 1.5f);
+        constexpr int magazineSize = 8;
+        const float bulletHeight = 22.0f * scale; // CHANGE: bullet picture size.
+        const float aspect = bulletTexture_.id && bulletSource_.height > 0.0f
+            ? bulletSource_.width / bulletSource_.height : 0.42f;
+        const float bulletWidth = bulletHeight * aspect;
+        const float spacing = 14.0f * scale; // CHANGE: space between bullets.
+        const int fontSize = (std::max)(9, static_cast<int>(16.0f * scale));
+        const int safeReserve = (std::max)(0, reserve);
+        const int magazines = safeReserve / magazineSize;
+        const int looseRounds = safeReserve % magazineSize;
+        char multiplier[48];
+        if (looseRounds > 0)
+            std::snprintf(multiplier, sizeof(multiplier), "x%d+%d", magazines, looseRounds);
+        else
+            std::snprintf(multiplier, sizeof(multiplier), "x%d", magazines);
+
+        // The HP_Bar.png design has empty space below its circle at y=482/586.
+        // Reserve eight fixed slots so the multiplier does not move while firing.
+        const float slotsWidth = 7.0f * spacing + bulletWidth;
+        const float textGap = 7.0f * scale;
+        const float baseTextWidth = static_cast<float>(MeasureText("x4", fontSize));
+        const float centerX = isMainArtwork
+            ? healthPanel.x + healthPanel.width * (222.0f / 606.0f)
+            : healthPanel.x + healthPanel.width * 0.5f;
+        float startX = centerX - (slotsWidth + textGap + baseTextWidth) * 0.5f;
+        startX = Clamp(startX, 0.0f, (std::max)(0.0f, screenW - slotsWidth - textGap - baseTextWidth));
+        float y = isMainArtwork
+            ? healthPanel.y + healthPanel.height * (482.0f / 586.0f)
+            : healthPanel.y + healthPanel.height + 6.0f * scale;
+        y = Clamp(y, 0.0f, (std::max)(0.0f, screenH - bulletHeight - 2.0f));
+
+        const int loaded = (std::max)(0, (std::min)(ammo, magazineSize));
+        for (int i = 0; i < loaded; ++i)
+        {
+            const Rectangle dest{startX + i * spacing, y, bulletWidth, bulletHeight};
+            if (bulletTexture_.id && bulletSource_.width > 0 && bulletSource_.height > 0)
+                DrawTexturePro(bulletTexture_, bulletSource_, dest, {0, 0}, 0.0f, WHITE);
+            else
+                DrawRectangleRounded(dest, 0.5f, 5, Color{209, 163, 72, 255});
+        }
+        const float textX = startX + slotsWidth + textGap;
+        const float textY = y + (bulletHeight - fontSize) * 0.5f;
+        DrawText(multiplier, static_cast<int>(textX), static_cast<int>(textY),
+                 fontSize, Color{242, 237, 220, 255});
+    }
+
+    void Draw(int hp, int maxHp, float stamina, float maxStamina)
+    {
+        if (!IsReady()) return;
+        RefreshArcs(hp, maxHp, stamina, maxStamina);
+        const Rectangle imageRect = GetPanelRect();
+        const Rectangle source{0.0f, 0.0f, static_cast<float>(texture_.width), static_cast<float>(texture_.height)};
+        DrawTexturePro(texture_, source, imageRect, {0.0f, 0.0f}, 0.0f, WHITE);
     }
 
 private:
@@ -258,6 +316,8 @@ private:
     }
 
     Texture2D texture_{};
+    Texture2D bulletTexture_{};
+    Rectangle bulletSource_{};
     std::vector<Color> originalPixels_;
     std::vector<Color> originalPatch_;
     std::vector<Color> displayPatch_;
