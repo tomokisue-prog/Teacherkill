@@ -1,1 +1,8 @@
 /build/
+
+# Debug helpers are source files; only generated Debug output should be ignored.
+!/Source/Debug/
+!/Source/Debug/**
+
+# Local gameplay progress and preferences (never editor scene data).
+/Data/Save/
