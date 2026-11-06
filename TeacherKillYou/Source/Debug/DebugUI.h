@@ -3,12 +3,15 @@
 #include "CameraController.h"
 #include "GizmoDrawer.h"
 #include "DoorMove.h"
+#include "EnemyManager.h"
+#include "Item.h"
+#include <optional>
 
 enum class SelectedObjectType
 {
     None,
     Player,
-    Enemy,
+    EnemyManager,
     Stage,
     PaladinModel,
     Door,
@@ -16,7 +19,7 @@ enum class SelectedObjectType
     SecurityTeleportPoint,
     GoalPoint,
     Items,
-	SecurityPC,
+    SecurityPC,
     EventDialoguePoint
 };
 
@@ -31,6 +34,11 @@ public:
 private:
     void DrawHierarchy(GameContext& gameContext);
     void DrawInspector(GameContext& gameContext);
+    void DrawEnemyHierarchy(GameContext& gameContext);
+    void DrawEnemyInspector(GameContext& gameContext);
+    void DrawItemHierarchy(GameContext& gameContext);
+    void DrawItemInspector(GameContext& gameContext);
+    void HandlePlacementViewport(GameContext& gameContext);
     void DrawCameraController(CameraController& cameraController);
 
     SelectedObjectType selectedObject_{
@@ -46,4 +54,10 @@ private:
     int selectedItemIndex_{ 0 };
     int selectedEventPointIndex_{ 0 };
     int selectedDoorIndex_{ 0 };
+    ItemType newItemType_ = ItemType::Medkit;
+    std::optional<Item> pendingItem_;
+    int newEnemyType_ = 0;
+    std::optional<demo::EnemySpawnData> pendingEnemy_;
+    const char* placementMessage_ = nullptr;
+    const char* sceneSaveMessage_ = nullptr;
 };

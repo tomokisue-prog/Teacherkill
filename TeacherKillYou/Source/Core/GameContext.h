@@ -6,6 +6,7 @@
 #include "EnemyManager.h"
 #include "HorrorLighting.h"
 #include "BloodEffect.h"
+#include "LowHpBloodOverlay.h"
 #include "DoorMove.h"
 #include "TeleportPoint.h"
 #include "GameFade.h"
@@ -21,6 +22,9 @@
 #include "../Events/SecurityTeleportPoint.h"
 #include "../UI/GunTutorialUI.h"
 #include <vector>
+#ifndef NDEBUG
+#include "DebugGameplay.h"
+#endif
 
 class GameContext
 {
@@ -34,6 +38,8 @@ public:
     void Draw() const;
     void SetDisplaySettings(float brightness, float greenStrength);
     void End();
+    HorrorLighting& GetLighting() { return lighting_; }
+    const HorrorLighting& GetLighting() const { return lighting_; }
 
     CameraController& GetCameraController() { return cameraController_; }
     const CameraController& GetCameraController() const { return cameraController_; }
@@ -46,6 +52,9 @@ public:
 
     demo::EnemyManager& GetEnemyManager() { return enemyManager_; }
     const demo::EnemyManager& GetEnemyManager() const { return enemyManager_; }
+    std::vector<demo::EnemyPlacement>& GetEnemyPlacements() { return enemyPlacements_; }
+    const std::vector<demo::EnemyPlacement>& GetEnemyPlacements() const { return enemyPlacements_; }
+    void ApplyEnemyPlacements();
 
     std::vector<DoorMove>& GetDoors() { return doors_; }
     const std::vector<DoorMove>& GetDoors() const { return doors_; }
@@ -74,6 +83,11 @@ public:
     void RestoreCheckpoint(const CheckpointData& data);
     bool CanSaveCheckpoint() const;
     bool ConsumeCheckpointRequest();
+#ifndef NDEBUG
+    DebugGameplay& GetDebugGameplay() { return debugGameplay_; }
+    const DebugGameplay& GetDebugGameplay() const { return debugGameplay_; }
+    bool DebugTeleportPlayer(Vector3 position, float yaw, float pitch);
+#endif
 
     SecurityPC& GetSecurityPC() { return securityPC_; }
     const SecurityPC& GetSecurityPC() const { return securityPC_; }
@@ -85,8 +99,12 @@ private:
     void DrawShotEffects() const;
     void DrawBulletMarks() const;
 
+#ifndef NDEBUG
+    DebugGameplay debugGameplay_;
+#endif
     mutable HorrorLighting lighting_;
     BloodEffect bloodEffect_;
+    LowHpBloodOverlay lowHpBlood_;
     HorrorAudio horrorAudio_;
     bool checkpointRequested_ = false;
     CameraController cameraController_;
@@ -94,6 +112,7 @@ private:
     Stage stage_;
     demo::EnemyManager enemyManager_;
     std::vector<DoorMove> doors_;
+    std::vector<demo::EnemyPlacement> enemyPlacements_;
     GameFade gameFade_;
     Inventory inventory_;
     GoalPoint goalPoint_;

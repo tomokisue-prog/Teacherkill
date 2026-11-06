@@ -21,6 +21,7 @@ namespace {
         const char* key;
         const char* path;
         const char* modelKey = nullptr;
+        FbxAnimationOptions animationOptions{};
     };
 
     // Keep model imports before the clips that reuse their mesh and rig.
@@ -38,6 +39,12 @@ namespace {
         {LoadKind::FbxAnimation, ResourceKeys::Animation_FemaleZombieAttack, "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 attack.fbx", ResourceKeys::Model_FemaleZombie},
         {LoadKind::FbxAnimation, ResourceKeys::Animation_FemaleZombieDeath, "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 death.fbx", ResourceKeys::Model_FemaleZombie},
         {LoadKind::FbxAnimation, ResourceKeys::Animation_FemaleZombieHit, "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 hit.fbx", ResourceKeys::Model_FemaleZombie},
+        // 攻撃FBXのメッシュは目が頭に付いている。走行と死亡の動作をこのモデルへ取り込む。
+        {LoadKind::Model, ResourceKeys::Model_MonsterMale2, "Data/Image/monster male 2/monster male_attack.fbx"},
+        {LoadKind::FbxAnimation, ResourceKeys::Animation_MonsterMale2Run, "Data/Image/monster male 2/monster male run.fbx", ResourceKeys::Model_MonsterMale2,
+            {"Armature", "Armature.001", true}},
+        {LoadKind::FbxAnimation, ResourceKeys::Animation_MonsterMale2Death, "Data/Image/monster male 2/monster male_dead.fbx", ResourceKeys::Model_MonsterMale2,
+            {"Armature", "Armature.001", true}},
         {LoadKind::Model, ResourceKeys::Model_Door, "Data/Image/slide door.glb"},
 		{LoadKind::Texture, ResourceKeys::WASD_UI, "Data/Image/WASDUI.png"},
 		{LoadKind::Texture, ResourceKeys::Gun_UI1, "Data/Image/GunUI1.png"},
@@ -50,6 +57,20 @@ namespace {
         {LoadKind::Model, ResourceKeys::Model_LostItem,    "Data/Image/Items/Key_Card.glb"},
 		{LoadKind::Model, ResourceKeys::Model_Gun,    "Data/Image/Items/Model_Gun.glb"},
 		{LoadKind::Model, ResourceKeys::Model_Authentication_Key, "Data/Image/Items/Key_Card.glb"},
+        {LoadKind::Model, ResourceKeys::Model_KeyCard, "Data/Image/Items/Placeables/key_card.fbx"},
+        {LoadKind::Model, ResourceKeys::Model_Medkit, "Data/Image/Items/Placeables/medkit.fbx"},
+        {LoadKind::Model, ResourceKeys::Model_Ammo, "Data/Image/Items/Placeables/ammo.fbx"},
+        {LoadKind::Model, ResourceKeys::Model_LostItem, "Data/Image/Items/Placeables/phone.fbx"},
+        {LoadKind::Model, ResourceKeys::Model_Books, "Data/Image/Items/Placeables/books.fbx"},
+        {LoadKind::Model, ResourceKeys::Model_Chair1, "Data/Image/Items/Placeables/chair_1.fbx"},
+        {LoadKind::Model, ResourceKeys::Model_Chair2, "Data/Image/Items/Placeables/chair_2.fbx"},
+        {LoadKind::Model, ResourceKeys::Model_Computer, "Data/Image/Items/Placeables/computer.fbx"},
+        {LoadKind::Model, ResourceKeys::Model_Locker, "Data/Image/Items/Placeables/locker.fbx"},
+        {LoadKind::Model, ResourceKeys::Model_Whiteboard, "Data/Image/Items/Placeables/whiteboard.fbx"},
+        {LoadKind::Model, ResourceKeys::Model_TrashBin, "Data/Image/Items/Placeables/trash_bin.fbx"},
+        {LoadKind::Model, ResourceKeys::Model_Table, "Data/Image/Items/Placeables/table.fbx"},
+        {LoadKind::Model, ResourceKeys::Model_HorrorTable, "Data/Image/Items/Placeables/table_horror.fbx"},
+        {LoadKind::Model, ResourceKeys::Model_SlideDoorProp, "Data/Image/Items/Placeables/slide_door.fbx"},
 
         // アイテムアイコン・UIのロード
         {LoadKind::Texture, ResourceKeys::Icon_KeyCard,    "Data/Image/Items/Key_Card.png"},
@@ -59,6 +80,7 @@ namespace {
 		// ObjectModel用のロード
 		{LoadKind::Model, ResourceKeys::Security_PC, "Data/Image/COMPUTER.glb"},
 
+        {LoadKind::Texture, ResourceKeys::Icon_LostItem, "Data/Image/Items/Placeables/phone.png"},
     };
     constexpr std::size_t GameResourceCount = sizeof(GameResources) / sizeof(GameResources[0]);
 }
@@ -76,7 +98,7 @@ bool ResourceManager::LoadNextGameResource() {
     switch (job.kind) {
     case LoadKind::Model: LoadModel(job.key, job.path); break;
     case LoadKind::Animation: LoadModelAnimations(job.key, job.path); break;
-    case LoadKind::FbxAnimation: LoadFbxAnimation(job.key, job.modelKey, job.path); break;
+    case LoadKind::FbxAnimation: LoadFbxAnimation(job.key, job.modelKey, job.path, job.animationOptions); break;
 	case LoadKind::Texture: LoadTexture(job.key, job.path); break;
     }
     ++nextGameResource_;
@@ -109,7 +131,8 @@ void ResourceManager::LoadModel(const std::string& key, const std::string& path)
     }
 
     if (IsFileExtension(path.c_str(), ".fbx")) {
-        const bool enemyModel = key == ResourceKeys::Model_Enemy || key == ResourceKeys::Model_FemaleZombie;
+        const bool enemyModel = key == ResourceKeys::Model_Enemy || key == ResourceKeys::Model_FemaleZombie ||
+            key == ResourceKeys::Model_MonsterMale2;
         FbxModelData data = LoadFbxModel(path, enemyModel);
         if (data.model.meshCount == 0) return;
         if (enemyModel) {
@@ -193,12 +216,13 @@ void ResourceManager::LoadModelAnimations(const std::string& key, const std::str
     }
 }
 
-void ResourceManager::LoadFbxAnimation(const std::string& key, const std::string& modelKey, const std::string& path) {
+void ResourceManager::LoadFbxAnimation(const std::string& key, const std::string& modelKey, const std::string& path,
+                                       const FbxAnimationOptions& options) {
     if (animations_.find(key) != animations_.end()) return;
     const auto model = models_.find(modelKey);
     const auto bindings = fbxBindings_.find(modelKey);
     if (model == models_.end() || bindings == fbxBindings_.end()) return;
-    FbxAnimationData data = LoadFbxAnimations(path, model->second, bindings->second);
+    FbxAnimationData data = LoadFbxAnimations(path, model->second, bindings->second, options);
     if (data.animationCount > 0)
         animations_[key] = { data.animations, data.animationCount, std::move(data.bakedFrames), modelKey };
 }

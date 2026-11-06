@@ -1,11 +1,10 @@
-﻿#pragma once
+#pragma once
 #include "EnemyConfig.h"
 #include "Item.h"
 #include"DoorMove.h"
 #include <array>
 #include <vector>
 
-// Only durable gameplay state belongs here; textures, pointers and pending hits do not.
 struct TransformCheckpoint {
     Vector3 position{};
     Vector3 rotation{};
@@ -22,6 +21,8 @@ struct WorldItemCheckpoint {
     ItemType type = ItemType::None;
     Vector3 position{};
     bool collected = false;
+    float yaw = 0.0f;
+    float scale = 1.0f;
 };
 struct InventoryCheckpoint {
     std::array<ItemType, 4> slots{};

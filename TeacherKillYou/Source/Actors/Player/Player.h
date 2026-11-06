@@ -2,6 +2,7 @@
 #include "GameObject.h"
 #include "WorldScale.h"
 #include "Inventory.h"
+#include "PlayerStatusHud.h"
 
 class Stage;
 class PlayerCamera;
@@ -68,6 +69,15 @@ public:
     }
 
     bool ConsumeDamageImpact();
+#ifndef NDEBUG
+    bool DebugIsInvincible() const;
+    bool DebugHasInfiniteAmmo() const;
+    void DebugSetInvincible(bool enabled);
+    void DebugSetInfiniteAmmo(bool enabled);
+    void DebugRefillVitals();
+    void DebugRefillAmmo();
+    bool DebugMoveTo(Vector3 position);
+#endif
 
 private:
     Vector3 GetInputMoveDirection(Vector3 forward, Vector3 right) const;
@@ -76,6 +86,10 @@ private:
     void UpdateWeapon(float deltaTime);
     void UpdateWeaponMotion(float deltaTime, bool hasMoveInput);
 
+#ifndef NDEBUG
+    bool debugInvincible_ = false;
+    bool debugInfiniteAmmo_ = false;
+#endif
     Vector3 velocity_{ 0.0f, 0.0f, 0.0f };
     Vector2 weaponSway_{ 0.0f, 0.0f };
     Vector3 weaponMotionOffset_{ 0.0f, 0.0f, 0.0f };
@@ -106,7 +120,8 @@ private:
     float shootDuration_{ 0.417f };
     float reloadDuration_{ 2.291667f };
 
-    // HUD画像はInitで読み込み、Resetでは再利用し、Endで解放する。
+    mutable PlayerStatusHud statusHud_;
+
     Texture2D ammoHudTexture_{};
     Rectangle ammoHudSource_{};
     Texture2D healthHudTexture_{};

@@ -2,6 +2,9 @@
 #include "GameContext.h"
 #include "raymath.h"
 #include "json.hpp"
+#include "SaveData.h"
+#include <optional>
+#include <stdexcept>
 #include <fstream>
 
 static nlohmann::json Vector3ToJson(const Vector3& v)
@@ -16,6 +19,46 @@ static Vector3 JsonToVector3(const nlohmann::json& j)
         j.value("y", 0.0f),
         j.value("z", 0.0f)
     };
+}
+
+namespace {
+    using nlohmann::json;
+
+    Vector3 ParsePlacementPosition(const json& position)
+    {
+        return {SaveData::Number(position.at("x"), -100000, 100000),
+                SaveData::Number(position.at("y"), -100000, 100000),
+                SaveData::Number(position.at("z"), -100000, 100000)};
+    }
+
+    std::vector<Item> ParseItemPlacements(const json& entries)
+    {
+        if (!entries.is_array() || entries.size() > MaxItemPlacements)
+            throw std::runtime_error("invalid items array");
+        std::vector<Item> items;
+        items.reserve(entries.size());
+        for (const auto& entry : entries) {
+            const auto type = static_cast<ItemType>(SaveData::Integer(entry.at("type"), 1, int(ItemType::Count) - 1));
+            items.emplace_back(type, ParsePlacementPosition(entry.at("position")));
+            items.back().SetYaw(SaveData::Number(entry.at("yaw"), -PI, PI));
+            items.back().SetScale(SaveData::Number(entry.at("scale"), .05f, 20));
+        }
+        return items;
+    }
+
+    std::vector<demo::EnemyPlacement> ParseEnemyPlacements(const json& entries)
+    {
+        if (!entries.is_array() || entries.size() > demo::MaxEnemyPlacements)
+            throw std::runtime_error("invalid enemies array");
+        std::vector<demo::EnemyPlacement> placements;
+        placements.reserve(entries.size());
+        for (const auto& entry : entries) {
+            placements.push_back({ParsePlacementPosition(entry.at("position")),
+                SaveData::Number(entry.at("yaw"), -PI, PI),
+                SaveData::ParseEnemyConfig(entry.at("config"))});
+        }
+        return placements;
+    }
 }
 
 bool SaveSystem::SaveScene(const GameContext& gameContext, const std::string& filepath)
@@ -47,13 +90,12 @@ bool SaveSystem::SaveScene(const GameContext& gameContext, const std::string& fi
     {
         nlohmann::json spJson;
         spJson["position"] = Vector3ToJson(sp.GetPosition());
+        spJson["yaw"] = sp.yaw;
         spJson["type"] = static_cast<int>(sp.config.type);
         spJson["condition"] = static_cast<int>(sp.condition);
         spJson["despawnCondition"] = static_cast<int>(sp.despawnCondition);
         spJson["spawned"] = sp.spawned;
-
-        spJson["bodyHeight"] = sp.config.bodyHeight;
-        spJson["bodyRadius"] = sp.config.bodyRadius;
+        spJson["config"] = SaveData::PackEnemyConfig(sp.config); // Config全体をパックして保存
         spJson["spawnedEnemyId"] = sp.spawnedEnemyId;
         enemyArray.push_back(spJson);
     }
@@ -134,6 +176,20 @@ bool SaveSystem::SaveScene(const GameContext& gameContext, const std::string& fi
     }
     root["securityTeleportPoints"] = secTpArray;
 
+    auto& enemies = root["enemies"] = nlohmann::json::array();
+    for (const auto& placement : gameContext.GetEnemyPlacements())
+    {
+        enemies.push_back({{"position", Vector3ToJson(placement.position)}, {"yaw", placement.yaw},
+            {"config", SaveData::PackEnemyConfig(placement.config)}});
+    }
+
+    auto& items = root["items"] = nlohmann::json::array();
+    for (const auto& item : gameContext.GetInventory().GetPlacements())
+    {
+        items.push_back({{"type", int(item.GetType())}, {"position", Vector3ToJson(item.GetPosition())},
+            {"yaw", item.GetYaw()}, {"scale", item.GetScale()}});
+    }
+
     std::ofstream file(filepath);
     if (file.is_open())
     {
@@ -141,28 +197,23 @@ bool SaveSystem::SaveScene(const GameContext& gameContext, const std::string& fi
         TraceLog(LOG_INFO, "SAVE_SYSTEM: Saved successfully to %s", filepath.c_str());
         return true;
     }
-
-    TraceLog(LOG_ERROR, "SAVE_SYSTEM: Failed to open file for saving: %s", filepath.c_str());
-    return false;
 }
 
 bool SaveSystem::LoadScene(GameContext& gameContext, const std::string& filepath)
 {
-    std::ifstream file(filepath);
-    if (!file.is_open())
-    {
-        TraceLog(LOG_WARNING, "SAVE_SYSTEM: Save file not found (%s). Skipping load.", filepath.c_str());
-        return false;
-    }
-
     nlohmann::json root;
-    try
-    {
-        file >> root;
+    if (!SaveData::Read(filepath, root)) return false;
+
+    std::optional<std::vector<demo::EnemyPlacement>> placements;
+    std::optional<std::vector<Item>> items;
+    try {
+        if (root.contains("enemies"))
+            placements = ParseEnemyPlacements(root.at("enemies"));
+        if (root.contains("items"))
+            items = ParseItemPlacements(root.at("items"));
     }
-    catch (const std::exception& e)
-    {
-        TraceLog(LOG_ERROR, "SAVE_SYSTEM: Failed to parse JSON: %s", e.what());
+    catch (const std::exception& error) {
+        TraceLog(LOG_ERROR, "SAVE_SYSTEM: Cannot load scene placements: %s", error.what());
         return false;
     }
 
@@ -209,17 +260,16 @@ bool SaveSystem::LoadScene(GameContext& gameContext, const std::string& filepath
         {
             demo::EnemySpawnData sp;
             if (spJson.contains("position")) sp.SetPosition(JsonToVector3(spJson["position"]));
+            if (spJson.contains("yaw"))      sp.yaw = spJson["yaw"].get<float>();
             if (spJson.contains("type"))     sp.config.type = static_cast<demo::EnemyType>(spJson["type"].get<int>());
             if (spJson.contains("condition")) sp.condition = static_cast<demo::EnemySpawnCondition>(spJson["condition"].get<int>());
             if (spJson.contains("despawnCondition")) sp.despawnCondition = static_cast<demo::EnemyDespawnCondition>(spJson["despawnCondition"].get<int>());
 
-            // ロード時は必ず未スポーン状態から再開できるようにする
+            // パックされたConfigの復元
+            if (spJson.contains("config"))   sp.config = SaveData::ParseEnemyConfig(spJson["config"]);
+
             sp.spawned = false;
-
-            if (spJson.contains("bodyHeight")) sp.config.bodyHeight = spJson["bodyHeight"].get<float>();
-            if (spJson.contains("bodyRadius")) sp.config.bodyRadius = spJson["bodyRadius"].get<float>();
-
-            if (spJson.contains("spawnedEnemyId"))   sp.spawnedEnemyId = static_cast<demo::EnemyId>(spJson["spawnedEnemyId"].get<int>());
+            if (spJson.contains("spawnedEnemyId")) sp.spawnedEnemyId = static_cast<demo::EnemyId>(spJson["spawnedEnemyId"].get<int>());
 
             spawnPoints.push_back(sp);
         }
@@ -325,6 +375,17 @@ bool SaveSystem::LoadScene(GameContext& gameContext, const std::string& filepath
     gameContext.GetPlayer().SetPosition(
         gameContext.GetStage().FindGroundPosition(gameContext.GetPlayer().GetPosition())
     );
+
+    if (placements) {
+        gameContext.GetEnemyPlacements() = std::move(*placements);
+        gameContext.ApplyEnemyPlacements();
+    }
+
+    if (items) {
+        auto& inventory = gameContext.GetInventory();
+        inventory.GetPlacements() = std::move(*items);
+        inventory.ApplyPlacements();
+    }
 
     TraceLog(LOG_INFO, "SAVE_SYSTEM: Loaded successfully from %s", filepath.c_str());
     return true;

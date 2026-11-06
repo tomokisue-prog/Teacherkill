@@ -34,6 +34,8 @@
     <ClCompile Include="Source\Camera\CameraController.cpp" />
     <ClCompile Include="Source\Debug\DebugUI.cpp" />
     <ClCompile Include="Source\Events\EventDialoguePoint.cpp" />
+    <ClCompile Include="Source\Debug\DebugMenu.cpp" />
+    <ClCompile Include="Source\Debug\DebugGameplay.cpp" />
     <ClCompile Include="Source\Events\EventManager.cpp" />
     <ClCompile Include="Source\Events\SecurityPC.cpp" />
     <ClCompile Include="Source\Events\SecurityTeleportPoint.cpp" />
@@ -115,9 +117,14 @@
     <ClCompile Include="Source\Scenes\TitleScene.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="IntroVideoPlayer.h" />
+    <ClInclude Include="LowHpBloodOverlay.h" />
+    <ClInclude Include="PlayerStatusHud.h" />
     <ClInclude Include="Source\Audio\AudioManager.h" />
     <ClInclude Include="Source\Camera\CameraController.h" />
     <ClInclude Include="Source\Debug\DebugUI.h" />
+    <ClInclude Include="Source\Debug\DebugMenu.h" />
+    <ClInclude Include="Source\Debug\DebugGameplay.h" />
     <ClInclude Include="Source\Events\EventBase.h" />
     <ClInclude Include="Source\Events\EventDialoguePoint.h" />
     <ClInclude Include="Source\Events\EventManager.h" />

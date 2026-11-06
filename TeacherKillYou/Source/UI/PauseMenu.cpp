@@ -24,10 +24,17 @@ namespace {
             DrawText(english, (GetScreenWidth() - MeasureText(english, pixels)) / 2, int(y), pixels, color);
         }
     }
-    void DrawButton(Rectangle r, const char* jp, const char* en, bool selected, bool enabled) {
-        DrawRectangleRec(r, selected && enabled ? Color{37, 64, 56, 250} : Color{15, 21, 24, 250});
-        DrawRectangleLinesEx(r, (std::max)(1.0f, 2 * Scale()), enabled && selected ? Color{138, 191, 163, 255} : Color{57, 68, 68, 255});
-        Text(jp, en, r.y + 14 * Scale(), 29 * Scale(), enabled ? RAYWHITE : Color{91, 99, 100, 255});
+    void DrawButton(Rectangle r, const char* jp, const char* en, bool selected, bool enabled, bool artwork = false) {
+        const Color fill = artwork
+            ? (selected && enabled ? Color{100, 30, 32, 238} : Color{30, 17, 18, 220})
+            : (selected && enabled ? Color{37, 64, 56, 250} : Color{15, 21, 24, 250});
+        const Color border = artwork
+            ? (enabled && selected ? Color{223, 183, 143, 255} : Color{112, 78, 70, 255})
+            : (enabled && selected ? Color{138, 191, 163, 255} : Color{57, 68, 68, 255});
+        const Color ink = enabled ? RAYWHITE : (artwork ? Color{154, 137, 129, 255} : Color{91, 99, 100, 255});
+        DrawRectangleRec(r, fill);
+        DrawRectangleLinesEx(r, (std::max)(1.0f, 2 * Scale()), border);
+        Text(jp, en, r.y + 14 * Scale(), 29 * Scale(), ink);
     }
     float& Setting(GameSettings& settings, int row) {
         switch (row) {
@@ -46,9 +53,33 @@ namespace {
     }
 }
 
-void PauseMenu::Open()
+void PauseMenu::Init()
+{
+    End();
+    const char* path = "Data/Image/UI/Pause_Menu.png";
+    if (FileExists(path)) {
+        background_ = LoadTexture(path);
+        if (background_.id != 0) SetTextureFilter(background_, TEXTURE_FILTER_BILINEAR);
+    }
+    if (background_.id == 0)
+        TraceLog(LOG_WARNING, "PAUSE MENU: Could not load %s; using the original background.", path);
+}
+
+void PauseMenu::End()
+{
+    if (background_.id != 0) UnloadTexture(background_);
+    background_ = {};
+}
+
+void PauseMenu::Open(bool debugEnabled)
 {
     settingsPage_ = false;
+#ifndef NDEBUG
+    debugEnabled_ = debugEnabled;
+#else
+    debugEnabled_ = false;
+    (void)debugEnabled;
+#endif
     selectedOption_ = 0;
     draggingSlider_ = -1;
     elapsed_ = 0;
@@ -69,7 +100,7 @@ PauseAction PauseMenu::Update(float dt, GameSettings& settings, bool canLoad, bo
     const bool click = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
     const bool mouseMoved = Vector2LengthSqr(GetMouseDelta()) > 0 || click;
     const auto mouse = GetMousePosition();
-    const int optionCount = settingsPage_ ? SettingCount + 1 : 5;
+    const int optionCount = settingsPage_ ? SettingCount + 1 : (debugEnabled_ ? 6 : 5);
     if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) selectedOption_ = (selectedOption_ + optionCount - 1) % optionCount;
     if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) selectedOption_ = (selectedOption_ + 1) % optionCount;
 
@@ -123,6 +154,7 @@ PauseAction PauseMenu::Update(float dt, GameSettings& settings, bool canLoad, bo
     case 2: return canSave ? PauseAction::SaveCheckpoint : PauseAction::None;
     case 3: return canLoad ? PauseAction::LoadCheckpoint : PauseAction::None;
     case 4: return PauseAction::Title;
+    case 5: return debugEnabled_ ? PauseAction::Debug : PauseAction::None;
     }
     return PauseAction::None;
 }
@@ -130,13 +162,28 @@ PauseAction PauseMenu::Update(float dt, GameSettings& settings, bool canLoad, bo
 void PauseMenu::Draw(const GameSettings& settings, bool canLoad, bool canSave) const
 {
     const float s = Scale();
-    // 設定中は背景を確認できる明るさにし、文字の後ろだけパネルを重ねる。
-    DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), {3, 9, 11, static_cast<unsigned char>(settingsPage_ ? 24 : 225)});
+    const bool artwork = !settingsPage_ && background_.id != 0 && background_.width > 0 && background_.height > 0;
+    if (artwork) {
+        // Cover the window without stretching the supplied 16:9 image.
+        const float imageScale = (std::max)(GetScreenWidth() / static_cast<float>(background_.width),
+                                            GetScreenHeight() / static_cast<float>(background_.height));
+        const float imageWidth = background_.width * imageScale;
+        const float imageHeight = background_.height * imageScale;
+        const Rectangle source{0, 0, static_cast<float>(background_.width), static_cast<float>(background_.height)};
+        const Rectangle destination{(GetScreenWidth() - imageWidth) * .5f,
+                                    (GetScreenHeight() - imageHeight) * .5f, imageWidth, imageHeight};
+        DrawTexturePro(background_, source, destination, {0, 0}, 0, WHITE);
+    }
+    else {
+        // The settings page retains the live game view for brightness/green previews.
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), {3, 9, 11, static_cast<unsigned char>(settingsPage_ ? 24 : 225)});
+    }
     if (settingsPage_) {
         const float top = GetScreenHeight() * .28f;
         DrawRectangleRec({(GetScreenWidth() - 760 * s) / 2, top, 760 * s, Button(7).y + Button(7).height + 24 * s - top}, {3, 9, 11, 210});
     }
-    Text(settingsPage_ ? u8"設定" : u8"ポーズ", settingsPage_ ? "SETTINGS" : "PAUSED", GetScreenHeight() * .16f, 64 * s, RAYWHITE);
+    Text(settingsPage_ ? u8"設定" : u8"ポーズ", settingsPage_ ? "SETTINGS" : "PAUSED",
+         GetScreenHeight() * .16f, 64 * s, artwork ? Color{63, 20, 19, 255} : RAYWHITE);
     if (settingsPage_) {
         const char* jp[] = {u8"BGM音量", u8"環境音量", u8"効果音量", u8"マウス感度", u8"画面の明るさ", u8"緑の強さ"};
         const char* en[] = {"BGM VOLUME", "AMBIENCE VOLUME", "SOUND EFFECTS", "MOUSE SENSITIVITY", "DISPLAY BRIGHTNESS", "GREEN STRENGTH"};
@@ -156,11 +203,25 @@ void PauseMenu::Draw(const GameSettings& settings, bool canLoad, bool canSave) c
         DrawButton(Button(7), u8"保存して戻る", "SAVE AND BACK", selectedOption_ == SettingCount, true);
     }
     else {
-        const char* jp[] = {u8"ゲームに戻る  [Esc]", u8"画面・音量・マウス設定", u8"チェックポイントを保存", u8"チェックポイントから再開", u8"タイトルへ戻る"};
-        const char* en[] = {"RESUME  [Esc]", "DISPLAY / AUDIO / MOUSE", "SAVE CHECKPOINT", "LOAD CHECKPOINT", "RETURN TO TITLE"};
-        for (int i = 0; i < 5; ++i)
+        const char* jp[] = {u8"ゲームに戻る  [Esc]", u8"画面・音量・マウス設定", u8"チェックポイントを保存", u8"チェックポイントから再開", u8"タイトルへ戻る", u8"デバッグ"};
+        const char* en[] = {"RESUME  [Esc]", "DISPLAY / AUDIO / MOUSE", "SAVE CHECKPOINT", "LOAD CHECKPOINT", "RETURN TO TITLE", "DEBUG"};
+        const int count = debugEnabled_ ? 6 : 5;
+        for (int i = 0; i < count; ++i)
             DrawButton(Button(i), jp[i], en[i], selectedOption_ == i, i == 2 ? canSave : i == 3 ? canLoad : true);
-        Text(u8"保存すると、前のチェックポイントを更新します。", "Saving replaces the previous checkpoint.", Button(4).y + 87 * s, 20 * s, {159, 176, 172, 255});
+        Text(u8"保存すると、前のチェックポイントを更新します。", "Saving replaces the previous checkpoint.", Button(count - 1).y + 87 * s, 20 * s, {159, 176, 172, 255});
+        //const char* jp[] = {u8"ゲームに戻る  [Esc]", u8"画面・音量・マウス設定", u8"チェックポイントを保存", u8"チェックポイントから再開", u8"タイトルへ戻る"};
+        //const char* en[] = {"RESUME  [Esc]", "DISPLAY / AUDIO / MOUSE", "SAVE CHECKPOINT", "LOAD CHECKPOINT", "RETURN TO TITLE"};
+        for (int i = 0; i < 5; ++i)
+            DrawButton(Button(i), jp[i], en[i], selectedOption_ == i, i == 2 ? canSave : i == 3 ? canLoad : true, artwork);
+        Text(u8"保存すると、前のチェックポイントを更新します。", "Saving replaces the previous checkpoint.",
+             Button(4).y + 87 * s, 20 * s, artwork ? Color{72, 31, 27, 255} : Color{159, 176, 172, 255});
     }
-    if (!message_.empty()) Text(message_.c_str(), fallbackMessage_.c_str(), GetScreenHeight() * .91f, 22 * s, {192, 212, 184, 255});
+    if (!message_.empty()) {
+        if (artwork) {
+            const float messageWidth = (std::min)(720.0f * s, GetScreenWidth() * .9f);
+            DrawRectangleRec({(GetScreenWidth() - messageWidth) * .5f, GetScreenHeight() * .91f - 5 * s,
+                              messageWidth, 32 * s}, {30, 17, 18, 210});
+        }
+        Text(message_.c_str(), fallbackMessage_.c_str(), GetScreenHeight() * .91f, 22 * s, {220, 222, 205, 255});
+    }
 }

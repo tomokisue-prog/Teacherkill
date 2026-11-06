@@ -11,13 +11,53 @@ bool GameScene::IsGameOver() const { return gameOver_; }
 bool GameScene::IsPaused() const { return paused_; }
 void GameScene::RequestCheckpointContinue() { loadCheckpointOnInit_ = true; }
 
+void GameScene::SetDebugToolsEnabled(bool enabled) {
+#ifndef NDEBUG
+    debugToolsEnabled_ = enabled;
+    if (!enabled) {
+        debugMenu_.Close();
+        if (gameContext) { gameContext->GetPlayer().DebugSetInvincible(false); gameContext->GetPlayer().DebugSetInfiniteAmmo(false); }
+    }
+#else
+    (void)enabled;
+#endif
+}
+
+bool GameScene::IsDebugMenuOpen() const {
+#ifndef NDEBUG
+    return paused_ && debugToolsEnabled_ && debugMenu_.IsOpen();
+#else
+    return false;
+#endif
+}
+
+void GameScene::DrawDebugMenu() {
+#ifndef NDEBUG
+    if (gameContext && IsDebugMenuOpen() && debugMenu_.Draw(*gameContext, settings_)) {
+        settings_.Apply(*gameContext);
+        settingsDirty_ = true;
+    }
+#endif
+}
+
 void GameScene::Init()
 {
     finished = false;
     nextScene = nullptr;
+    introFadeActive_ = introFadeRequested_;
+    introFadeRequested_ = false;
+    introFadeClockStarted_ = false;
+    introFadeStart_ = 0.0;
+    introFadeAlpha_ = introFadeActive_ ? 1.0f : 0.0f;
     gameOver_ = paused_ = settingsDirty_ = false;
     resumeInputDelay_ = noticeTime_ = 0;
+    gameOverScreen_.Init();
     gameOverScreen_.Reset();
+
+    pauseMenu_.Init();
+#ifndef NDEBUG
+    debugMenu_.Close();
+#endif
     if (!gameContext) return;
 
     gameContext->Init();
@@ -30,6 +70,9 @@ void GameScene::Init()
     settings_ = GameSettings{};
     settings_.Load();
     settings_.Apply(*gameContext);
+#ifndef NDEBUG
+    if (debugToolsEnabled_) debugMenu_.Initialize(*gameContext);
+#endif
     CheckpointData checkpoint;
     checkpointAvailable_ = CheckpointSave::Load(checkpoint);
     const bool continueRequested = loadCheckpointOnInit_;
@@ -42,6 +85,8 @@ void GameScene::Init()
     AM().PlayBgm(BgmId::Game);
     AM().PlayAmbience();
     DisableCursor();
+
+    resumeInputDelay_ = 0.1f;
 }
 
 void GameScene::BeginGameOver()
@@ -64,7 +109,11 @@ void GameScene::BeginGameOver()
 void GameScene::OpenPause()
 {
     paused_ = true;
+#ifndef NDEBUG
+    pauseMenu_.Open(debugToolsEnabled_);
+#else
     pauseMenu_.Open();
+#endif
     CheckpointData checkpoint;
     checkpointAvailable_ = CheckpointSave::Load(checkpoint);
     AM().SetPaused(true);
@@ -127,6 +176,19 @@ bool GameScene::LoadCheckpoint()
 void GameScene::Update(float deltaTime)
 {
     if (!gameContext) return;
+    if (introFadeActive_) {
+        // Start after the first black frame, even if scene initialization was slow.
+        if (!introFadeClockStarted_) {
+            introFadeClockStarted_ = true;
+            introFadeStart_ = GetTime();
+        }
+        const float progress = static_cast<float>((std::max)(0.0, (std::min)(1.0,
+            (GetTime() - introFadeStart_) / IntroFadeInSeconds)));
+        const float eased = progress * progress * (3.0f - 2.0f * progress);
+        introFadeAlpha_ = 1.0f - eased;
+        if (progress < 1.0f) return; // Keep gameplay and tutorial timers still during the reveal.
+        introFadeActive_ = false;
+    }
     if (noticeTime_ > 0) noticeTime_ = (std::max)(0.0f, noticeTime_ - deltaTime);
     if (gameOver_) {
         switch (gameOverScreen_.Update(deltaTime)) {
@@ -139,7 +201,18 @@ void GameScene::Update(float deltaTime)
     }
     if (!gameContext->GetPlayer().IsAlive()) { BeginGameOver(); return; }
     if (paused_) {
+#ifndef NDEBUG
+        if (IsDebugMenuOpen()) {
+            if (IsKeyPressed(KEY_ESCAPE)) debugMenu_.Close();
+            return; // デバッグ確認中も敵・回復・攻撃の更新は止めておく。
+        }
+#endif
         switch (pauseMenu_.Update(deltaTime, settings_, checkpointAvailable_, gameContext->CanSaveCheckpoint())) {
+        case PauseAction::Debug:
+#ifndef NDEBUG
+            if (debugToolsEnabled_) debugMenu_.Open();
+#endif
+            break;
         case PauseAction::Resume: Resume(); break;
         case PauseAction::Title: SetNextScene(SM().GetScene(SceneID::Title)); break;
         case PauseAction::SettingsChanged:
@@ -181,19 +254,32 @@ void GameScene::Render() const
 {
     if (!gameContext) return;
     gameContext->Draw();
+#ifndef NDEBUG
+    if (debugToolsEnabled_) debugMenu_.DrawOverlays(*gameContext);
+#endif
     if (gameOver_) gameOverScreen_.Draw();
-    else if (paused_) pauseMenu_.Draw(settings_, checkpointAvailable_, gameContext->CanSaveCheckpoint());
-    else DrawText("[Esc] PAUSE / SETTINGS", GetScreenWidth() - 275, 18, 18, {184, 196, 189, 220});
+    else if (paused_ && !IsDebugMenuOpen()) pauseMenu_.Draw(settings_, checkpointAvailable_, gameContext->CanSaveCheckpoint());
+    else if (!paused_) DrawText("[Esc] PAUSE / SETTINGS", GetScreenWidth() - 275, 18, 18, {184, 196, 189, 220});
     if (noticeTime_ > 0 && !paused_) {
         const auto& font = JPFont();
         const float size = (std::max)(16.0f, 26.0f * GetScreenHeight() / 1080.0f);
         if (font.IsLoaded()) font.DrawText(notice_.c_str(), int((GetScreenWidth() - font.MeasureText(notice_.c_str(), size).x) / 2), int(GetScreenHeight() * .12f), size, {217, 231, 202, 255});
         else DrawText(fallbackNotice_.c_str(), (GetScreenWidth() - MeasureText(fallbackNotice_.c_str(), int(size))) / 2, int(GetScreenHeight() * .12f), int(size), RAYWHITE);
     }
+    if (introFadeAlpha_ > 0.0f)
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(),
+                      Color{0, 0, 0, static_cast<unsigned char>(introFadeAlpha_ * 255.0f + 0.5f)});
 }
 
 void GameScene::End()
 {
+#ifndef NDEBUG
+    debugMenu_.Close();
+#endif
+    introFadeRequested_ = introFadeActive_ = introFadeClockStarted_ = false;
+    introFadeAlpha_ = 0.0f;
+    gameOverScreen_.End();
+    pauseMenu_.End();
     SaveSettings();
     AM().StopBgm();
     AM().StopAmbience();

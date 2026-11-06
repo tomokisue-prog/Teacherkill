@@ -83,6 +83,9 @@ void GameContext::SetDisplaySettings(float brightness, float greenStrength)
 
 void GameContext::Init()
 {
+#ifndef NDEBUG
+    debugGameplay_.ClearShots();
+#endif
     // 新しいラウンドへ、前回の暗転・会話・ドア開閉・ライト状態を持ち越さない。
     gameFade_.Reset();
     messageWindow_.Close();
@@ -93,8 +96,11 @@ void GameContext::Init()
     cameraController_.Init();
     player_.Init();
     stage_.Init();
-    inventory_.Init();  // Load item GLB models and spawn items
+    inventory_.Init(stage_);
     bloodEffect_.Init();
+    lowHpBlood_.Init();
+    enemyPlacements_.clear();
+
     PlaceCharacters();
     horrorAudio_.Reset(player_.GetPosition());
     checkpointRequested_ = false;
@@ -165,6 +171,9 @@ void GameContext::Init()
 
 void GameContext::Reset()
 {
+#ifndef NDEBUG
+    debugGameplay_.ClearShots();
+#endif
     AM().StopAllSe();
     player_.Reset();
     stage_.Reset();
@@ -173,9 +182,8 @@ void GameContext::Reset()
     doors_.push_back(defaultDoor);
     inventory_.Reset();
     bloodEffect_.Reset();
-
     gunTutorialUI_.Init();
-
+    lowHpBlood_.Reset();
     PlaceCharacters();
     horrorAudio_.Reset(player_.GetPosition());
     checkpointRequested_ = false;
@@ -218,16 +226,31 @@ void GameContext::ShowDialogue(const std::string& dialogueId)
 
 void GameContext::PlaceCharacters()
 {
-    inventory_.PlaceOnStage(stage_);
+    inventory_.ApplyPlacements();
 
     player_.SetPosition(stage_.FindGroundPosition(player_.GetPosition()));
 
-    enemyManager_.Clear();
-
+    // PlayerのTransformは維持し、足元の高さだけをステージの床へ合わせる。
+    ApplyEnemyPlacements();
     paladinPosition_ = stage_.FindGroundPosition({ 0.0f, 0.0f, 3.0f });
     cameraController_.GetPlayerCamera().SetEyeHeight(player_.GetHeight() * WorldScale::EyeHeightRatio);
     cameraController_.GetPlayerCamera().SetPlayerPosition(player_.GetPosition());
     cameraController_.GetPlayerCamera().Update();
+}
+
+void GameContext::ApplyEnemyPlacements()
+{
+    enemyManager_.Clear();
+
+    // enemyPlacements_ を使う場合は spawnPoints に条件付きで追加する
+    auto& spawnPoints = enemyManager_.GetSpawnPoints();
+    spawnPoints.clear();
+
+    for (const auto& placement : enemyPlacements_)
+    {
+        // デフォルトでは None や Normal などの設定に合わせてスポーンポイントに追加
+        enemyManager_.AddSpawnPoint(placement.position, placement.config, demo::EnemySpawnCondition::Normal, placement.yaw);
+    }
 }
 
 void GameContext::ProcessPlayerShot()
@@ -262,6 +285,9 @@ void GameContext::ProcessPlayerShot()
 
     demo::EnemyId targetId = 0;
     bool foundTarget = false;
+#ifndef NDEBUG
+    int targetHpBefore = 0;
+#endif
     Vector3 impactNormal = Vector3Negate(ray.direction);
 
     for (const auto& enemy : enemyManager_.GetEnemies())
@@ -291,6 +317,9 @@ void GameContext::ProcessPlayerShot()
         {
             closestDistance = hit.distance;
             targetId = enemy.GetId();
+#ifndef NDEBUG
+            targetHpBefore = enemy.GetHp();
+#endif
             foundTarget = true;
             impactNormal = inside ? Vector3Negate(ray.direction) : hit.normal;
         }
@@ -327,14 +356,29 @@ void GameContext::ProcessPlayerShot()
         }
     }
 
+#ifndef NDEBUG
+    DebugShot debugShot;
+    debugShot.ray=ray;debugShot.end=tracerEnd_;
+    debugShot.normal=foundTarget?impactNormal:wallHit.hit?wallHit.normal:Vector3{};
+    debugShot.target=foundTarget?DebugShotTarget::Enemy:wallHit.hit?DebugShotTarget::Wall:DebugShotTarget::Miss;
+    debugShot.enemyId=targetId;
+#endif
     if (!foundTarget)
     {
+#ifndef NDEBUG
+        debugGameplay_.RecordShot(debugShot);
+#endif
         TraceLog(LOG_INFO, "SHOT: No enemy hit");
         return;
     }
 
     const demo::EnemyDamageResult result =
         enemyManager_.ApplyDamage(targetId, shotDamage);
+#ifndef NDEBUG
+    debugShot.damage=result.applied?targetHpBefore-result.hp:0;
+    debugShot.hpAfter=result.hp;debugShot.killed=result.becameDead;
+    debugGameplay_.RecordShot(debugShot);
+#endif
 
     if (result.applied)
     {
@@ -469,7 +513,15 @@ void GameContext::Update(float deltaTime)
         inventory_.CancelHealing();
         return;
     }
-
+    if (cameraController_.GetActiveType() == CameraType::System) {
+        inventory_.CancelHealing();
+        for (auto& d : doors_)
+        {
+            d.Update(deltaTime, player_, &inventory_);
+        }
+        cameraController_.Update();
+        return;
+    }
     if (IsMessageActive())
     {
         messageWindow_.Update(deltaTime);
@@ -799,7 +851,10 @@ void GameContext::Update(float deltaTime)
     {
         inventory_.CancelHealing();
     }
+    // Synchronize the on-screen blood with the current HP (damage / medkit).
+    lowHpBlood_.Update(deltaTime, player_.GetHp(), player_.GetMaxHp());
 
+    // 6. プレイヤー射撃処理
     ProcessPlayerShot();
     horrorAudio_.Update(deltaTime, player_, cameraController_.GetPlayerCamera(), enemyManager_, stage_, isPlayerCameraActive);
 }
@@ -861,10 +916,15 @@ void GameContext::Draw() const
     }
 
     player_.Draw(activePlayerCam);
-    enemyManager_.Draw();
+    if (playerView) {
+        enemyManager_.Draw();
+    } else {
+        for (const auto& placement : enemyPlacements_)
+            demo::Enemy(0, placement.config, placement.position, placement.yaw).Draw();
+    }
     DrawBulletMarks();
     DrawShotEffects();
-    inventory_.DrawWorld();
+    inventory_.DrawWorld(!playerView);
     bloodEffect_.Draw(cameraController_.GetActiveRaylibCamera());
 
     securityPC_.Draw();
@@ -877,6 +937,10 @@ void GameContext::Draw() const
     // ==================================
     if (playerView && player_.IsAlive())
     {
+        // Blood vignette persists according to remaining HP.
+        lowHpBlood_.Draw();
+
+        // Brief full-screen red flash when damage is received.
         player_.DrawDamageOverlay();
 
         DrawCrosshair();
@@ -1159,18 +1223,20 @@ void GameContext::Draw() const
         }
     }
 
-    gameFade_.Draw();
-    EventMgr().Draw();
-
-    if (player_.IsAlive() && IsMessageActive())
-    {
-        messageWindow_.Draw();
+    if (playerView) {
+        gameFade_.Draw();
+        EventMgr().Draw();
+        if (player_.IsAlive() && IsMessageActive())
+            messageWindow_.Draw();
     }
     gunTutorialUI_.Draw();
 }
 
 void GameContext::End()
 {
+#ifndef NDEBUG
+    debugGameplay_.ClearShots();
+#endif
     AM().StopAllSe();
     enemyManager_.Clear();
     gunTutorialUI_.End();
@@ -1178,6 +1244,7 @@ void GameContext::End()
     inventory_.End();
     stage_.End();
     bloodEffect_.Shutdown();
+    lowHpBlood_.Shutdown();
     lighting_.Shutdown();
 
     if (muzzleFlashTexture_.id != 0)
@@ -1277,6 +1344,10 @@ CheckpointData GameContext::CaptureCheckpoint() const
 
 void GameContext::RestoreCheckpoint(const CheckpointData& data)
 {
+#ifndef NDEBUG
+    debugGameplay_.ClearShots();
+#endif
+    // Loaded models and HUD textures stay alive. Transient attacks and visual effects do not.
     AM().StopAllSe();
     gameFade_.Reset();
     messageWindow_.Close();
@@ -1289,7 +1360,7 @@ void GameContext::RestoreCheckpoint(const CheckpointData& data)
     stage_.SetScale(data.stageScale);
     player_.RestoreCheckpoint(data.player);
     inventory_.RestoreCheckpoint(data.inventory);
-    inventory_.PlaceOnStage(stage_);
+    inventory_.ApplyPlacements();
     if (!doors_.empty())
     {
         doors_[0].RestoreCheckpoint(data.door);
@@ -1335,3 +1406,16 @@ bool GameContext::ConsumeCheckpointRequest()
     if (requested) checkpointRequested_ = false;
     return requested;
 }
+
+#ifndef NDEBUG
+bool GameContext::DebugTeleportPlayer(Vector3 position, float yaw, float pitch) {
+    if (!std::isfinite(yaw) || !std::isfinite(pitch) || !player_.DebugMoveTo(position)) return false;
+    const bool hidden=IsCursorHidden();
+    inventory_.CancelHealing();gameFade_.Reset();checkpointRequested_=false;
+    muzzleFlashTimer_=0;tracerActive_=false;horrorAudio_.Reset(position);
+    cameraController_.SetActiveCamera(CameraType::Player);
+    auto& camera=cameraController_.GetPlayerCamera();camera.SetPlayerPosition(position);camera.SetViewAngles(yaw,pitch);
+    if(!hidden) EnableCursor();
+    return true;
+}
+#endif

@@ -1,4 +1,7 @@
 ﻿#include "SaveData.h"
+#include "EnemyConfig.h"
+#include <cmath>
+#include <stdexcept>
 #include "nlohmann/json.hpp"
 #include "raylib.h"
 #include <filesystem>
@@ -55,4 +58,45 @@ bool SaveData::Write(const std::string& path, const nlohmann::json& data)
         TraceLog(LOG_WARNING, "SAVE: Cannot write %s: %s", path.c_str(), error.what());
         return false;
     }
+}
+
+float SaveData::Number(const nlohmann::json& data, float low, float high) {
+    if (!data.is_number()) throw std::runtime_error("expected a number");
+    const float value = data.get<float>();
+    if (!std::isfinite(value) || value < low || value > high) throw std::runtime_error("number out of range");
+    return value;
+}
+int SaveData::Integer(const nlohmann::json& data, int low, int high) {
+    if (!data.is_number_integer()) throw std::runtime_error("expected an integer");
+    const auto value = data.get<std::int64_t>();
+    if (value < low || value > high) throw std::runtime_error("integer out of range");
+    return static_cast<int>(value);
+}
+nlohmann::json SaveData::PackEnemyConfig(const demo::EnemyConfig& c) {
+    return {{"type", int(c.type)}, {"maxHp", c.maxHp}, {"moveSpeed", c.moveSpeed}, {"turnSpeed", c.turnSpeed},
+        {"bodyRadius", c.bodyRadius}, {"bodyHeight", c.bodyHeight}, {"detectionRange", c.detectionRange},
+        {"loseRange", c.loseRange}, {"stopDistance", c.stopDistance}, {"resumeDistance", c.resumeDistance},
+        {"corpseDuration", c.corpseDuration}, {"attackDamage", c.attackDamage}, {"attackRange", c.attackRange},
+        {"attackHitFraction", c.attackHitFraction}, {"attackRecovery", c.attackRecovery}, {"animationSpeed", c.animationSpeed}};
+}
+demo::EnemyConfig SaveData::ParseEnemyConfig(const nlohmann::json& j) {
+    demo::EnemyConfig c;
+    c.type = static_cast<demo::EnemyType>(Integer(j.at("type"), 0, int(demo::EnemyType::MonsterMale2)));
+    c.maxHp = Integer(j.at("maxHp"), 1, 100000);
+    c.moveSpeed = Number(j.at("moveSpeed"), 0, 100);
+    c.turnSpeed = Number(j.at("turnSpeed"), 0, 100);
+    c.bodyRadius = Number(j.at("bodyRadius"), .01f, 100);
+    c.bodyHeight = Number(j.at("bodyHeight"), .01f, 100);
+    c.detectionRange = Number(j.at("detectionRange"), 0, 10000);
+    c.loseRange = Number(j.at("loseRange"), 0, 10000);
+    c.stopDistance = Number(j.at("stopDistance"), 0, 100);
+    c.resumeDistance = Number(j.at("resumeDistance"), 0, 100);
+    c.corpseDuration = Number(j.at("corpseDuration"), 0, 10000);
+    c.attackDamage = Integer(j.at("attackDamage"), 0, 100000);
+    c.attackRange = Number(j.at("attackRange"), 0, 100);
+    c.attackHitFraction = Number(j.at("attackHitFraction"), 0, 1);
+    c.attackRecovery = Number(j.at("attackRecovery"), 0, 10000);
+    c.animationSpeed = Number(j.at("animationSpeed"), .01f, 100);
+    c.Validate();
+    return c;
 }

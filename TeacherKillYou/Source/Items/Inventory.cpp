@@ -16,9 +16,37 @@ namespace
     constexpr int AMMO_PICKUP_AMOUNT = 30;
 }
 
-void Inventory::Init()
+void Inventory::Init(const Stage& stage)
 {
+    End();
+    placements_ = {
+        {ItemType::LostItem, {5.0f, 0.35f, 5.0f}},
+        {ItemType::KeyCard, {7.11f, 5.64f, 1.15f}},
+        {ItemType::Medkit, {0.0f, 0.35f, 1.8f}},
+        {ItemType::Ammo, {1.2f, 0.35f, 2.0f}},
+        {ItemType::Gun, {2.0f, 0.35f, 2.0f}},
+        {ItemType::AuthenticationKey, {3.0f, 0.35f, -2.0f}}
+    };
+    for (auto& item : placements_) {
+        const auto position = item.GetPosition();
+        const auto floor = stage.FindGroundPosition(position);
+        if (position.y < floor.y + .08f)
+            item.SetPosition({position.x, floor.y + .2f, position.z});
+    }
     Reset();
+    const char* path = "Data/Image/UI/Inventory.png";
+    if (FileExists(path))
+    {
+        slotBorder_ = LoadTexture(path);
+        if (slotBorder_.id != 0) SetTextureFilter(slotBorder_, TEXTURE_FILTER_BILINEAR);
+    }
+    else TraceLog(LOG_WARNING, "INVENTORY: Slot image not found: %s", path);
+}
+
+void Inventory::End()
+{
+    if (slotBorder_.id != 0) UnloadTexture(slotBorder_);
+    slotBorder_ = {};
 }
 
 void Inventory::Reset()
@@ -32,32 +60,16 @@ void Inventory::Reset()
     messageTimer_ = 0.0f;
     CancelHealing();
 
-    items_.clear();
-
-    items_.emplace_back(ItemType::LostItem, Vector3{ 5.0f, 0.35f, 5.0f });
-    items_.emplace_back(ItemType::KeyCard, Vector3{ 7.11f, 5.64f, 1.15f });
-    items_.emplace_back(ItemType::Medkit, Vector3{ 0.0f, 0.35f, 1.8f });
-    items_.emplace_back(ItemType::Ammo, Vector3{ 1.2f, 0.35f, 2.0f });
-    items_.emplace_back(ItemType::Gun, Vector3{ 2.0f, 0.35f, 2.0f });
-
-    items_.emplace_back(ItemType::AuthenticationKey, Vector3{ 3.0f, 0.35f, -2.0f });
+    ApplyPlacements();
 }
 
-void Inventory::PlaceOnStage(const Stage& stage)
+void Inventory::ApplyPlacements()
 {
-    for (auto& item : items_)
-    {
-        if (item.IsCollected()) continue;
-        const Vector3 position = item.GetPosition();
-        const Vector3 floor = stage.FindGroundPosition(position);
-        if (position.y < floor.y + 0.08f)
-        {
-            item.SetPosition({ position.x, floor.y + 0.2f, position.z });
-        }
-    }
+    items_ = placements_;
+    focusedPickup_ = -1;
+    usedItem_ = pickedUpItem_ = ItemType::None;
 }
 
-// 回復制御
 void Inventory::CancelHealing()
 {
     healing_ = false;
@@ -73,7 +85,7 @@ float Inventory::GetHealingProgress() const
 // 内部ロジック & ヘルパー
 bool Inventory::AddItem(ItemType item)
 {
-    if (item == ItemType::None || item == ItemType::Ammo)
+    if (item < ItemType::Medkit || item > ItemType::LostItem || item == ItemType::Ammo)
         return false;
 
     for (ItemType& slot : slots_)
@@ -234,34 +246,6 @@ void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage)
     messageTimer_ = 1.5f;
 }
 
-const char* Inventory::GetItemModelKey(ItemType type) const
-{
-    switch (type)
-    {
-    case ItemType::KeyCard:  return ResourceKeys::Model_KeyCard;
-    case ItemType::Medkit:   return ResourceKeys::Model_Medkit;
-    case ItemType::Ammo:     return ResourceKeys::Model_Ammo;
-    case ItemType::LostItem: return ResourceKeys::Model_LostItem;
-    case ItemType::Gun:      return ResourceKeys::Model_Gun;
-    case ItemType::AuthenticationKey: return ResourceKeys::Model_Authentication_Key;
-    default:                 return nullptr;
-    }
-}
-
-float Inventory::GetItemModelScale(ItemType type) const
-{
-    switch (type)
-    {
-    case ItemType::KeyCard:  return 0.15f; // キーカードのサイズ
-    case ItemType::Medkit:   return 0.20f; // メドキットのサイズ
-    case ItemType::Ammo:     return 0.15f; // 弾薬のサイズ
-    case ItemType::LostItem: return 0.15f; // 忘れ物のサイズ
-    case ItemType::Gun:      return 0.05f;
-    case ItemType::AuthenticationKey: return 0.15f;
-    default:                 return 1.0f;
-    }
-}
-
 const Texture2D* Inventory::GetItemIcon(ItemType type) const
 {
     switch (type)
@@ -272,20 +256,10 @@ const Texture2D* Inventory::GetItemIcon(ItemType type) const
     }
 }
 
-void Inventory::DrawWorld() const
+void Inventory::DrawWorld(bool editing) const
 {
-    for (const Item& item : items_)
-    {
-        const char* modelKey = GetItemModelKey(item.GetType());
-        if (modelKey != nullptr)
-        {
-            Model model = RM().GetModel(modelKey);
-            if (model.meshCount > 0 && model.meshes != nullptr)
-            {
-                item.Draw(&model, GetItemModelScale(item.GetType()));
-            }
-        }
-    }
+    for (const auto& item : editing ? placements_ : items_)
+        item.Draw();
 }
 
 void Inventory::DrawHealingHUD() const
@@ -294,10 +268,14 @@ void Inventory::DrawHealingHUD() const
         return;
 
     const float progress = GetHealingProgress();
-    const float hudWidth = 600.0f;
-    const float hudHeight = 144.0f;
+    const float uiScale = Clamp((std::min)(GetScreenWidth() / 1280.0f,
+                                            GetScreenHeight() / 720.0f), 0.5f, 1.5f);
+    const float hudWidth = (std::min)(600.0f * uiScale, GetScreenWidth() - 20.0f * uiScale);
+    const float hudHeight = 144.0f * uiScale;
     const float x = (GetScreenWidth() - hudWidth) * 0.5f;
-    const float y = GetScreenHeight() - 195.0f;
+    const float slotHeight = 88.0f * uiScale * 586.0f / 606.0f;
+    const float inventoryTop = GetScreenHeight() - slotHeight - 20.0f * uiScale;
+    const float y = (std::max)(0.0f, inventoryTop - hudHeight - 12.0f * uiScale);
 
     const Texture2D* healingBarPtr = RM().GetTexture(ResourceKeys::Icon_HealingBar);
     if (healingBarPtr != nullptr && healingBarPtr->id != 0)
@@ -388,51 +366,63 @@ void Inventory::DrawHUD() const
     }
 
     // インベントリスロットの描画
-    const int slotWidth = 80;
-    const int slotHeight = 70;
-    const int gap = 8;
+    // Four slots using the supplied circular border image.
+    const float uiScale = Clamp((std::min)(GetScreenWidth() / 1280.0f,
+                                            GetScreenHeight() / 720.0f), 0.5f, 1.5f);
+    const int slotWidth = static_cast<int>(88.0f * uiScale);
+    const int slotHeight = static_cast<int>(slotWidth * 586.0f / 606.0f);
+    const int gap = static_cast<int>(6.0f * uiScale);
     const int totalWidth = MAX_SLOTS * slotWidth + (MAX_SLOTS - 1) * gap;
     const int startX = (GetScreenWidth() - totalWidth) / 2;
-    const int y = GetScreenHeight() - slotHeight - 25;
+    const int y = GetScreenHeight() - slotHeight - static_cast<int>(20.0f * uiScale);
 
     for (int i = 0; i < MAX_SLOTS; ++i)
     {
         const int x = startX + i * (slotWidth + gap);
-        const Rectangle rect{ static_cast<float>(x), static_cast<float>(y), static_cast<float>(slotWidth), static_cast<float>(slotHeight) };
+        const Rectangle rect{ static_cast<float>(x), static_cast<float>(y),
+                              static_cast<float>(slotWidth), static_cast<float>(slotHeight) };
         const bool selected = (i == selectedSlot_);
-        const Color bg = selected ? Color{ 50, 60, 45, 215 } : Color{ 20, 20, 25, 190 };
+        const float centerX = x + slotWidth * 0.478f;
+        const float centerY = y + slotHeight * 0.590f;
 
-        DrawRectangleRec(rect, bg);
-        DrawRectangleLinesEx(rect, selected ? 3.0f : 1.0f, selected ? LIME : GRAY);
-        DrawText(TextFormat("%d", i + 1), x + 7, y + 6, 16, LIGHTGRAY);
-
+        if (slotBorder_.id != 0)
+        {
+            const Rectangle source{ 0, 0, static_cast<float>(slotBorder_.width),
+                                          static_cast<float>(slotBorder_.height) };
+            const Color tint = selected ? WHITE : Color{ 205, 205, 205, 230 };
+            DrawTexturePro(slotBorder_, source, rect, { 0, 0 }, 0.0f, tint);
+            if (selected)
+                DrawCircleLines(static_cast<int>(centerX), static_cast<int>(centerY),
+                                slotWidth * 0.235f, Color{ 225, 195, 150, 230 });
+        }
+        else
+        {
+            // Keep the original slots usable if the image has not been copied yet.
+            DrawRectangleRec(rect, selected ? Color{ 50, 60, 45, 215 } : Color{ 20, 20, 25, 190 });
+            DrawRectangleLinesEx(rect, selected ? 3.0f : 1.0f, selected ? LIME : GRAY);
+        }
         const ItemType type = slots_[i];
-        if (type == ItemType::None)
-            continue;
+        if (type == ItemType::None) continue;
 
         const Texture2D* icon = GetItemIcon(type);
         if (icon != nullptr && icon->id != 0 && icon->width > 0 && icon->height > 0)
         {
-            const float maxWidth = 52.0f;
-            const float maxHeight = 45.0f;
-            const float sx = maxWidth / icon->width;
-            const float sy = maxHeight / icon->height;
-            const float scale = (std::min)(sx, sy);
+            const float maxWidth = 42.0f * uiScale;
+            const float maxHeight = 40.0f * uiScale;
+            const float scale = (std::min)(maxWidth / icon->width, maxHeight / icon->height);
             const float width = icon->width * scale;
             const float height = icon->height * scale;
-
             DrawTexturePro(*icon,
                 { 0.0f, 0.0f, static_cast<float>(icon->width), static_cast<float>(icon->height) },
-                { x + (slotWidth - width) / 2.0f,
-                  y + 18.0f + (maxHeight - height) / 2.0f,
-                  width, height },
+                { centerX - width * 0.5f, centerY - height * 0.5f, width, height },
                 { 0.0f, 0.0f }, 0.0f, WHITE);
         }
         else
         {
             const char* name = Item::GetName(type);
-            const int fontSize = 14;
-            DrawText(name, x + (slotWidth - MeasureText(name, fontSize)) / 2, y + 37, fontSize, WHITE);
+            const int fontSize = (std::max)(9, static_cast<int>(11.0f * uiScale));
+            DrawText(name, static_cast<int>(centerX) - MeasureText(name, fontSize) / 2,
+                     static_cast<int>(centerY) - fontSize / 2, fontSize, WHITE);
         }
     }
 
@@ -489,7 +479,7 @@ InventoryCheckpoint Inventory::CaptureCheckpoint() const
     data.slots = slots_;
     data.selectedSlot = selectedSlot_;
     for (const auto& item : items_)
-        data.items.push_back({ item.GetType(), item.GetPosition(), item.IsCollected() });
+        data.items.push_back({ item.GetType(), item.GetPosition(), item.IsCollected(), item.GetYaw(), item.GetScale() });
     return data;
 }
 
@@ -502,6 +492,8 @@ void Inventory::RestoreCheckpoint(const InventoryCheckpoint& data)
     for (const auto& saved : data.items)
     {
         items_.emplace_back(saved.type, saved.position);
+        items_.back().SetYaw(saved.yaw);
+        items_.back().SetScale(saved.scale);
         if (saved.collected) items_.back().Collect();
     }
 }

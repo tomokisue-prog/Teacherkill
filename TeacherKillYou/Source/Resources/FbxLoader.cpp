@@ -98,10 +98,21 @@ ScenePtr ReadScene(const std::string& path, bool animationOnly = false) {
 }
 
 // Node names may exceed raylib's 32-byte BoneInfo names. Match full hierarchy paths.
-std::string NodePath(const ufbx_node* node) {
+std::string NodePath(const ufbx_node* node, const FbxAnimationOptions& options = {}) {
     if (!node) return {};
-    const std::string name = Text(node->name);
-    return NodePath(node->parent) + std::to_string(name.size()) + ":" + name;
+    std::string name = Text(node->name);
+    if (node->parent && node->parent->is_root && options.sourceRig && options.modelRig && name == options.sourceRig)
+        name = options.modelRig;
+    return NodePath(node->parent, options) + std::to_string(name.size()) + ":" + name;
+}
+
+const ufbx_node* CommonAncestor(const ufbx_node* first, const ufbx_node* second) {
+    if (!first) return second;
+    for (const auto* candidate = first; candidate; candidate = candidate->parent) {
+        for (const auto* node = second; node; node = node->parent)
+            if (node == candidate) return candidate;
+    }
+    return nullptr;
 }
 ufbx_matrix UfbxMatrix(Matrix m) {
     ufbx_matrix result{};
@@ -442,8 +453,13 @@ FbxModelData LoadFbxModel(const std::string& path, bool inPlaceLocomotion) {
             data.model.bindPose[bone] = { {}, {0,0,0,1}, {1,1,1} };
         }
         for (const auto& binding : bindings) {
-            data.bindings.push_back({ NodePath(scene->nodes[binding.node]),
-                MatrixFrom(binding.toBone), MatrixFrom(binding.fromWorld), binding.rigid });
+            const auto* node = scene->nodes[binding.node];
+            FbxSkinBinding skin{ NodePath(node), MatrixFrom(binding.toBone), MatrixFrom(binding.fromWorld), binding.rigid };
+            if (binding.rigid && node->parent && !node->parent->is_root) {
+                skin.rigidParentPath = NodePath(node->parent);
+                skin.rigidParentFromWorld = MatrixFrom(ufbx_matrix_invert(&node->parent->node_to_world));
+            }
+            data.bindings.push_back(std::move(skin));
         }
         std::unordered_map<const ufbx_texture*, Texture2D> textures;
         const std::string directory = GetDirectoryPath(path.c_str());
@@ -518,14 +534,7 @@ FbxModelData LoadFbxModel(const std::string& path, bool inPlaceLocomotion) {
         const ufbx_node* motionRoot = nullptr;
         for (const auto& binding : bindings) {
             if (binding.rigid) continue;
-            const auto* node = scene->nodes[binding.node];
-            if (!motionRoot) { motionRoot = node; continue; }
-            for (;;) {
-                const ufbx_node* ancestor = node;
-                while (ancestor && ancestor != motionRoot) ancestor = ancestor->parent;
-                if (ancestor || !motionRoot->parent) break;
-                motionRoot = motionRoot->parent;
-            }
+            motionRoot = CommonAncestor(motionRoot, scene->nodes[binding.node]);
         }
         for (std::size_t clip = 0; clip < clips.size(); ++clip) {
             const auto* source = clips[clip];
@@ -558,6 +567,10 @@ FbxModelData LoadFbxModel(const std::string& path, bool inPlaceLocomotion) {
                 for (std::size_t bone = 0; bone < bindings.size(); ++bone) {
                     const auto& binding = bindings[bone];
                     const auto* node = evaluated->nodes[binding.node];
+                    if (clip == 0 && frame == 0) {
+                        const auto& world = node->node_to_world;
+                        data.bindings[bone].referencePosition = {float(world.m03), float(world.m13), float(world.m23)};
+                    }
                     const ufbx_matrix toWorld = binding.rigid ? node->geometry_to_world : ufbx_matrix_mul(&node->node_to_world, &binding.toBone);
                     Matrix matrix = MatrixFrom(ufbx_matrix_mul(&toWorld, &binding.fromWorld));
                     // AIが位置を動かすため、歩行takeの水平な移動量だけを取り除く。上下動と骨の動きは残す。
@@ -581,7 +594,8 @@ FbxModelData LoadFbxModel(const std::string& path, bool inPlaceLocomotion) {
 }
 
 FbxAnimationData LoadFbxAnimations(const std::string& path, const Model& model,
-                                   const std::vector<FbxSkinBinding>& bindings) {
+                                   const std::vector<FbxSkinBinding>& bindings,
+                                   const FbxAnimationOptions& options) {
     FbxAnimationData data;
     try {
         if (!model.bones || bindings.size() != static_cast<std::size_t>(model.boneCount))
@@ -589,15 +603,36 @@ FbxAnimationData LoadFbxAnimations(const std::string& path, const Model& model,
         ScenePtr scene = ReadScene(path, true);
         std::unordered_map<std::string, uint32_t> nodes;
         for (const auto* node : scene->nodes) {
-            if (!nodes.emplace(NodePath(node), node->typed_id).second)
+            if (!nodes.emplace(NodePath(node, options), node->typed_id).second)
                 throw std::runtime_error("Ambiguous animation node path");
         }
-        std::vector<uint32_t> boneNodes;
+        struct AnimationBinding { uint32_t node; bool followsParent; };
+        std::vector<AnimationBinding> boneNodes;
+        const ufbx_node* motionRoot = nullptr;
         for (const auto& binding : bindings) {
-            const auto found = nodes.find(binding.nodePath);
+            auto found = nodes.find(binding.nodePath);
+            bool followsParent = false;
+            // 目などのメッシュが別の骨の下に移された場合は、元モデルの親骨と取り付け位置を使う。
+            if (found == nodes.end() && !binding.rigidParentPath.empty()) {
+                found = nodes.find(binding.rigidParentPath);
+                followsParent = true;
+            }
             if (found == nodes.end()) throw std::runtime_error("Animation rig does not match the model");
-            boneNodes.push_back(found->second);
+            boneNodes.push_back({found->second, followsParent});
+            if (options.lockHorizontalRoot && !binding.rigid)
+                motionRoot = CommonAncestor(motionRoot, scene->nodes[found->second]);
         }
+        const FbxSkinBinding* motionBinding = nullptr;
+        if (motionRoot) {
+            for (std::size_t i = 0; i < bindings.size(); ++i) {
+                if (!bindings[i].rigid && boneNodes[i].node == motionRoot->typed_id) {
+                    motionBinding = &bindings[i];
+                    break;
+                }
+            }
+        }
+        if (options.lockHorizontalRoot && !motionBinding)
+            throw std::runtime_error("Missing common animation root binding");
         const auto clips = OrderedClips(*scene, false);
         data.animations = Allocate<ModelAnimation>(clips.size());
         data.animationCount = static_cast<int>(clips.size());
@@ -623,13 +658,28 @@ FbxAnimationData LoadFbxAnimations(const std::string& path, const Model& model,
                 ScenePtr evaluated(ufbx_evaluate_scene(scene.get(), source->anim, time, nullptr, &error), ufbx_free_scene);
                 if (!evaluated) throw std::runtime_error(ErrorText(error));
                 animation.framePoses[frame] = Allocate<Transform>(bindings.size());
+                Vector3 offset{};
+                if (motionBinding) {
+                    // 最初のモデル姿勢に水平位置を合わせ、当たり判定とのずれを抑える。
+                    const auto& world = evaluated->nodes[motionRoot->typed_id]->node_to_world;
+                    offset.x = float(world.m03) - motionBinding->referencePosition.x;
+                    offset.z = float(world.m23) - motionBinding->referencePosition.z;
+                }
                 for (std::size_t bone = 0; bone < bindings.size(); ++bone) {
                     const auto& binding = bindings[bone];
-                    const auto* node = evaluated->nodes[boneNodes[bone]];
-                    const auto toBone = UfbxMatrix(binding.toBone);
-                    const auto fromWorld = UfbxMatrix(binding.fromWorld);
-                    const auto toWorld = binding.rigid ? node->geometry_to_world : ufbx_matrix_mul(&node->node_to_world, &toBone);
-                    const Matrix matrix = MatrixFrom(ufbx_matrix_mul(&toWorld, &fromWorld));
+                    const auto& mapping = boneNodes[bone];
+                    const auto* node = evaluated->nodes[mapping.node];
+                    const auto fromWorld = UfbxMatrix(mapping.followsParent ? binding.rigidParentFromWorld : binding.fromWorld);
+                    ufbx_matrix toWorld = node->node_to_world;
+                    if (!binding.rigid) {
+                        const auto toBone = UfbxMatrix(binding.toBone);
+                        toWorld = ufbx_matrix_mul(&node->node_to_world, &toBone);
+                    } else if (!mapping.followsParent) {
+                        toWorld = node->geometry_to_world;
+                    }
+                    Matrix matrix = MatrixFrom(ufbx_matrix_mul(&toWorld, &fromWorld));
+                    matrix.m12 -= offset.x;
+                    matrix.m14 -= offset.z;
                     frames.push_back(matrix);
                     Transform& pose = animation.framePoses[frame][bone];
                     MatrixDecompose(matrix, &pose.translation, &pose.rotation, &pose.scale);
