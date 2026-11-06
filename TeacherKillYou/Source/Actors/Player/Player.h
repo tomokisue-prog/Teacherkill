@@ -45,6 +45,9 @@ public:
     bool IsDebugDrawEnabled() const { return debugDrawEnabled_; }
     void SetDebugDrawEnabled(bool enabled) { debugDrawEnabled_ = enabled; }
 
+    bool HasGun() const { return hasGun_; }
+    void SetHasGun(bool hasGun) { hasGun_ = hasGun; }
+
     // Item effects
     void Heal(int amount);
     void AddReserveAmmo(int amount);
@@ -109,6 +112,7 @@ private:
     bool shotPending_{ false };
 
 	bool damageImpactPending_{ false };
+    bool hasGun_{ false };
 
     float shootTimer_{ 0.0f };
     float reloadTimer_{ 0.0f };

@@ -25,7 +25,7 @@ namespace demo {
         float attackRecovery = 0.65f;
         EnemyType type = EnemyType::FemaleZombie;
         // クリップの再生倍率。攻撃判定と死亡・被弾の終了時刻もこの倍率に合わせる。
-        float animationSpeed = 1.5f;
+        float animationSpeed = 1.5f; // アニメーションの再生倍率
 
         // 不正な値が入らないように自動で調整する関数
         void Validate();

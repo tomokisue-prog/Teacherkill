@@ -23,7 +23,9 @@ void Inventory::Init(const Stage& stage)
         {ItemType::LostItem, {5.0f, 0.35f, 5.0f}},
         {ItemType::KeyCard, {7.11f, 5.64f, 1.15f}},
         {ItemType::Medkit, {0.0f, 0.35f, 1.8f}},
-        {ItemType::Ammo, {1.2f, 0.35f, 2.0f}}
+        {ItemType::Ammo, {1.2f, 0.35f, 2.0f}},
+        {ItemType::Gun, {2.0f, 0.35f, 2.0f}},
+        {ItemType::AuthenticationKey, {3.0f, 0.35f, -2.0f}}
     };
     for (auto& item : placements_) {
         const auto position = item.GetPosition();
@@ -191,6 +193,16 @@ void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage)
             pickedUpItem_ = ItemType::Ammo;
             message_ = TextFormat("+%d AMMO", AMMO_PICKUP_AMOUNT);
         }
+        else if (type == ItemType::LostItem || type == ItemType::Gun || type == ItemType::AuthenticationKey)
+        {
+            // LostItem、Gun、AuthenticationKeyはインベントリに入れず、回収（取得）のみ行う
+            item.Collect();
+            pickedUpItem_ = type;
+
+            if (type == ItemType::Gun) message_ = "Picked up GUN";
+            else if (type == ItemType::AuthenticationKey) message_ = "Picked up AUTHENTICATION KEY";
+            else message_ = "Picked up LOST ITEM";
+        }
         else if (AddItem(type))
         {
             item.Collect();
@@ -240,7 +252,6 @@ const Texture2D* Inventory::GetItemIcon(ItemType type) const
     {
     case ItemType::KeyCard:  return RM().GetTexture(ResourceKeys::Icon_KeyCard);
     case ItemType::Medkit:   return RM().GetTexture(ResourceKeys::Icon_Medkit);
-    case ItemType::LostItem: return RM().GetTexture(ResourceKeys::Icon_LostItem);
     default:                 return nullptr;
     }
 }
@@ -485,4 +496,64 @@ void Inventory::RestoreCheckpoint(const InventoryCheckpoint& data)
         items_.back().SetScale(saved.scale);
         if (saved.collected) items_.back().Collect();
     }
+}
+
+bool Inventory::IsLostItemCollected() const
+{
+    for (const auto& item : items_)
+    {
+        if (item.GetType() == ItemType::LostItem)
+        {
+            return item.IsCollected();
+        }
+    }
+    return false;
+}
+
+bool Inventory::IsGunCollected() const
+{
+    for (const auto& item : items_)
+    {
+        if (item.GetType() == ItemType::Gun)
+        {
+            return item.IsCollected();
+        }
+    }
+    return false;
+}
+
+bool Inventory::IsAuthenticationKeyCollected() const
+{
+    for (const auto& item : items_)
+    {
+        if (item.GetType() == ItemType::AuthenticationKey)
+        {
+            return item.IsCollected();
+        }
+    }
+    return false;
+}
+
+Vector3 Inventory::GetGunPosition() const
+{
+    for (const auto& item : items_)
+    {
+        if (item.GetType() == ItemType::Gun)
+        {
+            return item.GetPosition();
+        }
+    }
+    return { 0.0f, 0.0f, 0.0f };
+}
+
+Vector3 Inventory::GetAuthenticationKeyPosition() const
+{
+    for (const auto& item : items_)
+    {
+        if (item.GetType() == ItemType::AuthenticationKey)
+        {
+            return item.GetPosition();
+        }
+    }
+    return { 0.0f, 0.0f, 0.0f };
 }

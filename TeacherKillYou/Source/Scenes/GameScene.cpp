@@ -249,7 +249,6 @@ void GameScene::Update(float deltaTime)
         if (SaveCheckpoint()) ShowNotice(u8"チェックポイントを自動保存しました。", "Checkpoint saved automatically.");
         else ShowNotice(u8"チェックポイントを保存できませんでした。", "Cannot save checkpoint.");
     }
-    if (IsKeyPressed(KEY_B)) SetNextScene(SM().GetScene(SceneID::Title));
 }
 
 void GameScene::Render() const

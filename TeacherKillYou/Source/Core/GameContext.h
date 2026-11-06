@@ -17,7 +17,10 @@
 #include "CheckpointData.h"
 #include "../Events/EventManager.h"
 #include "../Events/Tutorial4FFloorEvent.h"
-
+#include "../Events/SecurityPC.h"
+#include "../Events/EventDialoguePoint.h"
+#include "../Events/SecurityTeleportPoint.h"
+#include "../UI/GunTutorialUI.h"
 #include <vector>
 #ifndef NDEBUG
 #include "DebugGameplay.h"
@@ -53,14 +56,20 @@ public:
     const std::vector<demo::EnemyPlacement>& GetEnemyPlacements() const { return enemyPlacements_; }
     void ApplyEnemyPlacements();
 
-    DoorMove& GetDoor() { return door_; }
-    const DoorMove& GetDoor() const { return door_; }
+    std::vector<DoorMove>& GetDoors() { return doors_; }
+    const std::vector<DoorMove>& GetDoors() const { return doors_; }
 
     GoalPoint& GetGoalPoint() { return goalPoint_; }
     const GoalPoint& GetGoalPoint() const { return goalPoint_; }
 
     std::vector<TeleportPoint>& GetTeleportPoints() { return teleportPoints_; }
     const std::vector<TeleportPoint>& GetTeleportPoints() const { return teleportPoints_; }
+
+    std::vector<EventDialoguePoint>& GetEventDialoguePoints() { return eventDialoguePoints_; }
+    const std::vector<EventDialoguePoint>& GetEventDialoguePoints() const { return eventDialoguePoints_; }
+
+    std::vector<SecurityTeleportPoint>& GetSecurityTeleportPoints() { return securityTeleportPoints_; }
+    const std::vector<SecurityTeleportPoint>& GetSecurityTeleportPoints() const { return securityTeleportPoints_; }
 
     // IDを指定して1行でセリフを呼び出す関数
     void ShowDialogue(const std::string& dialogueId);
@@ -80,6 +89,9 @@ public:
     const DebugGameplay& GetDebugGameplay() const { return debugGameplay_; }
     bool DebugTeleportPlayer(Vector3 position, float yaw, float pitch);
 #endif
+
+    SecurityPC& GetSecurityPC() { return securityPC_; }
+    const SecurityPC& GetSecurityPC() const { return securityPC_; }
 
 private:
     void PlaceCharacters();
@@ -101,16 +113,21 @@ private:
     Player player_;
     Stage stage_;
     demo::EnemyManager enemyManager_;
+    std::vector<DoorMove> doors_;
     std::vector<demo::EnemyPlacement> enemyPlacements_;
-    DoorMove door_;
     GameFade gameFade_;
     Inventory inventory_;
     GoalPoint goalPoint_;
 	MessageWindow messageWindow_;
 	Tutorial4FFloorEvent tutorial4FFloorEvent;
+    SecurityPC securityPC_;
+    GunTutorialUI gunTutorialUI_;
 
     Vector3 paladinPosition_{ 0.0f, 0.0f, 3.0f };
     std::vector<TeleportPoint> teleportPoints_;
+
+    std::vector<EventDialoguePoint> eventDialoguePoints_;
+    std::vector<SecurityTeleportPoint> securityTeleportPoints_;
 
     float hitMarkerTimer_{ 0.0f };
     bool hitMarkerKill_{ false };
@@ -136,4 +153,16 @@ private:
     std::vector<BulletMark> bulletMarks_;
     static constexpr float bulletMarkLifetime_ = 2.0f;
     static constexpr int maxBulletMarks_ = 40;
+
+    bool hasTriggeredLostItemDialogue_{ false };
+    bool securityTeleportUnlocked_{ false };
+    bool pendingSecurityDialogue_{ false };
+
+    bool showGunPin_{ false };
+    Vector3 gunPinPosition_{ 0.0f, 0.0f, 0.0f };
+
+    bool showPCPin_{ false };
+    bool showAuthKeyPin_{ false };
+    bool hasTriggeredAuthKeyPickup_{ false };
+    bool showSecurityDoorPin_{ false };
 };

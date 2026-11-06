@@ -89,7 +89,9 @@ void GameContext::Init()
     // 新しいラウンドへ、前回の暗転・会話・ドア開閉・ライト状態を持ち越さない。
     gameFade_.Reset();
     messageWindow_.Close();
-    door_.Init();
+    doors_.clear();
+    DoorMove defaultDoor;
+    doors_.push_back(defaultDoor);
     lighting_.Reset();
     cameraController_.Init();
     player_.Init();
@@ -97,10 +99,8 @@ void GameContext::Init()
     inventory_.Init(stage_);
     bloodEffect_.Init();
     lowHpBlood_.Init();
-    enemyPlacements_ = {
-        {stage_.FindGroundPosition({-0.9f, 0.0f, 2.5f}), 0.0f, demo::EnemyConfig::ForType(demo::EnemyType::FemaleZombie)},
-        {stage_.FindGroundPosition({2.7f, 0.0f, 2.5f}), 0.0f, demo::EnemyConfig::ForType(demo::EnemyType::MonsterMale2)}
-    };
+    enemyPlacements_.clear();
+
     PlaceCharacters();
     horrorAudio_.Reset(player_.GetPosition());
     checkpointRequested_ = false;
@@ -108,6 +108,13 @@ void GameContext::Init()
     lighting_.Init(RM().GetModelShaders(), RM().GetModel(ResourceKeys::Model_Stage1));
     hitMarkerTimer_ = 0.0f;
     hitMarkerKill_ = false;
+    securityTeleportUnlocked_ = false;
+    pendingSecurityDialogue_ = false;
+    showGunPin_ = false;
+    gunPinPosition_ = { 0.0f, 0.0f, 0.0f };
+    showAuthKeyPin_ = false;
+    hasTriggeredAuthKeyPickup_ = false;
+    showSecurityDoorPin_ = false;
 
     teleportPoints_.clear();
     TeleportPoint tp1;
@@ -143,13 +150,24 @@ void GameContext::Init()
     goalPoint_.Init();
     goalPoint_.SetPosition({ 5.0f, 0.0f, 5.0f });
 
-	DM().LoadFromJson("Data/Json/dialogue.json");
+    DM().LoadFromJson("Data/Json/dialogue.json");
     ShowDialogue("door_locked");
 
     EventMgr().RegisterEvent("Tutorial_4F", std::make_shared<Tutorial4FFloorEvent>());
     EventMgr().StartEvent("Tutorial_4F");
 
     ShowDialogue("opening_4f");
+    securityPC_.Init();
+
+    gunTutorialUI_.Init();
+
+    // ゾンビ遭遇エリアのイベントポイントを初期化・配置
+    eventDialoguePoints_.clear();
+    EventDialoguePoint zombieEvent;
+    zombieEvent.SetPosition({ 5.0f, 0.0f, -5.0f }); // ゾンビ手前の通路の座標などに調整
+    zombieEvent.SetRadius(3.0f);                    // 範囲
+    zombieEvent.SetDialogueId("zombie_encounter");  // JSONで設定したID
+    eventDialoguePoints_.push_back(zombieEvent);
 }
 
 void GameContext::Reset()
@@ -160,9 +178,12 @@ void GameContext::Reset()
     AM().StopAllSe();
     player_.Reset();
     stage_.Reset();
-    door_.Reset();
+    doors_.clear();
+    DoorMove defaultDoor;
+    doors_.push_back(defaultDoor);
     inventory_.Reset();
     bloodEffect_.Reset();
+    gunTutorialUI_.Init();
     lowHpBlood_.Reset();
     PlaceCharacters();
     horrorAudio_.Reset(player_.GetPosition());
@@ -189,6 +210,11 @@ void GameContext::Reset()
     tracerActive_ = false;
     tracerAge_ = 0.0f;
     goalPoint_.Reset();
+    securityTeleportUnlocked_ = false;
+    pendingSecurityDialogue_ = false;
+    showAuthKeyPin_ = false;
+    hasTriggeredAuthKeyPickup_ = false;
+    showSecurityDoorPin_ = false;
 }
 
 void GameContext::ShowDialogue(const std::string& dialogueId)
@@ -202,8 +228,11 @@ void GameContext::ShowDialogue(const std::string& dialogueId)
 
 void GameContext::PlaceCharacters()
 {
-    // PlayerのTransformは維持し、足元の高さだけをステージの床へ合わせる。
+    inventory_.ApplyPlacements();
+
     player_.SetPosition(stage_.FindGroundPosition(player_.GetPosition()));
+
+    // PlayerのTransformは維持し、足元の高さだけをステージの床へ合わせる。
     ApplyEnemyPlacements();
     paladinPosition_ = stage_.FindGroundPosition({ 0.0f, 0.0f, 3.0f });
     cameraController_.GetPlayerCamera().SetEyeHeight(player_.GetHeight() * WorldScale::EyeHeightRatio);
@@ -214,12 +243,21 @@ void GameContext::PlaceCharacters()
 void GameContext::ApplyEnemyPlacements()
 {
     enemyManager_.Clear();
+
+    // enemyPlacements_ を使う場合は spawnPoints に条件付きで追加する
+    auto& spawnPoints = enemyManager_.GetSpawnPoints();
+    spawnPoints.clear();
+
     for (const auto& placement : enemyPlacements_)
-        enemyManager_.Spawn(placement.position, placement.config, placement.yaw);
+    {
+        // デフォルトでは None や Normal などの設定に合わせてスポーンポイントに追加
+        enemyManager_.AddSpawnPoint(placement.position, placement.config, demo::EnemySpawnCondition::Normal, placement.yaw);
+    }
 }
 
 void GameContext::ProcessPlayerShot()
 {
+    if (!player_.HasGun()) return;
     if (!player_.ConsumeShot()) return;
     if (!player_.IsAlive()) return;
 
@@ -289,13 +327,9 @@ void GameContext::ProcessPlayerShot()
         }
     }
 
-    // Trigger the visual effects for EVERY shot, even when it misses.
-    // The raycast has already found the nearest wall or enemy distance.
     muzzleFlashTimer_ = 0.06f;
     muzzleFlashFrame_ = GetRandomValue(0, 3);
 
-    // The tracer starts at the visible gun muzzle, but aims at the
-    // point found by the crosshair's hitscan ray.
     tracerStart_ = player_.GetMuzzlePosition(camera);
     tracerEnd_ = Vector3Add(
         ray.position,
@@ -303,13 +337,8 @@ void GameContext::ProcessPlayerShot()
     tracerAge_ = 0.0f;
     tracerActive_ = true;
 
-    // =====================================
-    // Spawn a temporary mark on the wall.
-    // No mark if an enemy was hit before the wall.
-    // =====================================
     if (wallHit.hit && !foundTarget)
     {
-        // Only vertical-ish surfaces
         if (std::fabs(wallHit.normal.y) < 0.65f &&
             Vector3LengthSqr(wallHit.normal) > 0.0001f)
         {
@@ -355,7 +384,6 @@ void GameContext::ProcessPlayerShot()
 
     if (result.applied)
     {
-        // Spawn blood only when the shot hits a living enemy.
         bloodEffect_.Spawn(tracerEnd_, impactNormal);
         hitMarkerTimer_ = 0.12f;
         hitMarkerKill_ = result.becameDead;
@@ -387,15 +415,12 @@ void GameContext::UpdateShotEffects(float deltaTime)
     {
         muzzleFlashTimer_ = 0.0f;
     }
-    // =====================================
-    // Update the lifetime of bullet marks.
-    // =====================================
+
     for (BulletMark& mark : bulletMarks_)
     {
         mark.remainingTime -= deltaTime;
     }
 
-    // Remove expired marks
     bulletMarks_.erase(
         std::remove_if(
             bulletMarks_.begin(),
@@ -421,7 +446,6 @@ void GameContext::DrawShotEffects() const
     const Color flashColor = { 255, 225, 140, 255 };
     const Color tracerColor = { 255, 220, 110, 255 };
 
-    // Keep depth testing, but don't let the effect write depth.
     rlDrawRenderBatchActive();
     rlDisableDepthMask();
 
@@ -432,7 +456,6 @@ void GameContext::DrawShotEffects() const
         const float progress = Clamp(
             tracerAge_ / tracerDuration_, 0.0f, 1.0f);
 
-        // Show a short moving segment rather than a full laser beam.
         const float head = Clamp(
             progress * 1.25f + 0.15f, 0.0f, 1.0f);
 
@@ -482,17 +505,26 @@ void GameContext::DrawShotEffects() const
 
 void GameContext::Update(float deltaTime)
 {
+    if (gunTutorialUI_.IsOpen())
+    {
+        gunTutorialUI_.Update();
+        return;
+    }
+
     if (!player_.IsAlive()) {
         inventory_.CancelHealing();
         return;
     }
     if (cameraController_.GetActiveType() == CameraType::System) {
         inventory_.CancelHealing();
-        door_.Update(deltaTime, player_); 
+        for (auto& d : doors_)
+        {
+            d.Update(deltaTime, player_, &inventory_);
+        }
         cameraController_.Update();
         return;
     }
-    if(IsMessageActive())
+    if (IsMessageActive())
     {
         messageWindow_.Update(deltaTime);
         return;
@@ -514,7 +546,6 @@ void GameContext::Update(float deltaTime)
     lighting_.Update();
     bool isPlayerCameraActive = (cameraController_.GetActiveType() == CameraType::Player);
 
-
     // 1. プレイヤーの移動入力更新（プレイヤーカメラ使用時のみ移動入力受付）
     if (isPlayerCameraActive)
     {
@@ -526,30 +557,28 @@ void GameContext::Update(float deltaTime)
 
         // プレイヤー更新
         player_.Update(deltaTime, stage_, forward, right);
-        // HPが0になったフレームに、ゴール到達やテレポートを処理しない。
         if (!player_.IsAlive()) {
             inventory_.CancelHealing();
             return;
         }
 
-        // ドアとの当たり判定チェック
-        BoundingBox doorBox = door_.GetBoundingBox();
-
-        // プレイヤーを高さ方向を考慮した球（あるいはカプセル）に見立てて判定
-        Vector3 playerCenter = {
-            player_.GetPosition().x,
-            player_.GetPosition().y + player_.GetHeight() * 0.5f,
-            player_.GetPosition().z
-        };
-
-        // Raylib の関数でボックスと球の衝突をチェック
-        if (CheckCollisionBoxSphere(doorBox, playerCenter, player_.GetRadius()))
+        // 全てのドアとの当たり判定チェック（すり抜け防止）
+        for (auto& d : doors_)
         {
-            // 衝突している場合は移動前の位置に巻き戻す（すり抜け防止）
-            player_.SetPosition(oldPlayerPos);
+            BoundingBox doorBox = d.GetBoundingBox();
+            Vector3 playerCenter = {
+                player_.GetPosition().x,
+                player_.GetPosition().y + player_.GetHeight() * 0.5f,
+                player_.GetPosition().z
+            };
+
+            if (CheckCollisionBoxSphere(doorBox, playerCenter, player_.GetRadius()))
+            {
+                player_.SetPosition(oldPlayerPos);
+            }
         }
 
-        // 1. プレイヤーの移動処理後、テレポート判定を行う
+        // テレポート判定
         if (!gameFade_.IsFading())
         {
             for (auto& sourcePt : teleportPoints_)
@@ -559,7 +588,6 @@ void GameContext::Update(float deltaTime)
                     float dist = Vector3Distance(player_.GetPosition(), sourcePt.GetPosition());
                     if (dist <= sourcePt.GetRadius())
                     {
-                        // バイオ風のフェードアウトを開始
                         gameFade_.StartFade(2.5f);
                         break;
                     }
@@ -597,62 +625,232 @@ void GameContext::Update(float deltaTime)
             }
         }
 
+        // 警備室一方通行テレポート判定
+        if (!gameFade_.IsFading() && securityTeleportUnlocked_)
+        {
+            for (auto& sourcePt : securityTeleportPoints_)
+            {
+                if (sourcePt.GetTeleportType() == SecurityTeleportType::Source)
+                {
+                    if (!sourcePt.IsTriggered())
+                    {
+                        float dist = Vector3Distance(player_.GetPosition(), sourcePt.GetPosition());
+                        if (dist <= sourcePt.GetRadius())
+                        {
+                            gameFade_.StartFade(2.5f);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 画面が完全に暗転した瞬間にテレポート先へ移動
+        if (gameFade_.IsMidpoint() && securityTeleportUnlocked_)
+        {
+            for (auto& sourcePt : securityTeleportPoints_)
+            {
+                if (sourcePt.GetTeleportType() == SecurityTeleportType::Source && !sourcePt.IsTriggered())
+                {
+                    float dist = Vector3Distance(player_.GetPosition(), sourcePt.GetPosition());
+                    if (dist <= sourcePt.GetRadius())
+                    {
+                        for (const auto& destPt : securityTeleportPoints_)
+                        {
+                            if (destPt.GetTeleportType() == SecurityTeleportType::Destination &&
+                                destPt.GetPointNumber() == sourcePt.GetPointNumber())
+                            {
+                                Vector3 targetPos = stage_.FindGroundPosition(destPt.GetPosition());
+                                player_.SetPosition(targetPos);
+                                AM().PlaySe(SeId::Teleport);
+                                checkpointRequested_ = true;
+
+                                sourcePt.SetTriggered(true);
+                                enemyManager_.DespawnBySecurityTeleport();
+
+                                // 警備室テレポートに入ったら条件付きの全ドアを開放状態にする
+                                for (auto& d : doors_)
+                                {
+                                    if (d.GetOpenConditionType() == DoorOpenConditionType::SecurityTeleportEntered)
+                                    {
+                                        d.SetOpenConditionSatisfied(true);
+                                    }
+                                }
+
+                                // テレポートしたので、フェード完了後のセリフ待ちフラグを有効にする
+                                pendingSecurityDialogue_ = true;
+
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (pendingSecurityDialogue_ && !gameFade_.IsFading())
+        {
+            ShowDialogue("security_room_arrival");
+            pendingSecurityDialogue_ = false; // 一度出したらフラグをオフにする
+
+            showGunPin_ = true;
+        }
+
         float distToGoal = Vector3Distance(player_.GetPosition(), goalPoint_.GetPosition());
         if (distToGoal <= goalPoint_.GetRadius())
         {
-            goalRequested_ = true; // Let GameScene finish the update before switching scenes.
-            return; // シーン切り替え時は以降の更新をスキップ
+            AM().PlaySe(SeId::Confirm);
+            SM().ChangeScene(SceneID::Goal);
+            return;
         }
     }
 
-
-    door_.Update(deltaTime, player_);
+    // 全てのドアを更新
+    for (auto& d : doors_)
+    {
+        d.Update(deltaTime, player_, &inventory_);
+    }
 
     // 2. ワールドオブジェクト（ステージ・敵）の更新
-    const BoundingBox doorBounds = door_.GetBoundingBox();
-    enemyManager_.Update(deltaTime, player_, stage_, &doorBounds);
-    enemyManager_.RemoveExpired();
+    // 複数のドアがあるため、プレイヤーに最も近いドアのバウンディングボックスを敵の障害物として渡す
+    BoundingBox nearestDoorBox{};
+    bool hasValidDoor = false;
+    float minDist = 999.0f;
 
-    // 3. ギズモ編集結果も含め、常に最新の Player 位置を PlayerCamera へ同期
+    for (const auto& d : doors_)
+    {
+        float dist = Vector3Distance(player_.GetPosition(), d.GetPosition());
+        if (dist < minDist)
+        {
+            minDist = dist;
+            nearestDoorBox = d.GetBoundingBox();
+            hasValidDoor = true;
+        }
+    }
+
+    const BoundingBox* doorBoxPtr = hasValidDoor ? &nearestDoorBox : nullptr;
+    enemyManager_.Update(deltaTime, player_, stage_, doorBoxPtr, &inventory_);
+    enemyManager_.RemoveExpired();
 
     if (player_.ConsumeDamageImpact())
     {
         cameraController_.GetPlayerCamera().StartDamageImpact();
     }
 
-    // 3. プレイヤー位置をカメラに同期
     cameraController_.GetPlayerCamera().SetEyeHeight(player_.GetHeight() * WorldScale::EyeHeightRatio);
     cameraController_.GetPlayerCamera().SetPlayerPosition(
         player_.GetPosition()
     );
 
-    // 4. カメラ更新
     cameraController_.Update();
 
-    // 5. Inventory: precise pickups, instant reserve ammo and hold-to-heal.
     if (isPlayerCameraActive && player_.IsAlive())
     {
         const Camera3D camera =
             cameraController_.GetPlayerCamera().GetRaylibCamera();
 
-        // Passing the Stage prevents picking up through stage walls.
         inventory_.Update(deltaTime, camera, &stage_);
 
-        // World ammo pickups never occupy an inventory slot.
+        bool wasHasGun = player_.HasGun();
+        player_.SetHasGun(inventory_.IsGunCollected());
+
+        if (!wasHasGun && player_.HasGun())
+        {
+            gunTutorialUI_.Open();
+            showGunPin_ = false;
+            showPCPin_ = true;
+        }
+
         if (inventory_.GetPickedUpItem() == ItemType::Ammo)
         {
             player_.AddReserveAmmo(AMMO_PICKUP_AMOUNT);
         }
 
-        // This event occurs only after holding E for 3 uninterrupted seconds.
         if (inventory_.GetUsedItem() == ItemType::Medkit)
         {
             player_.Heal(MEDKIT_HEAL_AMOUNT);
         }
+
+        if (!hasTriggeredLostItemDialogue_ && inventory_.IsLostItemCollected())
+        {
+            hasTriggeredLostItemDialogue_ = true;
+            ShowDialogue("second_line_of_dialogue");
+        }
+
+        if (inventory_.IsLostItemCollected() && securityPC_.CanInteract(player_.GetPosition()))
+        {
+            if (IsKeyPressed(KEY_E))
+            {
+                if (!securityPC_.IsActivated())
+                {
+                    // 認証キーを持っているかどうかで分岐する
+                    if (inventory_.IsAuthenticationKeyCollected())
+                    {
+                        // キーを持った状態でPCを起動した場合のセリフに変更
+                        ShowDialogue("security_pc_door_open");
+                        securityPC_.SetActivated(true); // PC起動済み（扉のロック解除など）にする
+                        showPCPin_ = false;            // PCピンを消す
+                        showSecurityDoorPin_ = true;
+
+                        // 必要に応じて、ここで階段のドアのロックを解除する処理を追加できます
+                        for (auto& d : doors_)
+                        {
+                            if (d.GetOpenConditionType() == DoorOpenConditionType::SecurityPCActivated)
+                            {
+                                d.SetOpenConditionSatisfied(true);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        ShowDialogue("security_pc_missing_key");
+                        showPCPin_ = false;
+                        showAuthKeyPin_ = true;        // キーがなければ再度キーへ誘導
+                    }
+                }
+            }
+        }
+        if (!hasTriggeredAuthKeyPickup_ && inventory_.IsAuthenticationKeyCollected())
+        {
+            hasTriggeredAuthKeyPickup_ = true;
+            showAuthKeyPin_ = false;
+            showPCPin_ = true; // 認証キーを取ったら、再び警備用PCへのピンを指す
+        }
+
+        if (!IsMessageActive())
+        {
+            for (auto& eventPoint : eventDialoguePoints_)
+            {
+                if (eventPoint.CheckPlayerInArea(player_.GetPosition(), inventory_))
+                {
+                    eventPoint.SetTriggered(true);
+                    ShowDialogue(eventPoint.GetDialogueId());
+
+                    securityTeleportUnlocked_ = true;
+                    break;
+                }
+            }
+        }
+
+        // 扉への誘導ピンが表示中、対象のドアが開いたらピンを消す
+        if (showSecurityDoorPin_)
+        {
+            for (const auto& d : doors_)
+            {
+                if (d.GetOpenConditionType() == DoorOpenConditionType::SecurityPCActivated)
+                {
+                    if (d.IsOpen() || Vector3Distance(player_.GetPosition(), d.GetPosition()) < 2.0f)
+                    {
+                        showSecurityDoorPin_ = false;
+                        break;
+                    }
+                }
+            }
+        }
     }
     else
     {
-        // Camera switch or death interrupts any ongoing healing.
         inventory_.CancelHealing();
     }
     // Synchronize the on-screen blood with the current HP (damage / medkit).
@@ -661,9 +859,7 @@ void GameContext::Update(float deltaTime)
     // 6. プレイヤー射撃処理
     ProcessPlayerShot();
     horrorAudio_.Update(deltaTime, player_, cameraController_.GetPlayerCamera(), enemyManager_, stage_, isPlayerCameraActive);
-
 }
-
 
 void GameContext::Draw() const
 {
@@ -680,7 +876,6 @@ void GameContext::Draw() const
 
     BeginMode3D(cameraController_.GetActiveRaylibCamera());
 
-    // 編集用グリッド
     if (!playerView)
     {
         DrawGrid(20, 1.0f);
@@ -695,10 +890,19 @@ void GameContext::Draw() const
             tp.Draw();
         }
 
+        for (const auto& stp : securityTeleportPoints_)
+        {
+            stp.Draw();
+        }
+
         goalPoint_.Draw();
+
+        for (const auto& ep : eventDialoguePoints_)
+        {
+            ep.Draw();
+        }
     }
 
-    // プレイヤーカメラ
     const PlayerCamera* activePlayerCam = nullptr;
 
     if (playerView)
@@ -707,7 +911,11 @@ void GameContext::Draw() const
             &cameraController_.GetPlayerCamera();
     }
 
-    door_.Draw();
+    // 全てのドアを描画
+    for (const auto& d : doors_)
+    {
+        d.Draw();
+    }
 
     player_.Draw(activePlayerCam);
     if (playerView) {
@@ -720,6 +928,9 @@ void GameContext::Draw() const
     DrawShotEffects();
     inventory_.DrawWorld(!playerView);
     bloodEffect_.Draw(cameraController_.GetActiveRaylibCamera());
+
+    securityPC_.Draw();
+
     EndMode3D();
     lighting_.EndFrame(playerView && player_.IsAlive());
 
@@ -745,8 +956,273 @@ void GameContext::Draw() const
         player_.DrawStaminaHUD();
         player_.DrawAmmoHUD();
 
-        // インベントリHUD表示
         inventory_.DrawHUD();
+
+        // プレイヤーに最も近いドアを探してインタラクションプロンプトを表示する
+        const DoorMove* nearestDoor = nullptr;
+        float minDoorDist = 999.0f;
+        for (const auto& d : doors_)
+        {
+            if (d.IsPlayerInInteractionRange(player_))
+            {
+                float dist = Vector3Distance(player_.GetPosition(), d.GetPosition());
+                if (dist < minDoorDist)
+                {
+                    minDoorDist = dist;
+                    nearestDoor = &d;
+                }
+            }
+        }
+
+        if (nearestDoor)
+        {
+            std::string prompt = "";
+
+            bool isClosedByCondition = (nearestDoor->GetLockType() != DoorLockType::None && nearestDoor->IsLocked(&inventory_));
+            bool needsUnlock = false;
+
+            if (nearestDoor->GetLockType() == DoorLockType::None)
+            {
+                needsUnlock = (nearestDoor->GetOpenConditionType() != DoorOpenConditionType::None && !nearestDoor->IsOpenConditionSatisfied());
+            }
+            else
+            {
+                needsUnlock = (nearestDoor->IsLocked(&inventory_) && nearestDoor->GetOpenConditionType() != DoorOpenConditionType::None && !nearestDoor->IsOpenConditionSatisfied());
+            }
+
+            if (needsUnlock)
+            {
+                if (nearestDoor->GetOpenConditionType() == DoorOpenConditionType::SecurityTeleportEntered)
+                {
+                    prompt = "Locked (Requires Security Teleport)";
+                }
+                else if (nearestDoor->GetOpenConditionType() == DoorOpenConditionType::SecurityPCActivated)
+                {
+                    prompt = "Locked (Requires Security PC)"; // 警備用PC起動が必要な場合のメッセージ
+                }
+                else
+                {
+                    prompt = "[M] Unlock"; // テスト用Mキーの扉
+                }
+            }
+            else
+            {
+                prompt = nearestDoor->IsOpen() ? "[E] Close" : "[E] Open";
+            }
+
+            if (!prompt.empty())
+            {
+                const float fontSize = 36.0f;
+                Vector2 textSize = JPFont().MeasureText(prompt, fontSize);
+                const int x = static_cast<int>((GetScreenWidth() - textSize.x) / 2.0f);
+                const int y = static_cast<int>((GetScreenHeight() / 2.0f) + 30.0f);
+
+                JPFont().DrawText(prompt, x + 2, y + 2, fontSize, BLACK);
+                JPFont().DrawText(prompt, x, y, fontSize, RAYWHITE);
+            }
+        }
+
+        if (securityTeleportUnlocked_)
+        {
+            for (const auto& stp : securityTeleportPoints_)
+            {
+                if (stp.GetTeleportType() == SecurityTeleportType::Source &&
+                    !stp.IsTriggered())
+                {
+                    Vector3 worldPos = stp.GetPosition();
+                    worldPos.y += stp.GetRadius() * 0.5f;
+
+                    const Camera3D& currentCam = cameraController_.GetPlayerCamera().GetRaylibCamera();
+                    Vector2 screenPos = GetWorldToScreen(worldPos, currentCam);
+
+                    Vector3 toPoint = Vector3Subtract(worldPos, currentCam.position);
+                    float forwardDot = Vector3DotProduct(
+                        Vector3Normalize(Vector3Subtract(currentCam.target, currentCam.position)),
+                        Vector3Normalize(toPoint)
+                    );
+
+                    if (forwardDot > 0.0f &&
+                        screenPos.x >= 0 && screenPos.x <= GetScreenWidth() &&
+                        screenPos.y >= 0 && screenPos.y <= GetScreenHeight())
+                    {
+                        float distance = Vector3Length(toPoint);
+                        float baseSize = 40.0f;
+                        float scaleFactor = Clamp(6.0f / (distance + 1.0f), 0.5f, 1.5f);
+                        float size = baseSize * scaleFactor;
+
+                        float floatOffset = std::sin(GetTime() * 4.0f) * 4.0f * scaleFactor;
+                        float centerY = screenPos.y + floatOffset;
+
+                        Vector2 tip = { screenPos.x, centerY + size * 0.5f };
+                        Vector2 topLeft = { screenPos.x - size * 0.45f, centerY - size * 0.5f };
+                        Vector2 topRight = { screenPos.x + size * 0.45f, centerY - size * 0.5f };
+
+                        DrawTriangle(topLeft, tip, topRight, GREEN);
+                        DrawTriangleLines(topLeft, tip, topRight, BLUE);
+                    }
+                }
+            }
+        }
+
+        // 銃への誘導ピンの描画
+        if (showGunPin_)
+        {
+            // インベントリから実際の銃のワールド座標を取得する
+            Vector3 worldPos = inventory_.GetGunPosition();
+            worldPos.y += 0.5f; // 少し上方に浮かせる
+
+            const Camera3D& currentCam = cameraController_.GetPlayerCamera().GetRaylibCamera();
+            Vector2 screenPos = GetWorldToScreen(worldPos, currentCam);
+
+			Vector3 toPoint = Vector3Subtract(worldPos, currentCam.position);
+            float forwardDot = Vector3DotProduct(
+                Vector3Normalize(Vector3Subtract(currentCam.target, currentCam.position)),
+                Vector3Normalize(toPoint)
+            );
+
+            if (forwardDot > 0.0f &&
+                screenPos.x >= 0 && screenPos.x <= GetScreenWidth() &&
+                screenPos.y >= 0 && screenPos.y <= GetScreenHeight())
+            {
+                float distance = Vector3Length(toPoint);
+                float baseSize = 40.0f;
+                float scaleFactor = Clamp(6.0f / (distance + 1.0f), 0.5f, 1.5f);
+                float size = baseSize * scaleFactor;
+
+                float floatOffset = std::sin(GetTime() * 4.0f) * 4.0f * scaleFactor;
+                float centerY = screenPos.y + floatOffset;
+
+                Vector2 tip = { screenPos.x, centerY + size * 0.5f };
+                Vector2 topLeft = { screenPos.x - size * 0.45f, centerY - size * 0.5f };
+                Vector2 topRight = { screenPos.x + size * 0.45f, centerY - size * 0.5f };
+
+                DrawTriangle(topLeft, tip, topRight, YELLOW);
+                DrawTriangleLines(topLeft, tip, topRight, ORANGE);
+            }
+        }
+
+        // PCへの誘導ピンの描画
+        if (showPCPin_)
+        {
+            Vector3 worldPos = securityPC_.GetPosition();
+            worldPos.y += 0.8f; // 少し上方に浮かせる
+
+            const Camera3D& currentCam = cameraController_.GetPlayerCamera().GetRaylibCamera();
+            Vector2 screenPos = GetWorldToScreen(worldPos, currentCam);
+
+            Vector3 toPoint = Vector3Subtract(worldPos, currentCam.position);
+            float forwardDot = Vector3DotProduct(
+                Vector3Normalize(Vector3Subtract(currentCam.target, currentCam.position)),
+                Vector3Normalize(toPoint)
+            );
+
+            if (forwardDot > 0.0f &&
+                screenPos.x >= 0 && screenPos.x <= GetScreenWidth() &&
+                screenPos.y >= 0 && screenPos.y <= GetScreenHeight())
+            {
+                float distance = Vector3Length(toPoint);
+                float baseSize = 40.0f;
+                float scaleFactor = Clamp(6.0f / (distance + 1.0f), 0.5f, 1.5f);
+                float size = baseSize * scaleFactor;
+
+                float floatOffset = std::sin(GetTime() * 4.0f) * 4.0f * scaleFactor;
+                float centerY = screenPos.y + floatOffset;
+
+                Vector2 tip = { screenPos.x, centerY + size * 0.5f };
+                Vector2 topLeft = { screenPos.x - size * 0.45f, centerY - size * 0.5f };
+                Vector2 topRight = { screenPos.x + size * 0.45f, centerY - size * 0.5f };
+
+                // PCへの誘導は色を変えると分かりやすい（例：シアンや青緑など）
+                DrawTriangle(topLeft, tip, topRight, SKYBLUE);
+                DrawTriangleLines(topLeft, tip, topRight, BLUE);
+            }
+        }
+
+        if (showAuthKeyPin_)
+        {
+            Vector3 worldPos = inventory_.GetAuthenticationKeyPosition();
+            worldPos.y += 0.5f; // 少し上方に浮かせる
+
+            const Camera3D& currentCam = cameraController_.GetPlayerCamera().GetRaylibCamera();
+            Vector2 screenPos = GetWorldToScreen(worldPos, currentCam);
+
+            Vector3 toPoint = Vector3Subtract(worldPos, currentCam.position);
+            float forwardDot = Vector3DotProduct(
+                Vector3Normalize(Vector3Subtract(currentCam.target, currentCam.position)),
+                Vector3Normalize(toPoint)
+            );
+
+            if (forwardDot > 0.0f &&
+                screenPos.x >= 0 && screenPos.x <= GetScreenWidth() &&
+                screenPos.y >= 0 && screenPos.y <= GetScreenHeight())
+            {
+                float distance = Vector3Length(toPoint);
+                float baseSize = 40.0f;
+                float scaleFactor = Clamp(6.0f / (distance + 1.0f), 0.5f, 1.5f);
+                float size = baseSize * scaleFactor;
+
+                float floatOffset = std::sin(GetTime() * 4.0f) * 4.0f * scaleFactor;
+                float centerY = screenPos.y + floatOffset;
+
+                Vector2 tip = { screenPos.x, centerY + size * 0.5f };
+                Vector2 topLeft = { screenPos.x - size * 0.45f, centerY - size * 0.5f };
+                Vector2 topRight = { screenPos.x + size * 0.45f, centerY - size * 0.5f };
+
+                // 認証キーへの誘導は緑色などの分かりやすい色に設定
+                DrawTriangle(topLeft, tip, topRight, GREEN);
+                DrawTriangleLines(topLeft, tip, topRight, DARKGREEN);
+            }
+        }
+
+        // 警備用PC起動で開いた扉への誘導ピンの描画
+        if (showSecurityDoorPin_)
+        {
+            Vector3 worldPos{};
+            bool foundDoor = false;
+            for (const auto& d : doors_)
+            {
+                if (d.GetOpenConditionType() == DoorOpenConditionType::SecurityPCActivated)
+                {
+                    worldPos = d.GetPosition();
+                    worldPos.y += 1.0f; // 少し上方に浮かせる
+                    foundDoor = true;
+                    break;
+                }
+            }
+
+            if (foundDoor)
+            {
+                const Camera3D& currentCam = cameraController_.GetPlayerCamera().GetRaylibCamera();
+                Vector2 screenPos = GetWorldToScreen(worldPos, currentCam);
+
+                Vector3 toPoint = Vector3Subtract(worldPos, currentCam.position);
+                float forwardDot = Vector3DotProduct(
+                    Vector3Normalize(Vector3Subtract(currentCam.target, currentCam.position)),
+                    Vector3Normalize(toPoint)
+                );
+
+                if (forwardDot > 0.0f &&
+                    screenPos.x >= 0 && screenPos.x <= GetScreenWidth() &&
+                    screenPos.y >= 0 && screenPos.y <= GetScreenHeight())
+                {
+                    float distance = Vector3Length(toPoint);
+                    float baseSize = 40.0f;
+                    float scaleFactor = Clamp(6.0f / (distance + 1.0f), 0.5f, 1.5f);
+                    float size = baseSize * scaleFactor;
+
+                    float floatOffset = std::sin(GetTime() * 4.0f) * 4.0f * scaleFactor;
+                    float centerY = screenPos.y + floatOffset;
+
+                    Vector2 tip = { screenPos.x, centerY + size * 0.5f };
+                    Vector2 topLeft = { screenPos.x - size * 0.45f, centerY - size * 0.5f };
+                    Vector2 topRight = { screenPos.x + size * 0.45f, centerY - size * 0.5f };
+
+                    // 扉への誘導はマゼンタ（紫色系）で描画
+                    DrawTriangle(topLeft, tip, topRight, MAGENTA);
+                    DrawTriangleLines(topLeft, tip, topRight, PURPLE);
+                }
+            }
+        }
     }
 
     if (playerView) {
@@ -755,9 +1231,8 @@ void GameContext::Draw() const
         if (player_.IsAlive() && IsMessageActive())
             messageWindow_.Draw();
     }
-
+    gunTutorialUI_.Draw();
 }
-
 
 void GameContext::End()
 {
@@ -766,8 +1241,9 @@ void GameContext::End()
 #endif
     AM().StopAllSe();
     enemyManager_.Clear();
+    gunTutorialUI_.End();
     player_.End();
-    inventory_.End();  // Unload item GLB models
+    inventory_.End();
     stage_.End();
     bloodEffect_.Shutdown();
     lowHpBlood_.Shutdown();
@@ -784,11 +1260,6 @@ void GameContext::End()
     bulletMarks_.clear();
 }
 
-
-// ================================================
-// Draw 2-second bullet holes on the stage surface.
-// This is geometry only: no texture/model needed.
-// ================================================
 void GameContext::DrawBulletMarks() const
 {
     constexpr int segments = 16;
@@ -809,7 +1280,6 @@ void GameContext::DrawBulletMarks() const
 
         const Vector3 normal = Vector3Normalize(mark.normal);
 
-        // Build a local plane parallel to the impact surface.
         const Vector3 reference = std::fabs(normal.y) > 0.9f
             ? Vector3{ 1.0f, 0.0f, 0.0f }
         : Vector3{ 0.0f, 1.0f, 0.0f };
@@ -818,7 +1288,6 @@ void GameContext::DrawBulletMarks() const
             Vector3CrossProduct(reference, normal));
         const Vector3 bitangent = Vector3CrossProduct(normal, tangent);
 
-        // Slightly offset the discs to prevent wall Z-fighting.
         auto drawDisc = [&](float radius, float offset, Color color)
             {
                 const Vector3 center = Vector3Add(
@@ -845,7 +1314,6 @@ void GameContext::DrawBulletMarks() const
                 }
             };
 
-        // Outer gray impact edge, followed by a smaller black center.
         drawDisc(outerRadius, 0.008f, Fade(DARKGRAY, 0.65f * fade));
         drawDisc(innerRadius, 0.011f, Fade(BLACK, 0.95f * fade));
     }
@@ -856,14 +1324,18 @@ CheckpointData GameContext::CaptureCheckpoint() const
     CheckpointData data;
     data.player = player_.CaptureCheckpoint();
     data.inventory = inventory_.CaptureCheckpoint();
-    data.door = door_.CaptureCheckpoint();
+    // 複数ドアのうち最初のドア、またはチェックポイント用の処理（必要に応じて対応）
+    if (!doors_.empty())
+    {
+        data.door = doors_[0].CaptureCheckpoint();
+    }
     for (const auto& enemy : enemyManager_.GetEnemies())
         if (enemy.IsAlive()) data.enemies.push_back(enemy.CaptureCheckpoint());
     for (const auto& tp : teleportPoints_)
-        data.teleports.push_back({{tp.GetPosition(), tp.GetRotation(), tp.GetScale()}, tp.GetPointNumber(), int(tp.GetTeleportType()), tp.GetRadius()});
+        data.teleports.push_back({ {tp.GetPosition(), tp.GetRotation(), tp.GetScale()}, tp.GetPointNumber(), int(tp.GetTeleportType()), tp.GetRadius() });
     data.stagePosition = stage_.GetPosition();
     data.stageScale = stage_.GetScale();
-    data.goal = {goalPoint_.GetPosition(), goalPoint_.GetRotation(), goalPoint_.GetScale()};
+    data.goal = { goalPoint_.GetPosition(), goalPoint_.GetRotation(), goalPoint_.GetScale() };
     data.goalRadius = goalPoint_.GetRadius();
     const auto& camera = cameraController_.GetPlayerCamera();
     data.yaw = camera.GetYaw();
@@ -891,7 +1363,11 @@ void GameContext::RestoreCheckpoint(const CheckpointData& data)
     stage_.SetScale(data.stageScale);
     player_.RestoreCheckpoint(data.player);
     inventory_.RestoreCheckpoint(data.inventory);
-    door_.RestoreCheckpoint(data.door);
+    inventory_.ApplyPlacements();
+    if (!doors_.empty())
+    {
+        doors_[0].RestoreCheckpoint(data.door);
+    }
     enemyManager_.Clear();
     for (const auto& saved : data.enemies) {
         const auto id = enemyManager_.Spawn(saved.position, saved.config, saved.yaw);

@@ -179,6 +179,7 @@ void Player::Reset()
 	weaponRecoilPitch_ = 0.0f;
 
     damageImpactPending_ = false;
+    hasGun_ = false;
 }
 
 void Player::Update(float deltaTime, const Stage& stage,
@@ -317,6 +318,7 @@ void Player::UpdateWeaponMotion(float deltaTime, bool hasMoveInput)
 
 void Player::UpdateWeapon(float deltaTime)
 {
+    if (!hasGun_) return;
     if (!IsAlive()) return;
     if (isReloading_)
     {
@@ -650,6 +652,15 @@ Vector3 Player::GetMuzzlePosition(const Camera3D& view) const
 
 void Player::Draw(const PlayerCamera* camera) const
 {
+    if (!hasGun_)
+    {
+        if (camera == nullptr)
+        {
+            DrawColliderDebug();
+        }
+        return;
+    }
+
     Model handGun{};
 
     if (isReloading_)

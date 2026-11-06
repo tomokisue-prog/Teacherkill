@@ -3,7 +3,7 @@
 #include "CameraController.h"
 #include "GizmoDrawer.h"
 #include "DoorMove.h"
-#include "EnemyConfig.h"
+#include "EnemyManager.h"
 #include "Item.h"
 #include <optional>
 
@@ -16,8 +16,11 @@ enum class SelectedObjectType
     PaladinModel,
     Door,
     TeleportPoint,
+    SecurityTeleportPoint,
     GoalPoint,
-    Items
+    Items,
+    SecurityPC,
+    EventDialoguePoint
 };
 
 class GameContext;
@@ -46,13 +49,15 @@ private:
     DoorMove door_;
 
     int selectedTeleportIndex_{ 0 };
-
-    int selectedItemIndex_ = -1;
+    int selectedEnemyIndex_{ 0 };
+    int selectedSecurityTeleportIndex_{ 0 };
+    int selectedItemIndex_{ 0 };
+    int selectedEventPointIndex_{ 0 };
+    int selectedDoorIndex_{ 0 };
     ItemType newItemType_ = ItemType::Medkit;
     std::optional<Item> pendingItem_;
-    int selectedEnemyIndex_ = -1;
     int newEnemyType_ = 0;
-    std::optional<demo::EnemyPlacement> pendingEnemy_;
+    std::optional<demo::EnemySpawnData> pendingEnemy_;
     const char* placementMessage_ = nullptr;
     const char* sceneSaveMessage_ = nullptr;
 };

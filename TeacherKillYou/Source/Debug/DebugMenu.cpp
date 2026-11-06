@@ -193,7 +193,8 @@ void DebugMenu::DrawOverlays(const GameContext& context) const {
         if (showColliders_) {
             const auto& player = context.GetPlayer(); const Vector3 p = player.GetPosition(); const float r = player.GetRadius();
             DrawBoundingBox({{p.x-r,p.y,p.z-r},{p.x+r,p.y+player.GetHeight(),p.z+r}}, GREEN);
-            DrawBoundingBox(context.GetDoor().GetBoundingBox(), YELLOW);
+            if (!context.GetDoors().empty())
+                DrawBoundingBox(context.GetDoors().front().GetBoundingBox(), YELLOW);
             for (const auto& enemy : context.GetEnemyManager().GetEnemies()) DrawBoundingBox(enemy.GetBodyBounds(), enemy.IsAlive() ? RED : GRAY);
         }
         if (showTriggers_) {
@@ -251,7 +252,8 @@ void DebugMenu::DrawGameplay(GameContext& context) {
     ImGui::Checkbox(u8"敵の範囲・視線・移動方向を表示",&showEnemyRanges_);
     ImGui::TextWrapped(u8"水色:索敵 / 青:追跡をやめる距離 / 赤:攻撃。紫:向き / 水色の矢印:移動要求 / 緑または橙:実移動。矢印は方向を拡大表示します。");
     ImGui::TextWrapped(u8"壁・ドアの向こうでは発見しません。緑の視線は視認中、灰色は未視認。黄色の球は最後に見た位置です。見失うと最大3秒だけ捜索し、進めない状態が続くと停止します。");
-    const auto target=demo::TargetInfo::FromPlayer(player);const auto door=context.GetDoor().GetBoundingBox();
+    const auto target=demo::TargetInfo::FromPlayer(player);
+    const BoundingBox door = context.GetDoors().empty() ? BoundingBox{} : context.GetDoors().front().GetBoundingBox();
     for(const auto& enemy:context.GetEnemyManager().GetEnemies()) {
         ImGui::PushID(int(enemy.GetId()));
         if(ImGui::TreeNode("Enemy", "%s #%llu - %s",EnemyName(enemy.GetType()),static_cast<unsigned long long>(enemy.GetId()),State(enemy.GetState()))) {
@@ -300,7 +302,8 @@ void DebugMenu::DrawGameplay(GameContext& context) {
 
 void DebugMenu::DrawCombatOverlays(const GameContext& context) const {
     if(showEnemyRanges_) {
-        const auto target=demo::TargetInfo::FromPlayer(context.GetPlayer());const auto door=context.GetDoor().GetBoundingBox();
+        const auto target=demo::TargetInfo::FromPlayer(context.GetPlayer());
+        const BoundingBox door = context.GetDoors().empty() ? BoundingBox{} : context.GetDoors().front().GetBoundingBox();
         for(const auto& enemy:context.GetEnemyManager().GetEnemies()) {
             const auto info=enemy.GetDebugInfo(target,context.GetStage(),&door);const auto p=Vector3Add(enemy.GetPosition(),{0,.05f,0});
             DrawCircle3D(p,info.config.detectionRange,{1,0,0},90,SKYBLUE);DrawCircle3D(p,info.config.loseRange,{1,0,0},90,DARKBLUE);DrawCircle3D(p,info.config.attackRange,{1,0,0},90,RED);

@@ -16,6 +16,8 @@ namespace {
         case ItemType::Ammo: return {ResourceKeys::Model_Ammo, .55f};
         case ItemType::KeyCard: return {ResourceKeys::Model_KeyCard, .47f};
         case ItemType::LostItem: return {ResourceKeys::Model_LostItem, .40f};
+        case ItemType::Gun: return {ResourceKeys::Model_Gun, .52f};
+        case ItemType::AuthenticationKey: return {ResourceKeys::Model_Authentication_Key, .47f};
         case ItemType::Books: return {ResourceKeys::Model_Books, .58f};
         case ItemType::Chair1: return {ResourceKeys::Model_Chair1, 1.55f};
         case ItemType::Chair2: return {ResourceKeys::Model_Chair2, 1.4f};
@@ -51,6 +53,8 @@ const char* Item::GetName(ItemType type)
     case ItemType::Battery: return "BATTERY";
     case ItemType::Key:     return "KEY";
 	case ItemType::LostItem: return "LOST ITEM";
+    case ItemType::Gun:     return "GUN";
+    case ItemType::AuthenticationKey: return "AUTHENTICATION KEY";
     case ItemType::Books: return "BOOKS";
     case ItemType::Chair1: return "CHAIR 1";
     case ItemType::Chair2: return "CHAIR 2";

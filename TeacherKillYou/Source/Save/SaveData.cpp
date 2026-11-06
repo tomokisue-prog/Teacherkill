@@ -81,7 +81,7 @@ nlohmann::json SaveData::PackEnemyConfig(const demo::EnemyConfig& c) {
 }
 demo::EnemyConfig SaveData::ParseEnemyConfig(const nlohmann::json& j) {
     demo::EnemyConfig c;
-    c.type = static_cast<demo::EnemyType>(Integer(j.at("type"), int(demo::EnemyType::FemaleZombie), int(demo::EnemyType::MonsterMale2)));
+    c.type = static_cast<demo::EnemyType>(Integer(j.at("type"), 0, int(demo::EnemyType::MonsterMale2)));
     c.maxHp = Integer(j.at("maxHp"), 1, 100000);
     c.moveSpeed = Number(j.at("moveSpeed"), 0, 100);
     c.turnSpeed = Number(j.at("turnSpeed"), 0, 100);
