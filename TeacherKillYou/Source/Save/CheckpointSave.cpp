@@ -24,14 +24,29 @@ namespace {
         Require(result.scale.x > 0 && result.scale.y > 0 && result.scale.z > 0);
         return result;
     }
+    Json PackDoor(const DoorCheckpoint& door) {
+        return {{"transform", Pack(door.transform)}, {"speed", door.speed},
+                {"distance", door.distance}, {"radius", door.radius},
+                {"progress", door.progress}, {"open", door.open},
+                {"lockType", int(door.lockType)}};
+    }
+    DoorCheckpoint ParseDoor(const Json& door) {
+        DoorCheckpoint result{Transform(door.at("transform")), Number(door.at("speed"), 0, 100),
+            Number(door.at("distance"), 0, 10000), Number(door.at("radius"), .001f, 10000),
+            Number(door.at("progress"), 0, 1), door.at("open").get<bool>()};
+        if (door.contains("lockType"))
+            result.lockType = static_cast<DoorLockType>(Integer(door.at("lockType"), 0, int(DoorLockType::CustomEventFlag)));
+        return result;
+    }
     Json Pack(const CheckpointData& data) {
         Json j{{"version", 2}, {"player", {{"position", Pack(data.player.position)}, {"hp", data.player.hp},
             {"ammo", data.player.ammo}, {"reserve", data.player.reserveAmmo}, {"stamina", data.player.stamina}}},
             {"camera", {{"yaw", data.yaw}, {"pitch", data.pitch}}}, {"flashlight", data.flashlight},
             {"stage", {{"position", Pack(data.stagePosition)}, {"scale", data.stageScale}}},
             {"goal", {{"transform", Pack(data.goal)}, {"radius", data.goalRadius}}},
-            {"door", {{"transform", Pack(data.door.transform)}, {"speed", data.door.speed}, {"distance", data.door.distance},
-                {"radius", data.door.radius}, {"progress", data.door.progress}, {"open", data.door.open}}}};
+            {"door", PackDoor(data.door)}};
+        j["doors"] = Json::array();
+        for (const auto& door : data.doors) j["doors"].push_back(PackDoor(door));
         j["inventory"]["slots"] = Json::array();
         for (auto slot : data.inventory.slots) j["inventory"]["slots"].push_back(int(slot));
         j["inventory"]["selected"] = data.inventory.selectedSlot;
@@ -60,9 +75,11 @@ namespace {
         d.stageScale = Number(j.at("stage").at("scale"), .0001f, 10000);
         d.goal = Transform(j.at("goal").at("transform"));
         d.goalRadius = Number(j.at("goal").at("radius"), .001f, 10000);
-        const auto& door = j.at("door");
-        d.door = {Transform(door.at("transform")), Number(door.at("speed"), 0, 100), Number(door.at("distance"), 0, 10000),
-            Number(door.at("radius"), .001f, 10000), Number(door.at("progress"), 0, 1), door.at("open").get<bool>()};
+        d.door = ParseDoor(j.at("door"));
+        if (j.contains("doors")) {
+            Require(j.at("doors").is_array() && j.at("doors").size() <= 512);
+            for (const auto& door : j.at("doors")) d.doors.push_back(ParseDoor(door));
+        }
         const auto& inv = j.at("inventory");
         Require(inv.at("slots").is_array() && inv.at("slots").size() == d.inventory.slots.size());
         for (int i = 0; i < 4; ++i) {
