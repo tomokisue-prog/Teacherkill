@@ -513,9 +513,15 @@ void Player::TakeDamage(int amount)
     isSprinting_ = false;
     hp_ = amount >= hp_ ? 0 : hp_ - amount;
     damageFlashTimer_ = damageFlashDuration_;
-    AM().PlaySe(SeId::PlayerHit, 0.9f);
-
-    if (!IsAlive())
+    if (IsAlive())
+    {
+        // A new hit replaces the previous voice so rapid hits stay clear.
+        AM().StopSe(SeId::PlayerHit1);
+        AM().StopSe(SeId::PlayerHit2);
+        const SeId hit = GetRandomValue(0, 1) == 0 ? SeId::PlayerHit1 : SeId::PlayerHit2;
+        AM().PlaySe(hit, 0.9f);
+    }
+    else
     {
         AM().StopSe(SeId::Reload);
         isShooting_ = false;

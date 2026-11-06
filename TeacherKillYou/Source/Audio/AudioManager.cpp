@@ -3,7 +3,14 @@
 #include <cmath>
 
 namespace {
-constexpr const char* BgmFiles[] = { "game_over_screen.mp3" };
+struct BgmAsset {
+    const char* filename;
+    float gain;
+};
+constexpr BgmAsset BgmAssets[] = {
+    { "game_over_screen.mp3", 0.75f },
+    { "Game Intro.mp3", 0.78f }
+};
 constexpr const char* SeFiles[] = {
     "shoot.mp3", "Reload.mp3", "Empty_GunShot.mp3", "Hitting_wall.mp3",
     "Player_Footstep.wav", "extra_footsteps/Player_Footstep_02.wav", "extra_footsteps/Player_Footstep_03.wav",
@@ -11,12 +18,11 @@ constexpr const char* SeFiles[] = {
     "Female_Monster_hit.wav", "MaleMonster_hit.mp3", "MaleMonster_dead.mp3", "MaleMonster_dead2.wav",
     "Locked and Unlocked.wav", "pickup.ogg", "Healing.mp3", "heartbeat_30to100_volume.wav",
     "You and Died impact.mp3", "pause_menu.ogg", "hover_cursor.ogg", "confirm.ogg", "error_click.wav",
-    "Player_hit1.m4a", "Thunder.mp3"
+    "Player_hit1.wav", "Player_hit2.wav", "Player_dead.wav", "Thunder.mp3"
 };
-static_assert(sizeof(BgmFiles) / sizeof(BgmFiles[0]) == static_cast<std::size_t>(BgmId::Count), "BGM file list mismatch");
+static_assert(sizeof(BgmAssets) / sizeof(BgmAssets[0]) == static_cast<std::size_t>(BgmId::Count), "BGM file list mismatch");
 static_assert(sizeof(SeFiles) / sizeof(SeFiles[0]) == static_cast<std::size_t>(SeId::Count), "SE file list mismatch");
 constexpr float FadeSeconds = 0.8f;
-constexpr float GameOverBgmGain = 0.75f; // Leave room for the wind and the YOU DIED impact.
 float Volume(float value, float fallback) {
     return std::isfinite(value) ? (std::max)(0.0f, (std::min)(1.0f, value)) : fallback;
 }
@@ -45,7 +51,7 @@ bool AudioManager::Init(const std::string& directory) {
         if (IsMusicValid(wind_)) { wind_.looping = true; SetMusicVolume(wind_, 0.0f); }
     } else TraceLog(LOG_WARNING, "AUDIO: Missing %s", windPath.c_str());
     for (std::size_t i = 0; i < bgm_.size(); ++i) {
-        const auto path = Path(directory, BgmFiles[i]);
+        const auto path = Path(directory, BgmAssets[i].filename);
         if (!FileExists(path.c_str())) { TraceLog(LOG_WARNING, "AUDIO: Missing %s", path.c_str()); continue; }
         bgm_[i] = LoadMusicStream(path.c_str());
         if (IsMusicValid(bgm_[i])) { bgm_[i].looping = true; SetMusicVolume(bgm_[i], 0.0f); }
@@ -141,8 +147,9 @@ void AudioManager::Update() {
     }
     if (HasBgm(currentBgm_)) {
         bgmFade_ = (std::min)(1.0f, bgmFade_ + dt / FadeSeconds);
-        Music music = bgm_[static_cast<std::size_t>(currentBgm_)];
-        SetMusicVolume(music, bgmVolume_ * GameOverBgmGain * bgmFade_);
+        const auto i = static_cast<std::size_t>(currentBgm_);
+        Music music = bgm_[i];
+        SetMusicVolume(music, bgmVolume_ * BgmAssets[i].gain * bgmFade_);
         UpdateMusicStream(music);
     }
 }
@@ -179,7 +186,10 @@ void AudioManager::SetBgmVolume(float volume) {
     bgmVolume_ = Volume(volume, bgmVolume_);
     if (!IsReady()) return;
     if (IsMusicValid(wind_)) SetMusicVolume(wind_, bgmVolume_ * windFade_ * windMix_);
-    if (HasBgm(currentBgm_)) SetMusicVolume(bgm_[static_cast<std::size_t>(currentBgm_)], bgmVolume_ * GameOverBgmGain * bgmFade_);
+    if (HasBgm(currentBgm_)) {
+        const auto i = static_cast<std::size_t>(currentBgm_);
+        SetMusicVolume(bgm_[i], bgmVolume_ * BgmAssets[i].gain * bgmFade_);
+    }
 }
 void AudioManager::SetSeVolume(float volume) {
     seVolume_ = Volume(volume, seVolume_);

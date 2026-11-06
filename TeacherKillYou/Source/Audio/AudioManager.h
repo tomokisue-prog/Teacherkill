@@ -5,7 +5,7 @@
 #include <string>
 
 // Only the files supplied in the new sound package are used.
-enum class BgmId { GameOver, Count };
+enum class BgmId { GameOver, Title, Count };
 enum class SeId {
     Shoot, Reload, DryFire, WallImpact,
     PlayerFootstep1, PlayerFootstep2, PlayerFootstep3,
@@ -13,7 +13,7 @@ enum class SeId {
     FemaleHit, MaleHit, MaleDeath, MaleDeath2,
     Door, Pickup, Healing, Heartbeat,
     YouDied, PauseMenu, Hover, Confirm, Error,
-    PlayerHit, Thunder,
+    PlayerHit1, PlayerHit2, PlayerDeath, Thunder,
     Count
 };
 

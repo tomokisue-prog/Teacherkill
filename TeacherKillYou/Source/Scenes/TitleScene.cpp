@@ -1,7 +1,6 @@
 ﻿#include "TitleScene.h"
 #include "SceneManager.h"
 #include "AudioManager.h"
-#include "ResourceManager.h"
 #include "CheckpointSave.h"
 #include <algorithm>
 #include <cmath>
@@ -10,6 +9,8 @@ namespace {
     constexpr const char* CoverPath = "Data/Image/UI/Title_Cover.png";
     constexpr const char* CanopyPath = "Data/Image/UI/Title_Canopy.png";
     constexpr const char* LeavesPath = "Data/Image/UI/Title_Leaves.png";
+    constexpr const char* LogoPath = "Data/Image/UI/The_Last_Class_Title.png";
+    constexpr const char* MenuPath = "Data/Image/UI/The_Last_Classl.png";
     constexpr const char* LightningPath = "Data/Image/UI/Title_Lightning.png";
 
     // These values control the strength and speed of the title-screen breeze.
@@ -22,27 +23,48 @@ namespace {
     constexpr float LeafDriftPixels = 32.0f; // Side-to-side drift at 1920 x 1080.
     constexpr float LightningIntervalSeconds = 6.0f;
     constexpr float LightningEffectSeconds = 0.60f;
-    constexpr float IntroWindMix = 0.55f; // Lower the wind under the intro soundtrack.
+    constexpr float TitleWindMix = 0.22f;
+
+    enum MenuButton { StartButton, SaveButton, ExitButton, ButtonCount };
+
+    // Trim the transparent margins and split the menu at the gaps in the artwork.
+    constexpr Rectangle LogoSource{180.0f, 37.0f, 1157.0f, 954.0f};
+    constexpr Rectangle ButtonSources[ButtonCount] = {
+        {262.0f, 225.0f, 1011.0f, 203.0f},
+        {262.0f, 428.0f, 1011.0f, 181.0f},
+        {262.0f, 609.0f, 1011.0f, 196.0f}
+    };
+    constexpr float MenuTop = ButtonSources[StartButton].y;
+    constexpr float MenuHeight = ButtonSources[ExitButton].y + ButtonSources[ExitButton].height - MenuTop;
 
     struct TitleLayout {
-        float scale;
-        Rectangle panel;
-        Rectangle start;
-        Rectangle checkpoint;
-        Rectangle exit;
+        Rectangle logo;
+        Rectangle buttons[ButtonCount];
     };
 
     TitleLayout GetTitleLayout() {
         const float w = static_cast<float>((std::max)(1, GetScreenWidth()));
         const float h = static_cast<float>((std::max)(1, GetScreenHeight()));
-        const float s = (std::max)(0.25f, (std::min)(w / 1920.0f, h / 1080.0f));
-        const Rectangle panel{w * 0.055f, h * 0.23f, 670.0f * s, 515.0f * s};
-        const float x = panel.x + 35.0f * s;
-        const float width = panel.width - 70.0f * s;
-        return {s, panel,
-                {x, panel.y + 185.0f * s, width, 68.0f * s},
-                {x, panel.y + 270.0f * s, width, 68.0f * s},
-                {x, panel.y + 355.0f * s, width, 68.0f * s}};
+        const float logoScale = (std::min)(w * 0.49f / LogoSource.width, h * 0.59f / LogoSource.height);
+        const float menuScale = (std::min)(w * 0.44f / ButtonSources[StartButton].width, h * 0.30f / MenuHeight);
+        const float menuWidth = ButtonSources[StartButton].width * menuScale;
+        const float menuX = (w - menuWidth) * 0.5f;
+        const float menuY = h * 0.95f - MenuHeight * menuScale;
+
+        TitleLayout layout{};
+        layout.logo = {w * 0.045f, h * 0.055f, LogoSource.width * logoScale, LogoSource.height * logoScale};
+        for (int i = 0; i < ButtonCount; ++i) {
+            const Rectangle source = ButtonSources[i];
+            layout.buttons[i] = {menuX, menuY + (source.y - MenuTop) * menuScale,
+                                 source.width * menuScale, source.height * menuScale};
+        }
+        return layout;
+    }
+
+    void StopTitleAudio() {
+        AM().StopSe(SeId::Thunder);
+        AM().StopWind();
+        AM().StopBgm();
     }
 
     Texture2D LoadTitleTexture(const char* path) {
@@ -104,7 +126,7 @@ namespace {
 
     void DrawLightningEffect(const Texture2D& image, const Texture2D& cover, float time) {
         if (LightningIntervalSeconds <= 0.0f || LightningEffectSeconds <= 0.0f ||
-            time < LightningIntervalSeconds) return; // First strike after about 3 seconds.
+            time < LightningIntervalSeconds) return;
         const float phase = std::fmod(time - LightningIntervalSeconds, LightningIntervalSeconds);
         if (phase >= LightningEffectSeconds) return;
 
@@ -119,9 +141,9 @@ namespace {
             1.0f - Smooth01((phase - imageHoldSeconds) / (LightningEffectSeconds - imageHoldSeconds));
         if (darkness > 0.0f)
             DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, darkness));
-        DrawLightningImage(image, cover, imageOpacity);
         if (flash > 0.0f)
             DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(WHITE, flash));
+        DrawLightningImage(image, cover, imageOpacity);
     }
 
     // Rectangles in the supplied 2048 x 1423 transparent leaf image. Each
@@ -158,41 +180,33 @@ namespace {
         }
     }
 
-    void TextLeft(const char* jp, const char* en, float x, float y, float size, Color color) {
-        const auto& font = JPFont();
-        if (font.IsLoaded()) {
-            font.DrawText(jp, static_cast<int>(x + 2), static_cast<int>(y + 2), size, {0, 0, 0, 180});
-            font.DrawText(jp, static_cast<int>(x), static_cast<int>(y), size, color);
-        } else {
-            const int px = (std::max)(10, static_cast<int>(size));
-            DrawText(en, static_cast<int>(x + 2), static_cast<int>(y + 2), px, {0, 0, 0, 180});
-            DrawText(en, static_cast<int>(x), static_cast<int>(y), px, color);
-        }
+    void DrawFallbackLabel(const char* label, Rectangle area, float heightRatio, Color tint) {
+        int size = (std::max)(1, static_cast<int>(area.height * heightRatio));
+        const int textWidth = MeasureText(label, size);
+        if (textWidth > area.width)
+            size = (std::max)(1, static_cast<int>(size * area.width / textWidth));
+        DrawText(label, static_cast<int>(area.x + (area.width - MeasureText(label, size)) * 0.5f),
+                 static_cast<int>(area.y + (area.height - size) * 0.5f), size, tint);
     }
 
-    void TextCentered(const char* jp, const char* en, Rectangle area, float size, Color color) {
-        const auto& font = JPFont();
-        if (font.IsLoaded()) {
-            const Vector2 textSize = font.MeasureText(jp, size);
-            font.DrawText(jp, static_cast<int>(area.x + (area.width - textSize.x) * 0.5f),
-                          static_cast<int>(area.y + (area.height - textSize.y) * 0.5f), size, color);
-        } else {
-            const int px = (std::max)(10, static_cast<int>(size));
-            DrawText(en, static_cast<int>(area.x + (area.width - MeasureText(en, px)) * 0.5f),
-                     static_cast<int>(area.y + (area.height - px) * 0.5f), px, color);
+    void DrawMenuButton(Texture2D menu, int button, Rectangle dest, bool enabled, bool hovered) {
+        if (menu.id == 0) {
+            constexpr const char* labels[ButtonCount] = {"START", "SAVE", "EXIT GAME"};
+            const char* label = enabled ? labels[button] : "NO SAVE DATA";
+            const Color tint = !enabled ? GRAY : hovered ? WHITE : RAYWHITE;
+            DrawFallbackLabel(label, dest, 0.36f, tint);
+            return;
         }
-    }
 
-    void DrawTitleButton(Rectangle area, const char* jp, const char* en, float size, bool enabled) {
-        const bool hovered = enabled && CheckCollisionPointRec(GetMousePosition(), area);
-        const Color fill = !enabled ? Color{12, 17, 16, 165} :
-                           hovered ? Color{50, 87, 65, 235} : Color{15, 27, 22, 215};
-        const Color border = !enabled ? Color{72, 84, 76, 170} :
-                             hovered ? Color{186, 222, 183, 255} : Color{125, 159, 133, 210};
-        const Color text = enabled ? Color{230, 238, 226, 255} : Color{119, 133, 123, 220};
-        DrawRectangleRec(area, fill);
-        DrawRectangleLinesEx(area, (std::max)(1.0f, size * 0.055f), border);
-        TextCentered(jp, en, area, size, text);
+        const Rectangle source = ButtonSources[button];
+        const Color tint = enabled ? WHITE : Color{135, 135, 135, 255};
+        DrawTexturePro(menu, source, dest, {0, 0}, 0.0f, tint);
+        if (enabled && hovered) {
+            // The texture's alpha keeps the light on the painted button.
+            BeginBlendMode(BLEND_ADDITIVE);
+            DrawTexturePro(menu, source, dest, {0, 0}, 0.0f, Fade(WHITE, 0.36f));
+            EndBlendMode();
+        }
     }
 }
 
@@ -206,11 +220,15 @@ void TitleScene::Init()
     cover_ = LoadTitleTexture(CoverPath);
     canopy_ = LoadTitleTexture(CanopyPath);
     leaves_ = LoadTitleTexture(LeavesPath);
+    logo_ = LoadTitleTexture(LogoPath);
+    menu_ = LoadTitleTexture(MenuPath);
     // A missing optional image is normal; no warning and no placeholder needed.
     if (FileExists(LightningPath)) lightning_ = LoadTitleTexture(LightningPath);
     CheckpointData checkpoint;
     checkpointAvailable_ = CheckpointSave::Load(checkpoint);
+    AM().PlayBgm(BgmId::Title);
     AM().PlayWind();
+    AM().SetWindMix(TitleWindMix);
     EnableCursor();
 }
 
@@ -218,13 +236,9 @@ void TitleScene::Update(float deltaTime)
 {
     if (intro_.IsPlaying()) {
         if (!intro_.Update()) {
-            AM().StopWind();
             auto* game = static_cast<GameScene*>(SM().GetScene(SceneID::Game));
             game->RequestIntroFadeIn();
             SetNextScene(game);
-        } else {
-            // Fade both sound layers with the same video fade-out.
-            AM().SetWindMix(IntroWindMix * (1.0f - intro_.GetFadeOutAlpha()));
         }
         return;
     }
@@ -238,42 +252,41 @@ void TitleScene::Update(float deltaTime)
     const TitleLayout layout = GetTitleLayout();
     const Vector2 mouse = GetMousePosition();
     const bool click = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
-    const bool startClicked = click && CheckCollisionPointRec(mouse, layout.start);
-    const bool continueClicked = click && checkpointAvailable_ && CheckCollisionPointRec(mouse, layout.checkpoint);
-    const bool exitClicked = click && CheckCollisionPointRec(mouse, layout.exit);
-    const int hovered = CheckCollisionPointRec(mouse, layout.start) ? 0 :
-        CheckCollisionPointRec(mouse, layout.checkpoint) ? 1 :
-        CheckCollisionPointRec(mouse, layout.exit) ? 2 : -1;
-    if (hovered >= 0 && hovered != hoveredButton_) AM().PlayUiSe(SeId::Hover, 0.7f);
+    int hovered = -1;
+    for (int i = 0; i < ButtonCount; ++i) {
+        if (CheckCollisionPointRec(mouse, layout.buttons[i])) {
+            hovered = i;
+            break;
+        }
+    }
+    if (hovered >= 0 && hovered != hoveredButton_ && (hovered != SaveButton || checkpointAvailable_))
+        AM().PlayUiSe(SeId::Hover, 0.7f);
     hoveredButton_ = hovered;
-    if (click && hovered == 1 && !checkpointAvailable_) AM().PlayUiSe(SeId::Error);
+    if (click && hovered == SaveButton && !checkpointAvailable_) AM().PlayUiSe(SeId::Error);
 
-    if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) || startClicked) {
+    if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) || (click && hovered == StartButton)) {
         AM().PlaySe(SeId::Confirm);
-        AM().StopSe(SeId::Thunder);
-        AM().StopWind();
+        StopTitleAudio();
         // Keep the existing loading screen before the opening video.
         if (!SM().PrepareGameResources()) {
             finished = true;
             nextScene = nullptr;
             return;
         }
-        if (!intro_.Start("Data/Video/IntroFrames.dat", "Data/Audio/Game Intro.mp3", AM().GetBgmVolume())) {
+        if (!intro_.Start("Data/Video/IntroFrames.dat", "Data/Video/IntroAudio.ogg", AM().GetBgmVolume())) {
             // Missing/corrupt video: still enter the game with a smooth reveal.
             auto* game = static_cast<GameScene*>(SM().GetScene(SceneID::Game));
             game->RequestIntroFadeIn();
             SetNextScene(game);
-        } else {
-            AM().PlayWind();
-            AM().SetWindMix(IntroWindMix);
         }
     }
-    else if (checkpointAvailable_ && (IsKeyPressed(KEY_C) || continueClicked)) {
+    else if (checkpointAvailable_ && (IsKeyPressed(KEY_C) || (click && hovered == SaveButton))) {
         AM().PlaySe(SeId::Confirm);
+        StopTitleAudio();
         static_cast<GameScene*>(SM().GetScene(SceneID::Game))->RequestCheckpointContinue();
         SetNextScene(SM().GetScene(SceneID::Game));
     }
-    else if (IsKeyPressed(KEY_ESCAPE) || exitClicked) {
+    else if (IsKeyPressed(KEY_ESCAPE) || (click && hovered == ExitButton)) {
         AM().PlayUiSe(SeId::Confirm);
         finished = true;
         nextScene = nullptr;
@@ -303,20 +316,14 @@ void TitleScene::Render() const
     }
 
     const TitleLayout layout = GetTitleLayout();
-    const float s = layout.scale;
-    DrawRectangleRec(layout.panel, {3, 9, 7, 190});
-    DrawRectangleLinesEx(layout.panel, (std::max)(1.0f, 2.0f * s), {117, 156, 126, 145});
-    TextLeft(u8"学校脱出 3D", "ESCAPE SCHOOL 3D", layout.panel.x + 35 * s,
-             layout.panel.y + 33 * s, 58 * s, {226, 236, 222, 255});
-    DrawText("ESCAPE SCHOOL 3D", static_cast<int>(layout.panel.x + 39 * s),
-             static_cast<int>(layout.panel.y + 110 * s), (std::max)(10, static_cast<int>(22 * s)),
-             {159, 183, 163, 255});
-    DrawTitleButton(layout.start, u8"最初から開始  [SPACE]", "NEW GAME  [SPACE]", 27 * s, true);
-    DrawTitleButton(layout.checkpoint, checkpointAvailable_ ? u8"続きから  [C]" : u8"セーブデータなし",
-                    checkpointAvailable_ ? "CONTINUE  [C]" : "NO CHECKPOINT", 25 * s, checkpointAvailable_);
-    DrawTitleButton(layout.exit, u8"終了  [ESC]", "EXIT  [ESC]", 25 * s, true);
-    TextLeft(u8"マウスでも選択できます", "CLICK A BUTTON OR USE THE KEYS", layout.panel.x + 38 * s,
-             layout.panel.y + 460 * s, 20 * s, {158, 176, 163, 255});
+    if (logo_.id != 0)
+        DrawTexturePro(logo_, LogoSource, layout.logo, {0, 0}, 0.0f, WHITE);
+    else
+        DrawFallbackLabel("THE LAST CLASS", layout.logo, 0.22f, RAYWHITE);
+
+    for (int i = 0; i < ButtonCount; ++i)
+        DrawMenuButton(menu_, i, layout.buttons[i], i != SaveButton || checkpointAvailable_, hoveredButton_ == i);
+
     DrawLightningEffect(lightning_, cover_, windTime_);
 }
 
@@ -326,11 +333,14 @@ void TitleScene::End()
     if (cover_.id != 0) UnloadTexture(cover_);
     if (canopy_.id != 0) UnloadTexture(canopy_);
     if (leaves_.id != 0) UnloadTexture(leaves_);
+    if (logo_.id != 0) UnloadTexture(logo_);
+    if (menu_.id != 0) UnloadTexture(menu_);
     if (lightning_.id != 0) UnloadTexture(lightning_);
     cover_ = {};
     canopy_ = {};
     leaves_ = {};
+    logo_ = {};
+    menu_ = {};
     lightning_ = {};
-    AM().StopSe(SeId::Thunder);
-    AM().StopWind();
+    StopTitleAudio();
 }
