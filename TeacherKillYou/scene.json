@@ -26,32 +26,6 @@
         "attackHitFraction": 0.4000000059604645,
         "attackRange": 1.600000023841858,
         "attackRecovery": 0.6499999761581421,
-        "bodyHeight": 3.0999999046325684,
-        "bodyRadius": 0.41999998688697815,
-        "corpseDuration": 2.0,
-        "detectionRange": 10.0,
-        "loseRange": 15.0,
-        "maxHp": 100,
-        "moveSpeed": 3.0,
-        "resumeDistance": 1.5,
-        "stopDistance": 1.2000000476837158,
-        "turnSpeed": 3.1415927410125732,
-        "type": 0
-      },
-      "position": {
-        "x": 0.8999999761581421,
-        "y": 5.511425018310547,
-        "z": 2.5
-      },
-      "yaw": 0.0
-    },
-    {
-      "config": {
-        "animationSpeed": 1.5,
-        "attackDamage": 15,
-        "attackHitFraction": 0.4000000059604645,
-        "attackRange": 1.600000023841858,
-        "attackRecovery": 0.6499999761581421,
         "bodyHeight": 2.9000000953674316,
         "bodyRadius": 0.36000001430511475,
         "corpseDuration": 2.0,

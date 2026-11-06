@@ -26,6 +26,7 @@ struct FbxModelData {
     int animationCount = 0;
     BakedAnimationFrames bakedFrames;
     std::vector<FbxSkinBinding> bindings;
+    std::vector<std::string> materialNames;
 };
 
 FbxModelData LoadFbxModel(const std::string& path, bool inPlaceLocomotion = false);

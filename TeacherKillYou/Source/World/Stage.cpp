@@ -10,7 +10,6 @@
 
 namespace {
 
-// Conservative slab test, including rays starting inside a box and flat meshes.
 bool RayReachesBounds(Ray ray, BoundingBox bounds, float maxDistance) {
     constexpr float boundsPadding = 0.0001f;
     const float origins[] = { ray.position.x, ray.position.y, ray.position.z };
@@ -34,8 +33,7 @@ bool RayReachesBounds(Ray ray, BoundingBox bounds, float maxDistance) {
     }
     return true;
 }
-
-// Match DrawModel: model transform, then uniform scale, then stage translation.
+                       
 Matrix StageTransform(const Model& model, Vector3 position, float scale) {
     return MatrixMultiply(model.transform, MatrixMultiply(MatrixScale(scale, scale, scale),
         MatrixTranslate(position.x, position.y, position.z)));
@@ -52,13 +50,12 @@ RayCollision RaycastGroundMesh(Ray ray, const Mesh& mesh, Matrix transform) {
                 mesh.vertices[index * 3 + 2] }, transform);
         }
         const RayCollision hit = GetRayCollisionTriangle(ray, points[0], points[1], points[2]);
-        // Filter each triangle, so a ceiling in the same mesh cannot hide the floor.
         if (hit.hit && hit.normal.y > 0.5f && (!closest.hit || hit.distance < closest.distance)) closest = hit;
     }
     return closest;
 }
 
-} // namespace
+}            
 
 void Stage::Init()
 {
@@ -119,7 +116,6 @@ Vector3 Stage::FindGroundPosition(Vector3 preferred) const
     constexpr float margin = 0.01f;
     const RayCollision below = RaycastGround({ Vector3Add(preferred, { 0, margin, 0 }), { 0, -1, 0 } });
     const RayCollision above = RaycastGround({ Vector3Subtract(preferred, { 0, margin, 0 }), { 0, 1, 0 } });
-    // Keep the requested X/Z and select the closest walkable floor to its Y.
     if (below.hit && (!above.hit || std::fabs(below.point.y - preferred.y) <= std::fabs(above.point.y - preferred.y))) {
         preferred.y = below.point.y;
     } else if (above.hit) {
@@ -127,7 +123,6 @@ Vector3 Stage::FindGroundPosition(Vector3 preferred) const
     } else {
         return preferred;
     }
-    // Resolve nearby overlapping floor layers just as the character ground probe does.
     constexpr float probeHeight = 0.25f;
     const RayCollision surface = RaycastGround({ Vector3Add(preferred, { 0, probeHeight, 0 }), { 0, -1, 0 } },
         probeHeight + margin);
@@ -151,7 +146,6 @@ RayCollision Stage::RaycastSurfaces(Ray ray, float maxDistance, bool groundOnly)
     const float determinant = MatrixDeterminant(transform);
     if (!std::isfinite(determinant) || determinant == 0.0f) return closestHit;
     const Matrix inverse = MatrixInvert(transform);
-    // Do not normalize the local direction: its ray parameter must remain in world metres.
     const Ray localRay = { Vector3Transform(ray.position, inverse),
         { inverse.m0 * ray.direction.x + inverse.m4 * ray.direction.y + inverse.m8 * ray.direction.z,
           inverse.m1 * ray.direction.x + inverse.m5 * ray.direction.y + inverse.m9 * ray.direction.z,
