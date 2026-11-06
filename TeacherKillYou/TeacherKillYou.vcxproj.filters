@@ -198,6 +198,9 @@
     <ClCompile Include="Source\Items\Item.cpp">
       <Filter>Source\Items</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Items\ItemMaterials.cpp">
+      <Filter>Source\Items</Filter>
+    </ClCompile>
     <ClCompile Include="Source\UI\JapaneseFont.cpp">
       <Filter>Source\UI</Filter>
     </ClCompile>
@@ -405,6 +408,9 @@
       <Filter>Source\Items</Filter>
     </ClInclude>
     <ClInclude Include="Source\Items\Item.h">
+      <Filter>Source\Items</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Items\ItemMaterials.h">
       <Filter>Source\Items</Filter>
     </ClInclude>
     <ClInclude Include="Source\UI\JapaneseFont.h">

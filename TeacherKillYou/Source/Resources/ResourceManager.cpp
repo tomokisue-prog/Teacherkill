@@ -2,6 +2,7 @@
 #include "BakedAnimation.h"
 #include "FbxLoader.h"
 #include "GltfMaterials.h"
+#include "ItemMaterials.h"
 #include "HorrorLighting.h"
 #include "raylib.h"
 #include "rlgl.h"
@@ -31,10 +32,7 @@ namespace {
         {LoadKind::Animation, "PlayerShoot", "Data/Image/HandPov/shoot_raylib.glb"},
         {LoadKind::Model, "PlayerReload", "Data/Image/HandPov/reload_raylib.glb"},
         {LoadKind::Animation, "PlayerReload", "Data/Image/HandPov/reload_raylib.glb"},
-        {LoadKind::Model, ResourceKeys::Model_Stage1, "Data/Image/floor 4 uv warp all.glb"},
-        {LoadKind::Model, ResourceKeys::Model_Enemy, "Data/Image/Monster_final_animations/MONSTER_run_final.fbx"},
-        {LoadKind::FbxAnimation, ResourceKeys::Animation_EnemyAttack, "Data/Image/Monster_final_animations/MONSTER _attack_final.fbx", ResourceKeys::Model_Enemy},
-        {LoadKind::FbxAnimation, ResourceKeys::Animation_EnemyDeath, "Data/Image/Monster_final_animations/MONSTER_dead_final.fbx", ResourceKeys::Model_Enemy},
+        {LoadKind::Model, ResourceKeys::Model_Stage1, "Data/Image/Floor 1.glb"},
         {LoadKind::Model, ResourceKeys::Model_FemaleZombie, "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 running.fbx"},
         {LoadKind::FbxAnimation, ResourceKeys::Animation_FemaleZombieAttack, "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 attack.fbx", ResourceKeys::Model_FemaleZombie},
         {LoadKind::FbxAnimation, ResourceKeys::Animation_FemaleZombieDeath, "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 death.fbx", ResourceKeys::Model_FemaleZombie},
@@ -119,10 +117,11 @@ void ResourceManager::LoadModel(const std::string& key, const std::string& path)
     }
 
     if (IsFileExtension(path.c_str(), ".fbx")) {
-        const bool enemyModel = key == ResourceKeys::Model_Enemy || key == ResourceKeys::Model_FemaleZombie ||
+        const bool enemyModel = key == ResourceKeys::Model_FemaleZombie ||
             key == ResourceKeys::Model_MonsterMale2;
         FbxModelData data = LoadFbxModel(path, enemyModel);
         if (data.model.meshCount == 0) return;
+        ApplyItemMaterials(data.model, key, data.materialNames);
         if (enemyModel) {
             // 敵は自己発光させず、ステージ照明と懐中電灯で照らす。
             for (int i = 0; i < data.model.materialCount; ++i) {
@@ -230,7 +229,7 @@ void ResourceManager::ApplyModelAnimation(const std::string& key, int frame, int
     }
 }
 
-void ResourceManager::LoadTexture(const std::string& key, const std::string& path)
+void ResourceManager::LoadTexture(const std::string& key, const std::string& path, bool mipmaps)
 {
     if (textures_.find(key) != textures_.end()) {
         return;
@@ -238,6 +237,10 @@ void ResourceManager::LoadTexture(const std::string& key, const std::string& pat
 
     Texture2D texture = ::LoadTexture(path.c_str());
     if (texture.id != 0) {
+        if (mipmaps) {
+            GenTextureMipmaps(&texture);
+            SetTextureFilter(texture, TEXTURE_FILTER_TRILINEAR);
+        }
         textures_[key] = texture;
 	}
 
@@ -286,6 +289,12 @@ void ResourceManager::UnloadAll() {
         ::UnloadModel(pair.second);
     }
     models_.clear();
+    // Item surfaces can be shared by models and the texture cache. Free each ID once.
+    for (const auto& pair : textures_) {
+        if (pair.second.id && pair.second.id != rlGetTextureIdDefault() && textures.insert(pair.second.id).second)
+            ::UnloadTexture(pair.second);
+    }
+    textures_.clear();
     modelShader_ = {};
     modelBounds_.clear();
 

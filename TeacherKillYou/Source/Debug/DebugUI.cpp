@@ -375,8 +375,10 @@ void DebugUI::DrawCameraController(CameraController& cameraController)
     ImGui::End();
 }
 namespace {
-    constexpr const char* EnemyTypes[] = {"MONSTER", "ZOMBIE", "MONSTER MALE 2"};
-    static_assert(IM_ARRAYSIZE(EnemyTypes) == int(demo::EnemyType::MonsterMale2) + 1);
+    constexpr const char* EnemyTypes[] = {"ZOMBIE", "MONSTER MALE 2"};
+    constexpr demo::EnemyType EnemyKinds[] = {demo::EnemyType::FemaleZombie, demo::EnemyType::MonsterMale2};
+    static_assert(IM_ARRAYSIZE(EnemyTypes) == IM_ARRAYSIZE(EnemyKinds));
+    int EnemyTypeIndex(demo::EnemyType type) { return type == demo::EnemyType::MonsterMale2 ? 1 : 0; }
     constexpr ImGuiSliderFlags ClampInput = ImGuiSliderFlags_AlwaysClamp;
 
     template<class Placement>
@@ -454,13 +456,13 @@ void DebugUI::DrawEnemyHierarchy(GameContext& gameContext)
     ImGui::BeginDisabled(placements.size() >= demo::MaxEnemyPlacements);
     if (ImGui::Button(u8"+ 敵を配置")) {
         pendingEnemy_ = demo::EnemyPlacement{};
-        pendingEnemy_->config = demo::EnemyConfig::ForType(static_cast<demo::EnemyType>(newEnemyType_));
+        pendingEnemy_->config = demo::EnemyConfig::ForType(EnemyKinds[newEnemyType_]);
         selectedObject_ = SelectedObjectType::EnemyManager;
         placementMessage_ = nullptr;
     }
     ImGui::EndDisabled();
     if (pendingEnemy_) {
-        ImGui::TextWrapped(u8"%s を置く床をクリック", EnemyTypes[int(pendingEnemy_->config.type)]);
+        ImGui::TextWrapped(u8"%s を置く床をクリック", EnemyTypes[EnemyTypeIndex(pendingEnemy_->config.type)]);
         if (ImGui::Button(u8"配置をキャンセル")) {
             pendingEnemy_.reset();
             placementMessage_ = nullptr;
@@ -472,7 +474,7 @@ void DebugUI::DrawEnemyHierarchy(GameContext& gameContext)
     for (int i = 0; i < static_cast<int>(placements.size()); ++i) {
         const bool selected = selectedObject_ == SelectedObjectType::EnemyManager && selectedEnemyIndex_ == i;
         const auto type = placements[i].config.type;
-        if (ImGui::Selectable(TextFormat("%d  %s##enemy%d", i + 1, EnemyTypes[int(type)], i), selected)) {
+        if (ImGui::Selectable(TextFormat("%d  %s##enemy%d", i + 1, EnemyTypes[EnemyTypeIndex(type)], i), selected)) {
             selectedEnemyIndex_ = i;
             selectedObject_ = SelectedObjectType::EnemyManager;
             pendingEnemy_.reset();
@@ -501,9 +503,9 @@ void DebugUI::DrawEnemyInspector(GameContext& gameContext)
     ImGui::PushID(selectedEnemyIndex_);
     auto& placement = placements[selectedEnemyIndex_];
     auto& config = placement.config;
-    int type = static_cast<int>(config.type);
+    int type = EnemyTypeIndex(config.type);
     bool changed = ImGui::Combo(u8"種類", &type, EnemyTypes, IM_ARRAYSIZE(EnemyTypes));
-    config.type = static_cast<demo::EnemyType>(type);
+    config.type = EnemyKinds[type];
     changed |= ImGui::DragFloat3(u8"位置", &placement.position.x, .05f, -100000, 100000, "%.2f", ClampInput);
     float degrees = placement.yaw * RAD2DEG;
     if (ImGui::DragFloat(u8"向き", &degrees, 1, -180, 180, "%.0f deg", ClampInput)) {
