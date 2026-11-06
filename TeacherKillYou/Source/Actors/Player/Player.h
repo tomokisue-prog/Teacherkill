@@ -123,9 +123,9 @@ private:
     Texture2D healthHudTexture_{};
     Rectangle healthHudSource_{};
 
-    int magazineCapacity_{ 15 };
-    int currentAmmo_{ 15 };
-    int reserveAmmo_{ 30 };
+    int magazineCapacity_{ 8 };
+    int currentAmmo_{ 8 };
+    int reserveAmmo_{ 32 };
 
     int maxHp_{ 100 };
     int hp_{ 100 };

@@ -71,6 +71,7 @@ public:
     void RestoreCheckpoint(const CheckpointData& data);
     bool CanSaveCheckpoint() const;
     bool ConsumeCheckpointRequest();
+    bool ConsumeGoalRequest() { const bool result = goalRequested_; goalRequested_ = false; return result; }
 #ifndef NDEBUG
     DebugGameplay& GetDebugGameplay() { return debugGameplay_; }
     const DebugGameplay& GetDebugGameplay() const { return debugGameplay_; }
@@ -92,6 +93,7 @@ private:
     LowHpBloodOverlay lowHpBlood_;
     HorrorAudio horrorAudio_;
     bool checkpointRequested_ = false;
+    bool goalRequested_ = false;
     CameraController cameraController_;
     Player player_;
     Stage stage_;

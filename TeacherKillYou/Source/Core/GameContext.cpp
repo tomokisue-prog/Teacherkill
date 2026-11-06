@@ -100,6 +100,7 @@ void GameContext::Init()
     PlaceCharacters();
     horrorAudio_.Reset(player_.GetPosition());
     checkpointRequested_ = false;
+    goalRequested_ = false;
     lighting_.Init(RM().GetModelShaders(), RM().GetModel(ResourceKeys::Model_Stage1));
     hitMarkerTimer_ = 0.0f;
     hitMarkerKill_ = false;
@@ -162,6 +163,7 @@ void GameContext::Reset()
     PlaceCharacters();
     horrorAudio_.Reset(player_.GetPosition());
     checkpointRequested_ = false;
+    goalRequested_ = false;
     lighting_.Init(RM().GetModelShaders(), RM().GetModel(ResourceKeys::Model_Stage1));
     hitMarkerTimer_ = 0.0f;
     hitMarkerKill_ = false;
@@ -589,8 +591,7 @@ void GameContext::Update(float deltaTime)
         float distToGoal = Vector3Distance(player_.GetPosition(), goalPoint_.GetPosition());
         if (distToGoal <= goalPoint_.GetRadius())
         {
-            AM().PlaySe(SeId::Confirm); // 必要に応じて効果音
-            SM().ChangeScene(SceneID::Goal);
+            goalRequested_ = true; // Let GameScene finish the update before switching scenes.
             return; // シーン切り替え時は以降の更新をスキップ
         }
     }
@@ -872,6 +873,7 @@ void GameContext::RestoreCheckpoint(const CheckpointData& data)
     muzzleFlashTimer_ = hitMarkerTimer_ = tracerAge_ = 0;
     hitMarkerKill_ = tracerActive_ = false;
     checkpointRequested_ = false;
+    goalRequested_ = false;
     stage_.SetPosition(data.stagePosition);
     stage_.SetScale(data.stageScale);
     player_.RestoreCheckpoint(data.player);
