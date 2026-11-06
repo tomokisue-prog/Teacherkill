@@ -89,7 +89,10 @@ void GameContext::Init()
     // 新しいラウンドへ、前回の暗転・会話・ドア開閉・ライト状態を持ち越さない。
     gameFade_.Reset();
     messageWindow_.Close();
-    door_.Init();
+    // GameContext owns multiple scene-editable doors. Create one default door.
+    doors_.clear();
+    doors_.emplace_back();
+    doors_.back().Init();
     lighting_.Reset();
     cameraController_.Init();
     player_.Init();
@@ -98,7 +101,7 @@ void GameContext::Init()
     bloodEffect_.Init();
     lowHpBlood_.Init();
     enemyPlacements_ = {
-        {stage_.FindGroundPosition({0.9f, 0.0f, 2.5f}), 0.0f, demo::EnemyConfig::ForType(demo::EnemyType::Monster)},
+        {stage_.FindGroundPosition({0.9f, 0.0f, 2.5f}), 0.0f, demo::EnemyConfig::ForType(demo::EnemyType::MonsterMale2)},
         {stage_.FindGroundPosition({-0.9f, 0.0f, 2.5f}), 0.0f, demo::EnemyConfig::ForType(demo::EnemyType::FemaleZombie)},
         {stage_.FindGroundPosition({2.7f, 0.0f, 2.5f}), 0.0f, demo::EnemyConfig::ForType(demo::EnemyType::MonsterMale2)}
     };
@@ -161,7 +164,7 @@ void GameContext::Reset()
     AM().StopAllSe();
     player_.Reset();
     stage_.Reset();
-    door_.Reset();
+    for (auto& door : doors_) door.Reset();
     inventory_.Reset();
     bloodEffect_.Reset();
     lowHpBlood_.Reset();
@@ -490,7 +493,7 @@ void GameContext::Update(float deltaTime)
     }
     if (cameraController_.GetActiveType() == CameraType::System) {
         inventory_.CancelHealing();
-        door_.Update(deltaTime, player_); 
+        for (auto& door : doors_) door.Update(deltaTime, player_, &inventory_); 
         cameraController_.Update();
         return;
     }
@@ -535,7 +538,7 @@ void GameContext::Update(float deltaTime)
         }
 
         // ドアとの当たり判定チェック
-        BoundingBox doorBox = door_.GetBoundingBox();
+        // Test every door, not just the first one.
 
         // プレイヤーを高さ方向を考慮した球（あるいはカプセル）に見立てて判定
         Vector3 playerCenter = {
@@ -545,10 +548,12 @@ void GameContext::Update(float deltaTime)
         };
 
         // Raylib の関数でボックスと球の衝突をチェック
-        if (CheckCollisionBoxSphere(doorBox, playerCenter, player_.GetRadius()))
+        for (const auto& door : doors_)
         {
+            if (!CheckCollisionBoxSphere(door.GetBoundingBox(), playerCenter, player_.GetRadius())) continue;
             // 衝突している場合は移動前の位置に巻き戻す（すり抜け防止）
             player_.SetPosition(oldPlayerPos);
+            break;
         }
 
         // 1. プレイヤーの移動処理後、テレポート判定を行う
@@ -607,11 +612,19 @@ void GameContext::Update(float deltaTime)
     }
 
 
-    door_.Update(deltaTime, player_);
+    for (auto& door : doors_) door.Update(deltaTime, player_, &inventory_);
 
     // 2. ワールドオブジェクト（ステージ・敵）の更新
-    const BoundingBox doorBounds = door_.GetBoundingBox();
-    enemyManager_.Update(deltaTime, player_, stage_, &doorBounds);
+    // The existing EnemyManager API accepts one blocker. Use the first door
+    // for its visibility / movement test; player collision covers all doors.
+    BoundingBox doorBounds{};
+    const BoundingBox* enemyDoorBlocker = nullptr;
+    if (!doors_.empty())
+    {
+        doorBounds = doors_.front().GetBoundingBox();
+        enemyDoorBlocker = &doorBounds;
+    }
+    enemyManager_.Update(deltaTime, player_, stage_, enemyDoorBlocker, &inventory_);
     enemyManager_.RemoveExpired();
 
     // 3. ギズモ編集結果も含め、常に最新の Player 位置を PlayerCamera へ同期
@@ -708,7 +721,7 @@ void GameContext::Draw() const
             &cameraController_.GetPlayerCamera();
     }
 
-    door_.Draw();
+    for (const auto& door : doors_) door.Draw();
 
     player_.Draw(activePlayerCam);
     if (playerView) {
@@ -857,7 +870,10 @@ CheckpointData GameContext::CaptureCheckpoint() const
     CheckpointData data;
     data.player = player_.CaptureCheckpoint();
     data.inventory = inventory_.CaptureCheckpoint();
-    data.door = door_.CaptureCheckpoint();
+    data.doors.reserve(doors_.size());
+    for (const auto& door : doors_) data.doors.push_back(door.CaptureCheckpoint());
+    // Legacy single-door checkpoint field remains for older saved files.
+    if (!data.doors.empty()) data.door = data.doors.front();
     for (const auto& enemy : enemyManager_.GetEnemies())
         if (enemy.IsAlive()) data.enemies.push_back(enemy.CaptureCheckpoint());
     for (const auto& tp : teleportPoints_)
@@ -892,7 +908,18 @@ void GameContext::RestoreCheckpoint(const CheckpointData& data)
     stage_.SetScale(data.stageScale);
     player_.RestoreCheckpoint(data.player);
     inventory_.RestoreCheckpoint(data.inventory);
-    door_.RestoreCheckpoint(data.door);
+    if (!data.doors.empty())
+    {
+        // New checkpoints capture every door in the scene.
+        doors_.resize(data.doors.size());
+        for (size_t i = 0; i < data.doors.size(); ++i)
+            doors_[i].RestoreCheckpoint(data.doors[i]);
+    }
+    else if (!doors_.empty())
+    {
+        // Older checkpoints have only the original single door.
+        doors_.front().RestoreCheckpoint(data.door);
+    }
     enemyManager_.Clear();
     for (const auto& saved : data.enemies) {
         const auto id = enemyManager_.Spawn(saved.position, saved.config, saved.yaw);

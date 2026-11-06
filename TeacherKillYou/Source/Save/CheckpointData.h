@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "EnemyConfig.h"
 #include "Item.h"
 #include"DoorMove.h"
@@ -36,7 +36,7 @@ struct DoorCheckpoint {
     float radius = 1.5f;
     float progress = 0;
     bool open = false;
-    DoorLockType lockType;
+    DoorLockType lockType = DoorLockType::None;
 };
 
 struct EnemyCheckpoint {
@@ -55,7 +55,8 @@ struct TeleportCheckpoint {
 struct CheckpointData {
     PlayerCheckpoint player;
     InventoryCheckpoint inventory;
-    DoorCheckpoint door;
+    DoorCheckpoint door; // Legacy first door, retained for older checkpoint files.
+    std::vector<DoorCheckpoint> doors; // All doors in new checkpoints.
     std::vector<EnemyCheckpoint> enemies;
     std::vector<TeleportCheckpoint> teleports;
     Vector3 stagePosition{};
