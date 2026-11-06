@@ -14,5 +14,9 @@
   "zombie_encounter": {
     "speaker": "主人公",
     "text": "なぜこんなところにゾンビが！ とりあえず警備室まで逃げよう。"
+  },
+  "security_room_arrival": {
+    "speaker": "主人公",
+    "text": "何とか警備室に逃げ込んだ、とりあえず武器を回収しておこう"
   }
 }

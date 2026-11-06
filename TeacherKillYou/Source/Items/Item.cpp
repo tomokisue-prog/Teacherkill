@@ -16,6 +16,7 @@ const char* Item::GetName(ItemType type)
     case ItemType::Battery: return "BATTERY";
     case ItemType::Key:     return "KEY";
 	case ItemType::LostItem: return "LOST ITEM";
+    case ItemType::Gun:     return "GUN";
     default:                return "EMPTY";
     }
 }
@@ -28,7 +29,18 @@ void Item::Draw(const Model* model, float scale) const
     if (model->meshCount <= 0 || model->meshes == nullptr)
         return;
 
-    DrawModel(*model, position_, scale, WHITE);
+    Model m = *model;
+
+    Matrix rotX = MatrixRotateX(rotation_.x * DEG2RAD);
+    Matrix rotY = MatrixRotateY(rotation_.y * DEG2RAD);
+    Matrix rotZ = MatrixRotateZ(rotation_.z * DEG2RAD);
+    Matrix rotMat = MatrixMultiply(MatrixMultiply(rotX, rotY), rotZ);
+
+    Matrix scaleMat = MatrixScale(scale, scale, scale);
+
+    m.transform = MatrixMultiply(MatrixMultiply(rotMat, scaleMat), model->transform);
+
+    DrawModel(m, position_, 1.0f, WHITE);
 }
 
 bool Item::IsAimedAt(const Camera3D& camera, float pickupRange, float aimRadius, float& forwardDistance) const

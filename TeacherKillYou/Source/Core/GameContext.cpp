@@ -102,6 +102,7 @@ void GameContext::Init()
     hitMarkerTimer_ = 0.0f;
     hitMarkerKill_ = false;
     securityTeleportUnlocked_ = false;
+    pendingSecurityDialogue_ = false;
 
     teleportPoints_.clear();
     TeleportPoint tp1;
@@ -145,6 +146,9 @@ void GameContext::Init()
 
     ShowDialogue("opening_4f");
     securityPC_.Init();
+
+    gunTutorialUI_.Init();
+
     // ゾンビ遭遇エリアのイベントポイントを初期化・配置
     eventDialoguePoints_.clear();
     EventDialoguePoint zombieEvent;
@@ -164,6 +168,9 @@ void GameContext::Reset()
     doors_.push_back(defaultDoor);
     inventory_.Reset();
     bloodEffect_.Reset();
+
+    gunTutorialUI_.Init();
+
     PlaceCharacters();
     horrorAudio_.Reset(player_.GetPosition());
     checkpointRequested_ = false;
@@ -189,6 +196,7 @@ void GameContext::Reset()
     tracerAge_ = 0.0f;
     goalPoint_.Reset();
     securityTeleportUnlocked_ = false;
+    pendingSecurityDialogue_ = false;
 }
 
 void GameContext::ShowDialogue(const std::string& dialogueId)
@@ -216,6 +224,7 @@ void GameContext::PlaceCharacters()
 
 void GameContext::ProcessPlayerShot()
 {
+    if (!player_.HasGun()) return;
     if (!player_.ConsumeShot()) return;
     if (!player_.IsAlive()) return;
 
@@ -442,6 +451,12 @@ void GameContext::DrawShotEffects() const
 
 void GameContext::Update(float deltaTime)
 {
+    if (gunTutorialUI_.IsOpen())
+    {
+        gunTutorialUI_.Update();
+        return;
+    }
+
     if (!player_.IsAlive()) {
         inventory_.CancelHealing();
         return;
@@ -568,6 +583,7 @@ void GameContext::Update(float deltaTime)
             }
         }
 
+        // 画面が完全に暗転した瞬間にテレポート先へ移動
         if (gameFade_.IsMidpoint() && securityTeleportUnlocked_)
         {
             for (auto& sourcePt : securityTeleportPoints_)
@@ -598,6 +614,10 @@ void GameContext::Update(float deltaTime)
                                         d.SetOpenConditionSatisfied(true);
                                     }
                                 }
+
+                                // テレポートしたので、フェード完了後のセリフ待ちフラグを有効にする
+                                pendingSecurityDialogue_ = true;
+
                                 break;
                             }
                         }
@@ -605,6 +625,12 @@ void GameContext::Update(float deltaTime)
                     }
                 }
             }
+        }
+
+        if (pendingSecurityDialogue_ && !gameFade_.IsFading())
+        {
+            ShowDialogue("security_room_arrival");
+            pendingSecurityDialogue_ = false; // 一度出したらフラグをオフにする
         }
 
         float distToGoal = Vector3Distance(player_.GetPosition(), goalPoint_.GetPosition());
@@ -661,6 +687,14 @@ void GameContext::Update(float deltaTime)
             cameraController_.GetPlayerCamera().GetRaylibCamera();
 
         inventory_.Update(deltaTime, camera, &stage_);
+
+        bool wasHasGun = player_.HasGun();
+        player_.SetHasGun(inventory_.IsGunCollected());
+
+        if (!wasHasGun && player_.HasGun())
+        {
+            gunTutorialUI_.Open();
+        }
 
         if (inventory_.GetPickedUpItem() == ItemType::Ammo)
         {
@@ -909,12 +943,14 @@ void GameContext::Draw() const
     {
         messageWindow_.Draw();
     }
+    gunTutorialUI_.Draw();
 }
 
 void GameContext::End()
 {
     AM().StopAllSe();
     enemyManager_.Clear();
+    gunTutorialUI_.End();
     player_.End();
     inventory_.End();
     stage_.End();

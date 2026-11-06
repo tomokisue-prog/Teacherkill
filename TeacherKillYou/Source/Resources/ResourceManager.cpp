@@ -46,6 +46,7 @@ namespace {
         {LoadKind::Model, ResourceKeys::Model_Medkit,  "Data/Image/Items/Med_Kit.glb"},
         {LoadKind::Model, ResourceKeys::Model_Ammo,    "Data/Image/Items/Ammo.glb"},
         {LoadKind::Model, ResourceKeys::Model_LostItem,    "Data/Image/Items/Key_Card.glb"},
+		{LoadKind::Model, ResourceKeys::Model_Gun,    "Data/Image/Items/Model_Gun.glb"},
 
         // アイテムアイコン・UIのロード
         {LoadKind::Texture, ResourceKeys::Icon_KeyCard,    "Data/Image/Items/Key_Card.png"},

@@ -45,6 +45,7 @@ public:
     const std::vector<Item>& GetWorldItems() const { return items_; }
 
     bool IsLostItemCollected() const;
+    bool IsGunCollected() const;
 
 private:
     static constexpr int MAX_SLOTS = 4;

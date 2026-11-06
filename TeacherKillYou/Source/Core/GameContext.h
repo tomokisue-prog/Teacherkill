@@ -19,6 +19,7 @@
 #include "../Events/SecurityPC.h"
 #include "../Events/EventDialoguePoint.h"
 #include "../Events/SecurityTeleportPoint.h"
+#include "../UI/GunTutorialUI.h"
 #include <vector>
 
 class GameContext
@@ -99,6 +100,7 @@ private:
 	MessageWindow messageWindow_;
 	Tutorial4FFloorEvent tutorial4FFloorEvent;
     SecurityPC securityPC_;
+    GunTutorialUI gunTutorialUI_;
 
     Vector3 paladinPosition_{ 0.0f, 0.0f, 3.0f };
     std::vector<TeleportPoint> teleportPoints_;
@@ -133,4 +135,5 @@ private:
 
     bool hasTriggeredLostItemDialogue_{ false };
     bool securityTeleportUnlocked_{ false };
+    bool pendingSecurityDialogue_{ false };
 };

@@ -358,6 +358,7 @@ void DebugUI::DrawInspector(GameContext& gameContext)
         Vector3 scale = player.GetScale();
 
         bool debugDraw = player.IsDebugDrawEnabled();
+        bool hasGun = player.HasGun();
 
         ImGui::Text("Player Transform");
 
@@ -382,6 +383,11 @@ void DebugUI::DrawInspector(GameContext& gameContext)
         if (ImGui::Checkbox("Draw Collider Debug", &debugDraw))
         {
             player.SetDebugDrawEnabled(debugDraw);
+        }
+
+        if (ImGui::Checkbox("Has Gun", &hasGun))
+        {
+            player.SetHasGun(hasGun);
         }
 
         break;
@@ -670,6 +676,7 @@ void DebugUI::DrawInspector(GameContext& gameContext)
         Item& item = items[selectedItemIndex_];
 
         Vector3 position = item.GetPosition();
+        Vector3 rotation = item.GetRotation();
 
         ImGui::Text("Item: %s",
             Item::GetName(item.GetType()));
@@ -681,6 +688,11 @@ void DebugUI::DrawInspector(GameContext& gameContext)
             "Position", &position.x, 0.05f))
         {
 			item.SetPosition(position);
+        }
+
+        if (ImGui::DragFloat3("Rotation", &rotation.x, 1.0f))
+        {
+            item.SetRotation(rotation);
         }
 
         if (ImGui::Button("Move To Player"))

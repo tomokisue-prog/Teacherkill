@@ -39,6 +39,7 @@
     <ClCompile Include="Source\Events\SecurityTeleportPoint.cpp" />
     <ClCompile Include="Source\Events\Tutorial4FFloorEvent.cpp" />
     <ClCompile Include="Source\UI\DialogueManager.cpp" />
+    <ClCompile Include="Source\UI\GunTutorialUI.cpp" />
     <ClCompile Include="Source\World\DoorMove.cpp" />
     <ClCompile Include="Source\Actors\Enemy\Enemy.cpp" />
     <ClCompile Include="Source\Graphics\BloodEffect.cpp" />
@@ -125,6 +126,7 @@
     <ClInclude Include="Source\Events\Tutorial4FFloorEvent.h" />
     <ClInclude Include="Source\UI\DialogueEntry.h" />
     <ClInclude Include="Source\UI\DialogueManager.h" />
+    <ClInclude Include="Source\UI\GunTutorialUI.h" />
     <ClInclude Include="Source\World\DoorMove.h" />
     <ClInclude Include="Source\Graphics\DamageFlash.h" />
     <ClInclude Include="Source\Actors\Enemy\Enemy.h" />

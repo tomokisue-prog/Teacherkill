@@ -27,6 +27,7 @@ namespace ResourceKeys {
     inline constexpr const char* Model_Medkit = "Model_Medkit";
     inline constexpr const char* Model_Ammo = "Model_Ammo";
 	inline constexpr const char* Model_LostItem = "Model_LostItem";
+	inline constexpr const char* Model_Gun = "Model_Gun";
 
     // アイテムアイコン用キー
     inline constexpr const char* Icon_KeyCard = "Icon_KeyCard";

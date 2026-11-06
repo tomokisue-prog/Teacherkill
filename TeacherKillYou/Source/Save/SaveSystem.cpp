@@ -27,6 +27,19 @@ bool SaveSystem::SaveScene(const GameContext& gameContext, const std::string& fi
     root["player"]["position"] = Vector3ToJson(player.GetPosition());
     root["player"]["rotation"] = Vector3ToJson(player.GetRotation());
     root["player"]["scale"] = Vector3ToJson(player.GetScale());
+    root["player"]["hasGun"] = player.HasGun();
+
+    nlohmann::json itemArray = nlohmann::json::array();
+    for (const auto& item : gameContext.GetInventory().GetWorldItems())
+    {
+        nlohmann::json iJson;
+        iJson["type"] = static_cast<int>(item.GetType());
+        iJson["position"] = Vector3ToJson(item.GetPosition());
+        iJson["rotation"] = Vector3ToJson(item.GetRotation());
+        iJson["collected"] = item.IsCollected();
+        itemArray.push_back(iJson);
+    }
+    root["worldItems"] = itemArray;
 
     // Enemy (ï€ë∂èàóù)
     nlohmann::json enemyArray = nlohmann::json::array();
@@ -161,6 +174,28 @@ bool SaveSystem::LoadScene(GameContext& gameContext, const std::string& filepath
         if (p.contains("position")) player.SetPosition(JsonToVector3(p["position"]));
         if (p.contains("rotation")) player.SetRotation(JsonToVector3(p["rotation"]));
         if (p.contains("scale"))    player.SetScale(JsonToVector3(p["scale"]));
+        if (p.contains("hasGun"))   player.SetHasGun(p["hasGun"].get<bool>());
+    }
+
+    if (root.contains("worldItems") && root["worldItems"].is_array())
+    {
+        auto& worldItems = gameContext.GetInventory().GetWorldItems();
+        worldItems.clear();
+        for (const auto& iJson : root["worldItems"])
+        {
+            ItemType type = static_cast<ItemType>(iJson.value("type", 0));
+            Vector3 pos = JsonToVector3(iJson.value("position", nlohmann::json::object()));
+            Vector3 rot = JsonToVector3(iJson.value("rotation", nlohmann::json::object()));
+            bool collected = iJson.value("collected", false);
+
+            Item item(type, pos);
+            item.SetRotation(rot);
+            if (collected)
+            {
+                item.Collect();
+            }
+            worldItems.push_back(item);
+        }
     }
 
     // Enemy (ÉçÅ[Éhèàóù)

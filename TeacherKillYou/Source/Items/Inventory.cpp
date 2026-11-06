@@ -38,6 +38,7 @@ void Inventory::Reset()
     items_.emplace_back(ItemType::KeyCard, Vector3{ 7.11f, 5.64f, 1.15f });
     items_.emplace_back(ItemType::Medkit, Vector3{ 0.0f, 0.35f, 1.8f });
     items_.emplace_back(ItemType::Ammo, Vector3{ 1.2f, 0.35f, 2.0f });
+    items_.emplace_back(ItemType::Gun, Vector3{ 2.0f, 0.35f, 2.0f });
 }
 
 void Inventory::PlaceOnStage(const Stage& stage)
@@ -178,12 +179,12 @@ void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage)
             pickedUpItem_ = ItemType::Ammo;
             message_ = TextFormat("+%d AMMO", AMMO_PICKUP_AMOUNT);
         }
-        else if (type == ItemType::LostItem)
+        else if (type == ItemType::LostItem || type == ItemType::Gun)
         {
-            // LostItem はインベントリに入れず、回収（取得）のみ行う
+            // LostItemやGunはインベントリに入れず、回収（取得）のみ行う
             item.Collect();
-            pickedUpItem_ = ItemType::LostItem;
-            message_ = "Picked up LOST ITEM";
+            pickedUpItem_ = type;
+            message_ = (type == ItemType::Gun) ? "Picked up GUN" : "Picked up LOST ITEM";
         }
         else if (AddItem(type))
         {
@@ -236,6 +237,7 @@ const char* Inventory::GetItemModelKey(ItemType type) const
     case ItemType::Medkit:   return ResourceKeys::Model_Medkit;
     case ItemType::Ammo:     return ResourceKeys::Model_Ammo;
     case ItemType::LostItem: return ResourceKeys::Model_LostItem;
+    case ItemType::Gun:      return ResourceKeys::Model_Gun;
     default:                 return nullptr;
     }
 }
@@ -248,6 +250,7 @@ float Inventory::GetItemModelScale(ItemType type) const
     case ItemType::Medkit:   return 0.20f; // メドキットのサイズ
     case ItemType::Ammo:     return 0.15f; // 弾薬のサイズ
     case ItemType::LostItem: return 0.15f; // 忘れ物のサイズ
+    case ItemType::Gun:      return 0.05f;
     default:                 return 1.0f;
     }
 }
@@ -501,6 +504,18 @@ bool Inventory::IsLostItemCollected() const
     for (const auto& item : items_)
     {
         if (item.GetType() == ItemType::LostItem)
+        {
+            return item.IsCollected();
+        }
+    }
+    return false;
+}
+
+bool Inventory::IsGunCollected() const
+{
+    for (const auto& item : items_)
+    {
+        if (item.GetType() == ItemType::Gun)
         {
             return item.IsCollected();
         }

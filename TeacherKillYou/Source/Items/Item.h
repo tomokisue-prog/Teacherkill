@@ -11,7 +11,8 @@ enum class ItemType
     Key,
     KeyCard,
     Ammo,
-    LostItem
+    LostItem,
+    Gun
 };
 
 class Item
@@ -23,6 +24,9 @@ public:
     ItemType GetType() const { return type_; }
     Vector3 GetPosition() const { return position_; }
     void SetPosition(Vector3 position) { position_ = position; }
+
+    Vector3 GetRotation() const { return rotation_; }
+    void SetRotation(Vector3 rotation) { rotation_ = rotation; }
 
     bool IsCollected() const { return collected_; }
     void Collect() { collected_ = true; }
@@ -37,5 +41,6 @@ public:
 private:
     ItemType type_{ ItemType::None };
     Vector3 position_{ 0.0f, 0.0f, 0.0f };
+    Vector3 rotation_{ 0.0f, 0.0f, 0.0f };
     bool collected_{ false };
 };
