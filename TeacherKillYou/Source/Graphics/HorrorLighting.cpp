@@ -1,5 +1,4 @@
 #include "HorrorLighting.h"
-#include "AudioManager.h"
 #include "raymath.h"
 #include "rlgl.h"
 #include <algorithm>
@@ -492,7 +491,6 @@ void HorrorLighting::Update() {
     // 入力は毎フレーム1回処理する。Fで懐中電灯と切り替え音を更新する。
     if (IsKeyPressed(KEY_F)) {
         flashlightOn_ = !flashlightOn_;
-        AM().PlaySe(SeId::Flashlight);
     }
 }
 

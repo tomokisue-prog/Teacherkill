@@ -213,7 +213,6 @@ namespace demo {
             const float duration = AttackDuration();
             if (!attackHitChecked_ && attackTime_ >= duration * config_.attackHitFraction) {
                 attackHitChecked_ = true;
-                AM().PlaySe(SeId::EnemyAttack);
                 if (CanHitTarget(target, stage, blocker)) pendingAttackDamage_ = config_.attackDamage;
             }
             if (attackTime_ >= duration) {
@@ -311,7 +310,9 @@ namespace demo {
         if (amount <= 0 || !IsAlive()) return { false, hp_, false };
         hp_ = amount >= hp_ ? 0 : hp_ - amount;
         const bool died = hp_ == 0;
-        AM().PlaySe(died ? SeId::EnemyDeath : SeId::EnemyHit);
+        if (config_.type == EnemyType::FemaleZombie) AM().PlaySe(SeId::FemaleHit);
+        else if (!died) AM().PlaySe(SeId::MaleHit);
+        else AM().PlaySe(config_.type == EnemyType::MonsterMale2 ? SeId::MaleDeath2 : SeId::MaleDeath);
         const bool startHit = !died && hitTime_ < 0.0f && HitDuration() > 0.0f;
         if (died) hitTime_ = -1.0f;
         // 再被弾でもHPとSEは反映するが、再生中の被弾クリップは巻き戻さない。

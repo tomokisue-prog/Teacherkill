@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <vector>
 
-// The supplied movie is packaged as JPEG frames and an OGG soundtrack.
+// The supplied movie is packaged as JPEG frames; its soundtrack is separate.
 // This lets raylib play it without installing an extra video library.
 class IntroVideoPlayer
 {
@@ -160,6 +160,7 @@ public:
     }
 
     bool IsPlaying() const { return playing_; }
+    float GetFadeOutAlpha() const { return fadeOutAlpha_; }
 
     void Stop()
     {

@@ -310,6 +310,7 @@ void GameContext::ProcessPlayerShot()
     // =====================================
     if (wallHit.hit && !foundTarget)
     {
+        AM().PlaySe(SeId::WallImpact, 0.65f);
         // Only vertical-ish surfaces
         if (std::fabs(wallHit.normal.y) < 0.65f &&
             Vector3LengthSqr(wallHit.normal) > 0.0001f)
@@ -587,7 +588,6 @@ void GameContext::Update(float deltaTime)
                             {
                                 Vector3 targetPos = stage_.FindGroundPosition(destPt.GetPosition());
                                 player_.SetPosition(targetPos);
-                                AM().PlaySe(SeId::Teleport);
                                 checkpointRequested_ = true;
                                 break;
                             }

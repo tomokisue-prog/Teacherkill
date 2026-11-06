@@ -22,6 +22,7 @@ namespace {
     constexpr float LeafDriftPixels = 32.0f; // Side-to-side drift at 1920 x 1080.
     constexpr float LightningIntervalSeconds = 6.0f;
     constexpr float LightningEffectSeconds = 0.60f;
+    constexpr float IntroWindMix = 0.55f; // Lower the wind under the intro soundtrack.
 
     struct TitleLayout {
         float scale;
@@ -201,6 +202,7 @@ void TitleScene::Init()
     finished = false;
     nextScene = nullptr;
     windTime_ = 0.0f;
+    hoveredButton_ = -1;
     cover_ = LoadTitleTexture(CoverPath);
     canopy_ = LoadTitleTexture(CanopyPath);
     leaves_ = LoadTitleTexture(LeavesPath);
@@ -208,7 +210,7 @@ void TitleScene::Init()
     if (FileExists(LightningPath)) lightning_ = LoadTitleTexture(LightningPath);
     CheckpointData checkpoint;
     checkpointAvailable_ = CheckpointSave::Load(checkpoint);
-    AM().PlayBgm(BgmId::Title);
+    AM().PlayWind();
     EnableCursor();
 }
 
@@ -216,34 +218,54 @@ void TitleScene::Update(float deltaTime)
 {
     if (intro_.IsPlaying()) {
         if (!intro_.Update()) {
+            AM().StopWind();
             auto* game = static_cast<GameScene*>(SM().GetScene(SceneID::Game));
             game->RequestIntroFadeIn();
             SetNextScene(game);
+        } else {
+            // Fade both sound layers with the same video fade-out.
+            AM().SetWindMix(IntroWindMix * (1.0f - intro_.GetFadeOutAlpha()));
         }
         return;
     }
+    const float previousWindTime = windTime_;
     windTime_ += (std::max)(0.0f, (std::min)(deltaTime, 0.1f));
+    if (LightningIntervalSeconds > 0.0f &&
+        static_cast<int>(windTime_ / LightningIntervalSeconds) >
+        static_cast<int>(previousWindTime / LightningIntervalSeconds)) {
+        AM().PlaySe(SeId::Thunder, 0.7f);
+    }
     const TitleLayout layout = GetTitleLayout();
     const Vector2 mouse = GetMousePosition();
     const bool click = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
     const bool startClicked = click && CheckCollisionPointRec(mouse, layout.start);
     const bool continueClicked = click && checkpointAvailable_ && CheckCollisionPointRec(mouse, layout.checkpoint);
     const bool exitClicked = click && CheckCollisionPointRec(mouse, layout.exit);
+    const int hovered = CheckCollisionPointRec(mouse, layout.start) ? 0 :
+        CheckCollisionPointRec(mouse, layout.checkpoint) ? 1 :
+        CheckCollisionPointRec(mouse, layout.exit) ? 2 : -1;
+    if (hovered >= 0 && hovered != hoveredButton_) AM().PlayUiSe(SeId::Hover, 0.7f);
+    hoveredButton_ = hovered;
+    if (click && hovered == 1 && !checkpointAvailable_) AM().PlayUiSe(SeId::Error);
 
     if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) || startClicked) {
         AM().PlaySe(SeId::Confirm);
-        AM().StopBgm();
+        AM().StopSe(SeId::Thunder);
+        AM().StopWind();
         // Keep the existing loading screen before the opening video.
         if (!SM().PrepareGameResources()) {
             finished = true;
             nextScene = nullptr;
             return;
         }
-        if (!intro_.Start("Data/Video/IntroFrames.dat", "Data/Video/IntroAudio.ogg", AM().GetBgmVolume())) {
+        if (!intro_.Start("Data/Video/IntroFrames.dat", "Data/Audio/Game Intro.mp3", AM().GetBgmVolume())) {
             // Missing/corrupt video: still enter the game with a smooth reveal.
             auto* game = static_cast<GameScene*>(SM().GetScene(SceneID::Game));
             game->RequestIntroFadeIn();
             SetNextScene(game);
+        } else {
+            AM().PlayWind();
+            AM().SetWindMix(IntroWindMix);
         }
     }
     else if (checkpointAvailable_ && (IsKeyPressed(KEY_C) || continueClicked)) {
@@ -252,6 +274,7 @@ void TitleScene::Update(float deltaTime)
         SetNextScene(SM().GetScene(SceneID::Game));
     }
     else if (IsKeyPressed(KEY_ESCAPE) || exitClicked) {
+        AM().PlayUiSe(SeId::Confirm);
         finished = true;
         nextScene = nullptr;
     }
@@ -308,5 +331,6 @@ void TitleScene::End()
     canopy_ = {};
     leaves_ = {};
     lightning_ = {};
-    AM().StopBgm();
+    AM().StopSe(SeId::Thunder);
+    AM().StopWind();
 }

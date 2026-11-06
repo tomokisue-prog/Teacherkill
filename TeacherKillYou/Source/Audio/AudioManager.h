@@ -1,43 +1,53 @@
-﻿#pragma once
+#pragma once
 #include "raylib.h"
 #include <array>
 #include <cstddef>
 #include <string>
 
-// AudioManager.cppのファイル名一覧と同じ順番で定義する。
-enum class BgmId { Title, Game, Count };
-enum class SeId { Shoot, Reload, PlayerHit, EnemyHit, EnemyAttack, EnemyDeath,
-                  DoorOpen, DoorClose, Flashlight, Teleport, Confirm, DryFire, Footstep, EnemyGrowl, Count };
+// Only the files supplied in the new sound package are used.
+enum class BgmId { GameOver, Count };
+enum class SeId {
+    Shoot, Reload, DryFire, WallImpact,
+    PlayerFootstep1, PlayerFootstep2, PlayerFootstep3,
+    FemaleFootstep1, FemaleFootstep2, FemaleFootstep3, MaleFootstep,
+    FemaleHit, MaleHit, MaleDeath, MaleDeath2,
+    Door, Pickup, Healing, Heartbeat,
+    YouDied, PauseMenu, Hover, Confirm, Error,
+    PlayerHit, Thunder,
+    Count
+};
 
-// BGMはストリーム再生、SEは起動時に読み込む。更新・解放はSceneManagerが担当する。
 class AudioManager {
 public:
     static AudioManager& GetInstance();
     bool Init(const std::string& directory = "Data/Audio");
-    void Update(); // ストリームを途切れさせないため毎フレーム呼ぶ。
+    void Update();
     void Shutdown();
 
-    // 未配置の音はfalseを返すだけ。PlayBgmは曲が変わる場合に前の曲を止める。
     bool PlayBgm(BgmId id);
     void StopBgm();
-    bool PlaySe(SeId id, float gain = 1.0f, float pitch = 1.0f, float pan = 0.5f);
-    void StopSe(SeId id);
-    void StopAllSe();
     bool PlayAmbience();
     void StopAmbience();
     bool IsAmbiencePlaying() const;
-    void SetPaused(bool paused);
-    bool IsPaused() const;
-    void SetAmbienceVolume(float volume);
+    bool PlayWind();
+    void StopWind();
+    void SetWindMix(float gain);
+
+    bool PlaySe(SeId id, float gain = 1.0f, float pitch = 1.0f, float pan = 0.5f);
+    bool PlayUiSe(SeId id, float gain = 1.0f);
+    void SetSeGain(SeId id, float gain);
+    void StopSe(SeId id);
+    void StopAllSe();
     bool HasBgm(BgmId id) const;
     bool HasSe(SeId id) const;
     bool IsBgmPlaying() const;
     bool IsSePlaying(SeId id) const;
     bool IsReady() const { return ready_ && IsAudioDeviceReady(); }
-    BgmId GetCurrentBgm() const { return currentBgm_; }
-
-    void SetBgmVolume(float volume); // 0.0～1.0。変更値は再読み込み後も維持する。
+    void SetPaused(bool paused);
+    bool IsPaused() const { return paused_; }
+    void SetBgmVolume(float volume);
     void SetSeVolume(float volume);
+    void SetAmbienceVolume(float volume);
     float GetBgmVolume() const { return bgmVolume_; }
     float GetSeVolume() const { return seVolume_; }
 
@@ -45,20 +55,27 @@ private:
     AudioManager() = default;
     AudioManager(const AudioManager&) = delete;
     AudioManager& operator=(const AudioManager&) = delete;
+    bool PlayEffect(SeId id, float gain, float pitch, float pan, bool allowPaused);
+
     std::array<Music, static_cast<std::size_t>(BgmId::Count)> bgm_{};
     std::array<Sound, static_cast<std::size_t>(SeId::Count)> se_{};
     Music ambience_{};
+    Music wind_{};
     std::array<float, static_cast<std::size_t>(SeId::Count)> seGains_{};
     std::array<bool, static_cast<std::size_t>(SeId::Count)> pausedSe_{};
-    bool paused_ = false;
-    bool pausedBgm_ = false;
-    bool pausedAmbience_ = false;
-    float ambienceVolume_ = 0.3f;
     BgmId currentBgm_ = BgmId::Count;
     float bgmVolume_ = 0.35f;
     float seVolume_ = 0.75f;
+    float ambienceVolume_ = 0.3f;
+    float windFade_ = 0.0f;
+    float windMix_ = 1.0f;
+    float bgmFade_ = 0.0f;
+    bool paused_ = false;
+    bool pausedBgm_ = false;
+    bool pausedAmbience_ = false;
+    bool pausedWind_ = false;
+    bool windPlaying_ = false;
     bool ready_ = false;
-    bool ownsDevice_ = false; // 他の処理が初期化したデバイスは閉じない。
+    bool ownsDevice_ = false;
 };
-
 inline AudioManager& AM() { return AudioManager::GetInstance(); }
