@@ -94,9 +94,14 @@ void GameContext::Init()
     cameraController_.Init();
     player_.Init();
     stage_.Init();
-    inventory_.Init();  // Load item GLB models and spawn items
+    inventory_.Init(stage_);
     bloodEffect_.Init();
     lowHpBlood_.Init();
+    enemyPlacements_ = {
+        {stage_.FindGroundPosition({0.9f, 0.0f, 2.5f}), 0.0f, demo::EnemyConfig::ForType(demo::EnemyType::Monster)},
+        {stage_.FindGroundPosition({-0.9f, 0.0f, 2.5f}), 0.0f, demo::EnemyConfig::ForType(demo::EnemyType::FemaleZombie)},
+        {stage_.FindGroundPosition({2.7f, 0.0f, 2.5f}), 0.0f, demo::EnemyConfig::ForType(demo::EnemyType::MonsterMale2)}
+    };
     PlaceCharacters();
     horrorAudio_.Reset(player_.GetPosition());
     checkpointRequested_ = false;
@@ -198,21 +203,20 @@ void GameContext::ShowDialogue(const std::string& dialogueId)
 
 void GameContext::PlaceCharacters()
 {
-    inventory_.PlaceOnStage(stage_);
     // PlayerのTransformは維持し、足元の高さだけをステージの床へ合わせる。
     player_.SetPosition(stage_.FindGroundPosition(player_.GetPosition()));
-    enemyManager_.Clear();
-    enemyManager_.Spawn(stage_.FindGroundPosition({ 0.9f, 0.0f, 2.5f }), {});
-    demo::EnemyConfig femaleConfig;
-    femaleConfig.type = demo::EnemyType::FemaleZombie;
-    // 旧マップの寸法を埋め込まず、現行校舎の共通基準から設定する。
-    femaleConfig.bodyHeight = WorldScale::Zombie.height;
-    femaleConfig.bodyRadius = WorldScale::Zombie.radius;
-    enemyManager_.Spawn(stage_.FindGroundPosition({ -0.9f, 0.0f, 2.5f }), femaleConfig);
+    ApplyEnemyPlacements();
     paladinPosition_ = stage_.FindGroundPosition({ 0.0f, 0.0f, 3.0f });
     cameraController_.GetPlayerCamera().SetEyeHeight(player_.GetHeight() * WorldScale::EyeHeightRatio);
     cameraController_.GetPlayerCamera().SetPlayerPosition(player_.GetPosition());
     cameraController_.GetPlayerCamera().Update();
+}
+
+void GameContext::ApplyEnemyPlacements()
+{
+    enemyManager_.Clear();
+    for (const auto& placement : enemyPlacements_)
+        enemyManager_.Spawn(placement.position, placement.config, placement.yaw);
 }
 
 void GameContext::ProcessPlayerShot()
@@ -483,6 +487,12 @@ void GameContext::Update(float deltaTime)
         inventory_.CancelHealing();
         return;
     }
+    if (cameraController_.GetActiveType() == CameraType::System) {
+        inventory_.CancelHealing();
+        door_.Update(deltaTime, player_); 
+        cameraController_.Update();
+        return;
+    }
     if(IsMessageActive())
     {
         messageWindow_.Update(deltaTime);
@@ -701,10 +711,15 @@ void GameContext::Draw() const
     door_.Draw();
 
     player_.Draw(activePlayerCam);
-    enemyManager_.Draw();
+    if (playerView) {
+        enemyManager_.Draw();
+    } else {
+        for (const auto& placement : enemyPlacements_)
+            demo::Enemy(0, placement.config, placement.position, placement.yaw).Draw();
+    }
     DrawBulletMarks();
     DrawShotEffects();
-    inventory_.DrawWorld();
+    inventory_.DrawWorld(!playerView);
     bloodEffect_.Draw(cameraController_.GetActiveRaylibCamera());
     EndMode3D();
     lighting_.EndFrame(playerView && player_.IsAlive());
@@ -735,12 +750,11 @@ void GameContext::Draw() const
         inventory_.DrawHUD();
     }
 
-    gameFade_.Draw();
-    EventMgr().Draw();
-
-    if (player_.IsAlive() && IsMessageActive())
-    {
-        messageWindow_.Draw();
+    if (playerView) {
+        gameFade_.Draw();
+        EventMgr().Draw();
+        if (player_.IsAlive() && IsMessageActive())
+            messageWindow_.Draw();
     }
 
 }
@@ -878,7 +892,6 @@ void GameContext::RestoreCheckpoint(const CheckpointData& data)
     stage_.SetScale(data.stageScale);
     player_.RestoreCheckpoint(data.player);
     inventory_.RestoreCheckpoint(data.inventory);
-    inventory_.PlaceOnStage(stage_);
     door_.RestoreCheckpoint(data.door);
     enemyManager_.Clear();
     for (const auto& saved : data.enemies) {

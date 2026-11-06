@@ -9,6 +9,9 @@ struct FbxSkinBinding {
     Matrix toBone;
     Matrix fromWorld;
     bool rigid;
+    std::string rigidParentPath;
+    Matrix rigidParentFromWorld{};
+    Vector3 referencePosition{};
 };
 struct FbxAnimationData {
     ModelAnimation* animations = nullptr;
@@ -27,6 +30,13 @@ struct FbxModelData {
 
 FbxModelData LoadFbxModel(const std::string& path, bool inPlaceLocomotion = false);
 
+struct FbxAnimationOptions {
+    const char* sourceRig = nullptr;
+    const char* modelRig = nullptr;
+    bool lockHorizontalRoot = false;
+};
+
 // Reuse the existing mesh/rig; no textures, geometry or GPU buffers are reloaded.
 FbxAnimationData LoadFbxAnimations(const std::string& path, const Model& model,
-                                   const std::vector<FbxSkinBinding>& bindings);
+                                   const std::vector<FbxSkinBinding>& bindings,
+                                   const FbxAnimationOptions& options = {});

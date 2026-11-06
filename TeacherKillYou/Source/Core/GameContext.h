@@ -49,6 +49,9 @@ public:
 
     demo::EnemyManager& GetEnemyManager() { return enemyManager_; }
     const demo::EnemyManager& GetEnemyManager() const { return enemyManager_; }
+    std::vector<demo::EnemyPlacement>& GetEnemyPlacements() { return enemyPlacements_; }
+    const std::vector<demo::EnemyPlacement>& GetEnemyPlacements() const { return enemyPlacements_; }
+    void ApplyEnemyPlacements();
 
     DoorMove& GetDoor() { return door_; }
     const DoorMove& GetDoor() const { return door_; }
@@ -98,6 +101,7 @@ private:
     Player player_;
     Stage stage_;
     demo::EnemyManager enemyManager_;
+    std::vector<demo::EnemyPlacement> enemyPlacements_;
     DoorMove door_;
     GameFade gameFade_;
     Inventory inventory_;
