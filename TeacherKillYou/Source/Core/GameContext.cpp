@@ -73,7 +73,7 @@ static void DrawHitMarker(bool isKill)
 namespace
 {
     constexpr int MEDKIT_HEAL_AMOUNT = 50;
-    constexpr int AMMO_PICKUP_AMOUNT = 30;
+    constexpr int AMMO_PICKUP_AMOUNT = 16;
 }
 
 void GameContext::SetDisplaySettings(float brightness, float greenStrength)
