@@ -33,11 +33,15 @@
     <ClCompile Include="Source\Audio\AudioManager.cpp" />
     <ClCompile Include="Source\Camera\CameraController.cpp" />
     <ClCompile Include="Source\Debug\DebugUI.cpp" />
+    <ClCompile Include="Source\Events\EventDialoguePoint.cpp" />
     <ClCompile Include="Source\Debug\DebugMenu.cpp" />
     <ClCompile Include="Source\Debug\DebugGameplay.cpp" />
     <ClCompile Include="Source\Events\EventManager.cpp" />
+    <ClCompile Include="Source\Events\SecurityPC.cpp" />
+    <ClCompile Include="Source\Events\SecurityTeleportPoint.cpp" />
     <ClCompile Include="Source\Events\Tutorial4FFloorEvent.cpp" />
     <ClCompile Include="Source\UI\DialogueManager.cpp" />
+    <ClCompile Include="Source\UI\GunTutorialUI.cpp" />
     <ClCompile Include="Source\World\DoorMove.cpp" />
     <ClCompile Include="Source\Actors\Enemy\Enemy.cpp" />
     <ClCompile Include="Source\Graphics\BloodEffect.cpp" />
@@ -71,6 +75,7 @@
     <ClCompile Include="imgui\imgui_widgets.cpp" />
     <ClCompile Include="Source\Items\Inventory.cpp" />
     <ClCompile Include="Source\Items\Item.cpp" />
+    <ClCompile Include="Source\Items\ItemMaterials.cpp" />
     <ClCompile Include="Source\UI\JapaneseFont.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Source\UI\MessageWindow.cpp" />
@@ -122,10 +127,14 @@
     <ClInclude Include="Source\Debug\DebugMenu.h" />
     <ClInclude Include="Source\Debug\DebugGameplay.h" />
     <ClInclude Include="Source\Events\EventBase.h" />
+    <ClInclude Include="Source\Events\EventDialoguePoint.h" />
     <ClInclude Include="Source\Events\EventManager.h" />
+    <ClInclude Include="Source\Events\SecurityPC.h" />
+    <ClInclude Include="Source\Events\SecurityTeleportPoint.h" />
     <ClInclude Include="Source\Events\Tutorial4FFloorEvent.h" />
     <ClInclude Include="Source\UI\DialogueEntry.h" />
     <ClInclude Include="Source\UI\DialogueManager.h" />
+    <ClInclude Include="Source\UI\GunTutorialUI.h" />
     <ClInclude Include="Source\World\DoorMove.h" />
     <ClInclude Include="Source\Graphics\DamageFlash.h" />
     <ClInclude Include="Source\Actors\Enemy\Enemy.h" />
@@ -167,6 +176,7 @@
     <ClInclude Include="imgui\imstb_truetype.h" />
     <ClInclude Include="Source\Items\Inventory.h" />
     <ClInclude Include="Source\Items\Item.h" />
+    <ClInclude Include="Source\Items\ItemMaterials.h" />
     <ClInclude Include="Source\UI\JapaneseFont.h" />
     <ClInclude Include="Source\UI\MessageWindow.h" />
     <ClInclude Include="nlohmann\json.hpp" />

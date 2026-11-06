@@ -17,13 +17,12 @@ namespace {
 
     struct EnemyAssets { const char* model; const char* run; const char* attack; const char* death; const char* hit; };
     const EnemyAssets& AssetsFor(demo::EnemyType type) {
-        static constexpr EnemyAssets monster{ ResourceKeys::Model_Enemy, ResourceKeys::Model_Enemy, ResourceKeys::Animation_EnemyAttack, ResourceKeys::Animation_EnemyDeath, nullptr };
         static constexpr EnemyAssets female{ ResourceKeys::Model_FemaleZombie, ResourceKeys::Model_FemaleZombie, ResourceKeys::Animation_FemaleZombieAttack, ResourceKeys::Animation_FemaleZombieDeath, ResourceKeys::Animation_FemaleZombieHit };
         static constexpr EnemyAssets male2{ ResourceKeys::Model_MonsterMale2, ResourceKeys::Animation_MonsterMale2Run, ResourceKeys::Model_MonsterMale2, ResourceKeys::Animation_MonsterMale2Death, nullptr };
         switch (type) {
         case demo::EnemyType::FemaleZombie: return female;
         case demo::EnemyType::MonsterMale2: return male2;
-        default: return monster;
+        default: return female;
         }
     }
 

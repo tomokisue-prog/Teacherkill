@@ -46,6 +46,12 @@ public:
     std::vector<Item>& GetPlacements() { return placements_; }
     const std::vector<Item>& GetPlacements() const { return placements_; }
 
+    bool IsLostItemCollected() const;
+    bool IsGunCollected() const;
+    bool IsAuthenticationKeyCollected() const;
+    Vector3 GetGunPosition() const;
+    Vector3 GetAuthenticationKeyPosition() const;
+
 private:
     static constexpr int MAX_SLOTS = 4;
     static constexpr float HEAL_DURATION = 3.0f;

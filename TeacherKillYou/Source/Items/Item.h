@@ -13,6 +13,8 @@ enum class ItemType
     KeyCard,
     Ammo,
     LostItem,
+    Gun,
+    AuthenticationKey,
     Books,
     Chair1,
     Chair2,
@@ -42,7 +44,24 @@ public:
     void SetYaw(float yaw) { yaw_ = yaw; }
     float GetScale() const { return scale_; }
     void SetScale(float scale) { scale_ = scale; }
-    bool IsPickup() const { return type_ >= ItemType::Medkit && type_ <= ItemType::LostItem; }
+    bool IsPickup() const {
+        switch (type_) {
+        case ItemType::Medkit:
+        case ItemType::Battery:
+        case ItemType::Key:
+        case ItemType::KeyCard:
+        case ItemType::Ammo:
+        case ItemType::LostItem:
+        case ItemType::Gun:
+        case ItemType::AuthenticationKey:
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    Vector3 GetRotation() const { return rotation_; }
+    void SetRotation(Vector3 rotation) { rotation_ = rotation; }
 
     bool IsCollected() const { return collected_; }
     void Collect() { collected_ = true; }
@@ -58,6 +77,7 @@ public:
 private:
     ItemType type_{ ItemType::None };
     Vector3 position_{ 0.0f, 0.0f, 0.0f };
+    Vector3 rotation_{ 0.0f, 0.0f, 0.0f };
     bool collected_{ false };
     float yaw_ = 0.0f;
     float scale_ = 1.0f;

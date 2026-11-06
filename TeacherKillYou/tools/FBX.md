@@ -6,11 +6,11 @@ GLBへの変換や外部の変換ツールは不要。
 バイナリFBXとASCII FBXの両方に対応する。
 
 ```cpp
-RM().LoadModel(ResourceKeys::Model_Enemy, "Data/Image/Monster_final_animations/MONSTER_run_final.fbx");
+RM().LoadModel(ResourceKeys::Model_FemaleZombie, "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 running.fbx");
 ```
 
 Enemyを差し替えるときは、Source/Resources/ResourceManager.cpp の GameResources 一覧にある
-Model_Enemy のパス1か所を変更する。同じキーを繰り返し読み込んでも解析は一度だけ。
+対象モデルのキーに対応するパスを変更する。同じキーを繰り返し読み込んでも解析は一度だけ。
 FBXでは LoadModelAnimations() の追加呼び出しは不要だが、既存の呼び出しにも対応する。
 読み込み失敗時は理由をログへ出し、モデルを登録しないため再試行できる。
 
@@ -18,8 +18,6 @@ FBXでは LoadModelAnimations() の追加呼び出しは不要だが、既存の
 元の制作PCのパスが使えない場合、FBXと同じフォルダー、その textures、
 textures/packed の順で同名画像も探す。拡張子がない参照はPNG/JPEG/TGA/BMPも探す。
 画像がなければ材質色で描画する。
-旧MONSTERが参照する textures/packed/MONSTER_001 には、MONSTER_001.png を使用する。
-この画像は以前の monster test.glb に埋め込まれていた元のMONSTER画像から取り出したもの。
 走行版・攻撃版の両方で同じUV画像を使用する。
 
 FBXの頂点法線と材質の透明度を保持し、面の内側で法線を補間して陰影を計算する。
@@ -31,8 +29,8 @@ FBXの頂点法線と材質の透明度を保持し、面の内側で法線を�
 再生時は次を使う。フレーム番号とクリップ番号は0から始まる。
 
 ```cpp
-RM().ApplyModelAnimation(ResourceKeys::Model_Enemy, frame, animationIndex);
-DrawModel(RM().GetModel(ResourceKeys::Model_Enemy), position, scale, WHITE);
+RM().ApplyModelAnimation(ResourceKeys::Model_FemaleZombie, frame, animationIndex);
+DrawModel(RM().GetModel(ResourceKeys::Model_FemaleZombie), position, scale, WHITE);
 ```
 
 時間のあるクリップを優先し、その中で名前に walk/run を含む歩行を先頭へ配置する。
@@ -54,21 +52,20 @@ GPUのボーン属性位置はraylibが名前から割り当てるため、シ�
 FBXと同じフォルダーの`<FBX名>.materials.glb`を優先して、材質名を照合し、色・法線・
 粗さ／金属度の画像とUV番号を補完する。補助ファイルがなければ従来どおり同名GLBを使う。
 画像のBIN範囲だけを読み、GLBのメッシュは読み込まない。
-MONSTER最終版はこの補完で`automap`（TEXCOORD_1）と新しい肉質マテリアルを使用する。
 配布・コミットにはFBXと対応する`.materials.glb`を含めること。
-MONSTERの元GLB（各約181MB）はローカルに残し、`.gitignore`で共有対象から外している。
-材質専用版は約5MBで、画像の圧縮や縮小、モデルのポリゴン削減は行っていない。
+材質専用版には画像だけを保持し、画像の圧縮や縮小、モデルのポリゴン削減は行わない。
 
 元GLBから補助ファイルを再生成する場合は、次を実行する（ゲーム実行時にPythonは不要）。
 
 ```powershell
-python tools/extract_fbx_materials.py "Data/Image/Monster_final_animations"
+python tools/extract_fbx_materials.py "Data/Image/ZOMBIE_FEMALE_ANIMATIONS"
 ```
 
 元ファイルは上書きしない。生成済みの内容を変更して再出力する場合だけ`--force`を付ける。
 
-敵の種類は`EnemyConfig::type`で指定する。既定は`EnemyType::Monster`、
-女性ゾンビは`EnemyType::FemaleZombie`。各種類が専用のモデル・攻撃・死亡クリップを使う。
+敵の種類は`EnemyConfig::type`で指定する。既定は`EnemyType::FemaleZombie`。もう1種類は`EnemyType::MonsterMale2`。
+各種類が専用のモデル・攻撃・死亡クリップを使う。保存IDは女性ゾンビ=1、MonsterMale2=2で固定する。
+廃止済みのID 0はシーン・チェックポイント読み込み時に除外し、残りの敵の設定は維持する。
 `FemaleZombie`という既存のID・リソースキーは互換性のため維持し、現在は新しい`zombie 1`を割り当てている。
 移動は`zombie 1 running.fbx`、攻撃・被弾・死亡は同じフォルダーの`attack`・`hit`・`death`を使う。
 各FBXと同名のGLBから新モデルの材質・画像・UVを補完する。
@@ -76,8 +73,8 @@ python tools/extract_fbx_materials.py "Data/Image/Monster_final_animations"
 被弾動作の途中で再び撃たれてもHPは減るが、クリップは先頭へ戻さず最後まで再生する。
 `EnemyConfig::animationSpeed`は全クリップ共通の再生倍率（既定1.5倍）。
 攻撃の命中時刻・被弾の硬直時間・死亡動作の終了時刻も倍率に合わせる。死体の保持時間は秒指定を維持する。
-致死ダメージは被弾動作より死亡動作を優先する。モンスターには従来どおり被弾クリップを割り当てない。
-現在は初期配置に1体ずつ生成し、同じAI・当たり判定・HP処理で更新する。
+致死ダメージは被弾動作より死亡動作を優先する。MonsterMale2には被弾クリップを割り当てない。
+初期配置には各種類を1体ずつ生成し、同じAI・当たり判定・HP処理で更新する。
 敵の高さと中心は変形前メッシュではなく、最初のアニメーション姿勢から読み込み時に計算する。
 AIが移動を担当する敵の歩行では、takeの水平移動だけを除去し、足の動きや上下動を保持する。
 
@@ -85,3 +82,7 @@ AIが移動を担当する敵の歩行では、takeの水平移動だけを除�
 
 FBX解析には third_party/ufbx のufbx v0.23.0を使用する。
 ライセンスと取得元は同じフォルダーの LICENSE と README.md に記載している。
+
+アイテムの画像がない材質は `Source/Items/ItemMaterials.cpp` の対応表で補完する。
+本来の画像がある材質は上書きせず、画像のない部分だけに色・粗さ・金属度・汚れを設定する。
+追加の表面画像と制作内容は `Data/Image/Items/Materials/README.md` を参照。

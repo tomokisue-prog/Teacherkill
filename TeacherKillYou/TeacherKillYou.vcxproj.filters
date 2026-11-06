@@ -198,6 +198,9 @@
     <ClCompile Include="Source\Items\Item.cpp">
       <Filter>Source\Items</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Items\ItemMaterials.cpp">
+      <Filter>Source\Items</Filter>
+    </ClCompile>
     <ClCompile Include="Source\UI\JapaneseFont.cpp">
       <Filter>Source\UI</Filter>
     </ClCompile>
@@ -260,6 +263,15 @@
     </ClCompile>
     <ClCompile Include="Source\Events\Tutorial4FFloorEvent.cpp">
       <Filter>Source\Events\Tutorial</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Events\SecurityPC.cpp">
+      <Filter>Source\Events</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Events\EventDialoguePoint.cpp">
+      <Filter>Source\Events</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Events\SecurityTeleportPoint.cpp">
+      <Filter>Source\Events</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -407,6 +419,9 @@
     <ClInclude Include="Source\Items\Item.h">
       <Filter>Source\Items</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Items\ItemMaterials.h">
+      <Filter>Source\Items</Filter>
+    </ClInclude>
     <ClInclude Include="Source\UI\JapaneseFont.h">
       <Filter>Source\UI</Filter>
     </ClInclude>
@@ -481,6 +496,15 @@
     </ClInclude>
     <ClInclude Include="Source\Events\Tutorial4FFloorEvent.h">
       <Filter>Source\Events\Tutorial</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Events\SecurityPC.h">
+      <Filter>Source\Events</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Events\EventDialoguePoint.h">
+      <Filter>Source\Events</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Events\SecurityTeleportPoint.h">
+      <Filter>Source\Events</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
