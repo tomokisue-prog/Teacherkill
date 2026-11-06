@@ -143,4 +143,5 @@ private:
     bool showPCPin_{ false };
     bool showAuthKeyPin_{ false };
     bool hasTriggeredAuthKeyPickup_{ false };
+    bool showSecurityDoorPin_{ false };
 };

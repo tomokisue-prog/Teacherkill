@@ -107,6 +107,7 @@ void GameContext::Init()
     gunPinPosition_ = { 0.0f, 0.0f, 0.0f };
     showAuthKeyPin_ = false;
     hasTriggeredAuthKeyPickup_ = false;
+    showSecurityDoorPin_ = false;
 
     teleportPoints_.clear();
     TeleportPoint tp1;
@@ -203,6 +204,7 @@ void GameContext::Reset()
     pendingSecurityDialogue_ = false;
     showAuthKeyPin_ = false;
     hasTriggeredAuthKeyPickup_ = false;
+    showSecurityDoorPin_ = false;
 }
 
 void GameContext::ShowDialogue(const std::string& dialogueId)
@@ -735,6 +737,7 @@ void GameContext::Update(float deltaTime)
                         ShowDialogue("security_pc_door_open");
                         securityPC_.SetActivated(true); // PC起動済み（扉のロック解除など）にする
                         showPCPin_ = false;            // PCピンを消す
+                        showSecurityDoorPin_ = true;
 
                         // 必要に応じて、ここで階段のドアのロックを解除する処理を追加できます
                         for (auto& d : doors_)
@@ -772,6 +775,22 @@ void GameContext::Update(float deltaTime)
 
                     securityTeleportUnlocked_ = true;
                     break;
+                }
+            }
+        }
+
+        // 扉への誘導ピンが表示中、対象のドアが開いたらピンを消す
+        if (showSecurityDoorPin_)
+        {
+            for (const auto& d : doors_)
+            {
+                if (d.GetOpenConditionType() == DoorOpenConditionType::SecurityPCActivated)
+                {
+                    if (d.IsOpen() || Vector3Distance(player_.GetPosition(), d.GetPosition()) < 2.0f)
+                    {
+                        showSecurityDoorPin_ = false;
+                        break;
+                    }
                 }
             }
         }
@@ -1086,6 +1105,56 @@ void GameContext::Draw() const
                 // 認証キーへの誘導は緑色などの分かりやすい色に設定
                 DrawTriangle(topLeft, tip, topRight, GREEN);
                 DrawTriangleLines(topLeft, tip, topRight, DARKGREEN);
+            }
+        }
+
+        // 警備用PC起動で開いた扉への誘導ピンの描画
+        if (showSecurityDoorPin_)
+        {
+            Vector3 worldPos{};
+            bool foundDoor = false;
+            for (const auto& d : doors_)
+            {
+                if (d.GetOpenConditionType() == DoorOpenConditionType::SecurityPCActivated)
+                {
+                    worldPos = d.GetPosition();
+                    worldPos.y += 1.0f; // 少し上方に浮かせる
+                    foundDoor = true;
+                    break;
+                }
+            }
+
+            if (foundDoor)
+            {
+                const Camera3D& currentCam = cameraController_.GetPlayerCamera().GetRaylibCamera();
+                Vector2 screenPos = GetWorldToScreen(worldPos, currentCam);
+
+                Vector3 toPoint = Vector3Subtract(worldPos, currentCam.position);
+                float forwardDot = Vector3DotProduct(
+                    Vector3Normalize(Vector3Subtract(currentCam.target, currentCam.position)),
+                    Vector3Normalize(toPoint)
+                );
+
+                if (forwardDot > 0.0f &&
+                    screenPos.x >= 0 && screenPos.x <= GetScreenWidth() &&
+                    screenPos.y >= 0 && screenPos.y <= GetScreenHeight())
+                {
+                    float distance = Vector3Length(toPoint);
+                    float baseSize = 40.0f;
+                    float scaleFactor = Clamp(6.0f / (distance + 1.0f), 0.5f, 1.5f);
+                    float size = baseSize * scaleFactor;
+
+                    float floatOffset = std::sin(GetTime() * 4.0f) * 4.0f * scaleFactor;
+                    float centerY = screenPos.y + floatOffset;
+
+                    Vector2 tip = { screenPos.x, centerY + size * 0.5f };
+                    Vector2 topLeft = { screenPos.x - size * 0.45f, centerY - size * 0.5f };
+                    Vector2 topRight = { screenPos.x + size * 0.45f, centerY - size * 0.5f };
+
+                    // 扉への誘導はマゼンタ（紫色系）で描画
+                    DrawTriangle(topLeft, tip, topRight, MAGENTA);
+                    DrawTriangleLines(topLeft, tip, topRight, PURPLE);
+                }
             }
         }
     }
