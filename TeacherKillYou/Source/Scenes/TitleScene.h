@@ -14,6 +14,7 @@ public:
 
 private:
     bool checkpointAvailable_ = false;
+    int hoveredButton_ = -1;
     IntroVideoPlayer intro_;
     Texture2D cover_{};
     Texture2D canopy_{};

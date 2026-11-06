@@ -82,7 +82,6 @@ void GameScene::Init()
         else ShowNotice(u8"保存を読み込めなかったため、最初から開始します。", "Cannot load checkpoint. Starting a new game.");
     }
     AM().SetPaused(false);
-    AM().PlayBgm(BgmId::Game);
     AM().PlayAmbience();
     DisableCursor();
 
@@ -100,9 +99,13 @@ void GameScene::BeginGameOver()
     gameOverScreen_.SetCheckpointAvailable(checkpointAvailable_);
     gameContext->GetInventory().CancelHealing();
     AM().StopBgm();
+    AM().StopWind();
     AM().StopAmbience();
     AM().StopAllSe();
     AM().SetPaused(false);
+    // StopAllSe also stopped the lethal hit this frame; replay it with YOU DIED.
+    AM().PlaySe(SeId::PlayerHit, 0.9f);
+    AM().PlaySe(SeId::YouDied);
     EnableCursor();
 }
 
@@ -117,6 +120,7 @@ void GameScene::OpenPause()
     CheckpointData checkpoint;
     checkpointAvailable_ = CheckpointSave::Load(checkpoint);
     AM().SetPaused(true);
+    AM().PlayUiSe(SeId::PauseMenu);
     EnableCursor();
 }
 
@@ -164,10 +168,14 @@ bool GameScene::LoadCheckpoint()
         return false;
     }
     gameContext->RestoreCheckpoint(checkpoint);
+    if (gameOver_) {
+        AM().StopBgm();
+        AM().StopWind();
+        AM().StopAllSe();
+    }
     gameOver_ = false;
     checkpointAvailable_ = true;
     Resume();
-    AM().PlayBgm(BgmId::Game);
     AM().PlayAmbience();
     ShowNotice(u8"チェックポイントから再開しました。", "Checkpoint loaded.");
     return true;
@@ -283,6 +291,7 @@ void GameScene::End()
     pauseMenu_.End();
     SaveSettings();
     AM().StopBgm();
+    AM().StopWind();
     AM().StopAmbience();
     AM().StopAllSe();
     AM().SetPaused(false);

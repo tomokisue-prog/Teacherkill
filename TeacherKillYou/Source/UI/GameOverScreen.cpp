@@ -1,4 +1,5 @@
 ﻿#include "GameOverScreen.h"
+#include "AudioManager.h"
 #include "ResourceManager.h"
 #include "raymath.h"
 #include <algorithm>
@@ -195,7 +196,13 @@ void GameOverScreen::SetCheckpointAvailable(bool available)
 
 GameOverAction GameOverScreen::Update(float deltaTime)
 {
+    const float before = elapsed_;
     elapsed_ += (std::max)(deltaTime, 0.0f);
+    // Start the menu sounds when the YOU DIED screen begins to fade out.
+    if (before < YouDiedIntroSeconds && elapsed_ >= YouDiedIntroSeconds) {
+        AM().PlayWind();
+        AM().PlayBgm(BgmId::GameOver);
+    }
 
     // Do not activate a button while YOU DIED or the menu is fading in.
     if (elapsed_ < YouDiedIntroSeconds + GameOverFadeSeconds) return GameOverAction::None;
@@ -205,28 +212,33 @@ GameOverAction GameOverScreen::Update(float deltaTime)
     const bool overRetry = CheckCollisionPointRec(mouse, layout.retry);
     const bool overTitle = CheckCollisionPointRec(mouse, layout.title);
     const bool clicked = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    const auto select = [this](int option) {
+        if (selectedOption_ != option) { selectedOption_ = option; AM().PlayUiSe(SeId::Hover, 0.7f); }
+    };
 
     // A stationary mouse must not override keyboard selection.
     if (Vector2LengthSqr(GetMouseDelta()) > 0.0f || clicked)
     {
-        if (overRetry) selectedOption_ = 0;
-        else if (overTitle) selectedOption_ = 1;
+        if (overRetry) select(0);
+        else if (overTitle) select(1);
     }
 
     // A click always activates the button under the pointer, even if a key
     // was pressed during the same frame.
-    if (clicked && overRetry) return GameOverAction::Retry;
-    if (clicked && overTitle) return GameOverAction::Title;
+    if (clicked && overRetry) { AM().PlayUiSe(SeId::Confirm); return GameOverAction::Retry; }
+    if (clicked && overTitle) { AM().PlayUiSe(SeId::Confirm); return GameOverAction::Title; }
 
-    if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) selectedOption_ = (selectedOption_ + 1) % 2;
-    if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) selectedOption_ = (selectedOption_ + 1) % 2;
+    if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) select((selectedOption_ + 1) % 2);
+    if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) select((selectedOption_ + 1) % 2);
 
     // Keep the existing checkpoint feature as a shortcut, with two main buttons.
-    if (checkpointAvailable_ && IsKeyPressed(KEY_C)) return GameOverAction::Checkpoint;
-    if (IsKeyPressed(KEY_R)) return GameOverAction::Retry;
-    if (IsKeyPressed(KEY_B)) return GameOverAction::Title;
-    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE))
+    if (checkpointAvailable_ && IsKeyPressed(KEY_C)) { AM().PlayUiSe(SeId::Confirm); return GameOverAction::Checkpoint; }
+    if (IsKeyPressed(KEY_R)) { AM().PlayUiSe(SeId::Confirm); return GameOverAction::Retry; }
+    if (IsKeyPressed(KEY_B)) { AM().PlayUiSe(SeId::Confirm); return GameOverAction::Title; }
+    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) {
+        AM().PlayUiSe(SeId::Confirm);
         return selectedOption_ == 0 ? GameOverAction::Retry : GameOverAction::Title;
+    }
 
     return GameOverAction::None;
 }

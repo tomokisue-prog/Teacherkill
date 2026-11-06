@@ -1,4 +1,5 @@
 #include "Inventory.h"
+#include "AudioManager.h"
 #include "CheckpointData.h"
 #include "Stage.h"
 #include "WorldScale.h"
@@ -72,6 +73,7 @@ void Inventory::ApplyPlacements()
 
 void Inventory::CancelHealing()
 {
+    if (healing_) AM().StopSe(SeId::Healing);
     healing_ = false;
     healTimer_ = 0.0f;
 }
@@ -191,6 +193,7 @@ void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage)
         {
             item.Collect();
             pickedUpItem_ = ItemType::Ammo;
+            AM().PlaySe(SeId::Pickup);
             message_ = TextFormat("+%d AMMO", AMMO_PICKUP_AMOUNT);
         }
         else if (type == ItemType::LostItem || type == ItemType::Gun || type == ItemType::AuthenticationKey)
@@ -207,10 +210,12 @@ void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage)
         {
             item.Collect();
             pickedUpItem_ = type;
+            AM().PlaySe(SeId::Pickup);
             message_ = std::string("Picked up ") + Item::GetName(type);
         }
         else
         {
+            AM().PlaySe(SeId::Error);
             message_ = "Inventory Full!";
         }
 
@@ -224,6 +229,7 @@ void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage)
     if (selectedItem == ItemType::Medkit)
     {
         healing_ = true;
+        AM().PlaySe(SeId::Healing);
         healTimer_ = 0.0f;
         messageTimer_ = 0.0f;
         return;
@@ -231,6 +237,7 @@ void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage)
 
     if (selectedItem == ItemType::None)
     {
+        AM().PlaySe(SeId::Error);
         message_ = "Empty Slot";
     }
     else if (selectedItem == ItemType::KeyCard || selectedItem == ItemType::Key)

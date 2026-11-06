@@ -513,7 +513,7 @@ void Player::TakeDamage(int amount)
     isSprinting_ = false;
     hp_ = amount >= hp_ ? 0 : hp_ - amount;
     damageFlashTimer_ = damageFlashDuration_;
-    AM().PlaySe(SeId::PlayerHit);
+    AM().PlaySe(SeId::PlayerHit, 0.9f);
 
     if (!IsAlive())
     {

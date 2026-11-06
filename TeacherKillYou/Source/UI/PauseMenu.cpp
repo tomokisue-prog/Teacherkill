@@ -1,4 +1,5 @@
 ﻿#include "PauseMenu.h"
+#include "AudioManager.h"
 #include "GameSettings.h"
 #include "ResourceManager.h"
 #include "raymath.h"
@@ -101,8 +102,11 @@ PauseAction PauseMenu::Update(float dt, GameSettings& settings, bool canLoad, bo
     const bool mouseMoved = Vector2LengthSqr(GetMouseDelta()) > 0 || click;
     const auto mouse = GetMousePosition();
     const int optionCount = settingsPage_ ? SettingCount + 1 : (debugEnabled_ ? 6 : 5);
-    if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) selectedOption_ = (selectedOption_ + optionCount - 1) % optionCount;
-    if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) selectedOption_ = (selectedOption_ + 1) % optionCount;
+    const auto select = [this](int option) {
+        if (selectedOption_ != option) { selectedOption_ = option; AM().PlayUiSe(SeId::Hover, 0.7f); }
+    };
+    if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) select((selectedOption_ + optionCount - 1) % optionCount);
+    if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) select((selectedOption_ + 1) % optionCount);
 
     if (settingsPage_) {
         if (IsKeyPressed(KEY_ESCAPE)) { settingsPage_ = false; selectedOption_ = 1; return PauseAction::SaveSettings; }
@@ -112,7 +116,7 @@ PauseAction PauseMenu::Update(float dt, GameSettings& settings, bool canLoad, bo
         for (int i = 0; i < SettingCount; ++i) {
             auto bar = Slider(i);
             auto hit = Rectangle{bar.x - 12 * Scale(), bar.y - 12 * Scale(), bar.width + 24 * Scale(), bar.height + 24 * Scale()};
-            if (mouseMoved && CheckCollisionPointRec(mouse, hit)) selectedOption_ = i;
+            if (mouseMoved && CheckCollisionPointRec(mouse, hit)) select(i);
             if (click && CheckCollisionPointRec(mouse, hit)) draggingSlider_ = i;
             if (draggingSlider_ == i && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
                 const Vector2 range = SettingRange(i);
@@ -132,8 +136,9 @@ PauseAction PauseMenu::Update(float dt, GameSettings& settings, bool canLoad, bo
         }
         const auto back = Button(7);
         const bool overBack = CheckCollisionPointRec(mouse, back);
-        if (mouseMoved && overBack) selectedOption_ = SettingCount;
+        if (mouseMoved && overBack) select(SettingCount);
         if ((click && overBack) || (selectedOption_ == SettingCount && (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)))) {
+            AM().PlayUiSe(SeId::Confirm);
             settingsPage_ = false; selectedOption_ = 1; return PauseAction::SaveSettings;
         }
         return changed ? PauseAction::SettingsChanged : PauseAction::None;
@@ -143,11 +148,16 @@ PauseAction PauseMenu::Update(float dt, GameSettings& settings, bool canLoad, bo
     bool clickedOption = false;
     for (int i = 0; i < optionCount; ++i) {
         if (CheckCollisionPointRec(mouse, Button(i))) {
-            if (mouseMoved) selectedOption_ = i;
+            if (mouseMoved) select(i);
             clickedOption = click;
         }
     }
     if (!(clickedOption || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE))) return PauseAction::None;
+    if ((selectedOption_ == 2 && !canSave) || (selectedOption_ == 3 && !canLoad)) {
+        AM().PlayUiSe(SeId::Error);
+        return PauseAction::None;
+    }
+    AM().PlayUiSe(SeId::Confirm);
     switch (selectedOption_) {
     case 0: return PauseAction::Resume;
     case 1: settingsPage_ = true; selectedOption_ = 0; return PauseAction::None;

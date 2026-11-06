@@ -30,14 +30,12 @@ void DoorMove::Reset()
 void DoorMove::Open() {
     if (isOpen_) return;
     isOpen_ = true;
-    AM().StopSe(SeId::DoorClose);
-    AM().PlaySe(SeId::DoorOpen);
+    AM().PlaySe(SeId::Door);
 }
 void DoorMove::Close() {
     if (!isOpen_) return;
     isOpen_ = false;
-    AM().StopSe(SeId::DoorOpen);
-    AM().PlaySe(SeId::DoorClose);
+    AM().PlaySe(SeId::Door);
 }
 void DoorMove::Toggle() {
     if (isOpen_) Close();

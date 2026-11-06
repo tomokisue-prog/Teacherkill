@@ -1,11 +1,12 @@
-﻿#pragma once
+#pragma once
 #include "raylib.h"
+#include <cstdint>
 class Player;
 class PlayerCamera;
 class Stage;
 namespace demo { class EnemyManager; }
 
-// Gameplay timing stays here; AudioManager owns the loaded sounds and mixer state.
+// Footsteps follow actual movement; the heartbeat responds to remaining HP.
 class HorrorAudio {
 public:
     void Reset(Vector3 position);
@@ -13,6 +14,10 @@ public:
         const demo::EnemyManager& enemies, const Stage& stage, bool playerView);
 private:
     Vector3 previousPosition_{};
-    float stepDistance_ = 0;
-    float growlTimer_ = 2;
+    Vector3 previousEnemyPosition_{};
+    std::uint64_t trackedEnemy_ = 0;
+    float stepDistance_ = 0.0f;
+    float enemyStepDistance_ = 0.0f;
+    int previousPlayerStep_ = -1;
+    int previousFemaleStep_ = -1;
 };
