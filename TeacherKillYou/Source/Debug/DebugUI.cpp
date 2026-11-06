@@ -551,7 +551,8 @@ void DebugUI::DrawInspector(GameContext& gameContext)
             const char* openCondNames[] = {
                 "None (Normal Open)",
                 "Test: Press M Key",
-                "Security Teleport Entered"
+                "Security Teleport Entered",
+                "Security PC Activated"
             };
             if (ImGui::Combo("Open Condition", &openCondVal, openCondNames, IM_ARRAYSIZE(openCondNames)))
             {

@@ -103,6 +103,10 @@ void GameContext::Init()
     hitMarkerKill_ = false;
     securityTeleportUnlocked_ = false;
     pendingSecurityDialogue_ = false;
+    showGunPin_ = false;
+    gunPinPosition_ = { 0.0f, 0.0f, 0.0f };
+    showAuthKeyPin_ = false;
+    hasTriggeredAuthKeyPickup_ = false;
 
     teleportPoints_.clear();
     TeleportPoint tp1;
@@ -197,6 +201,8 @@ void GameContext::Reset()
     goalPoint_.Reset();
     securityTeleportUnlocked_ = false;
     pendingSecurityDialogue_ = false;
+    showAuthKeyPin_ = false;
+    hasTriggeredAuthKeyPickup_ = false;
 }
 
 void GameContext::ShowDialogue(const std::string& dialogueId)
@@ -631,6 +637,8 @@ void GameContext::Update(float deltaTime)
         {
             ShowDialogue("security_room_arrival");
             pendingSecurityDialogue_ = false; // 一度出したらフラグをオフにする
+
+            showGunPin_ = true;
         }
 
         float distToGoal = Vector3Distance(player_.GetPosition(), goalPoint_.GetPosition());
@@ -694,6 +702,8 @@ void GameContext::Update(float deltaTime)
         if (!wasHasGun && player_.HasGun())
         {
             gunTutorialUI_.Open();
+            showGunPin_ = false;
+            showPCPin_ = true;
         }
 
         if (inventory_.GetPickedUpItem() == ItemType::Ammo)
@@ -718,10 +728,37 @@ void GameContext::Update(float deltaTime)
             {
                 if (!securityPC_.IsActivated())
                 {
-                    securityPC_.SetActivated(true);
-                    ShowDialogue("security_pc_activated");
+                    // 認証キーを持っているかどうかで分岐する
+                    if (inventory_.IsAuthenticationKeyCollected())
+                    {
+                        // キーを持った状態でPCを起動した場合のセリフに変更
+                        ShowDialogue("security_pc_door_open");
+                        securityPC_.SetActivated(true); // PC起動済み（扉のロック解除など）にする
+                        showPCPin_ = false;            // PCピンを消す
+
+                        // 必要に応じて、ここで階段のドアのロックを解除する処理を追加できます
+                        for (auto& d : doors_)
+                        {
+                            if (d.GetOpenConditionType() == DoorOpenConditionType::SecurityPCActivated)
+                            {
+                                d.SetOpenConditionSatisfied(true);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        ShowDialogue("security_pc_missing_key");
+                        showPCPin_ = false;
+                        showAuthKeyPin_ = true;        // キーがなければ再度キーへ誘導
+                    }
                 }
             }
+        }
+        if (!hasTriggeredAuthKeyPickup_ && inventory_.IsAuthenticationKeyCollected())
+        {
+            hasTriggeredAuthKeyPickup_ = true;
+            showAuthKeyPin_ = false;
+            showPCPin_ = true; // 認証キーを取ったら、再び警備用PCへのピンを指す
         }
 
         if (!IsMessageActive())
@@ -841,15 +878,18 @@ void GameContext::Draw() const
         float minDoorDist = 999.0f;
         for (const auto& d : doors_)
         {
-            float dist = Vector3Distance(player_.GetPosition(), d.GetPosition());
-            if (dist < minDoorDist)
+            if (d.IsPlayerInInteractionRange(player_))
             {
-                minDoorDist = dist;
-                nearestDoor = &d;
+                float dist = Vector3Distance(player_.GetPosition(), d.GetPosition());
+                if (dist < minDoorDist)
+                {
+                    minDoorDist = dist;
+                    nearestDoor = &d;
+                }
             }
         }
 
-        if (nearestDoor && minDoorDist <= nearestDoor->GetInteractRadius())
+        if (nearestDoor)
         {
             std::string prompt = "";
 
@@ -871,9 +911,13 @@ void GameContext::Draw() const
                 {
                     prompt = "Locked (Requires Security Teleport)";
                 }
+                else if (nearestDoor->GetOpenConditionType() == DoorOpenConditionType::SecurityPCActivated)
+                {
+                    prompt = "Locked (Requires Security PC)"; // 警備用PC起動が必要な場合のメッセージ
+                }
                 else
                 {
-                    prompt = "[M] Unlock";
+                    prompt = "[M] Unlock"; // テスト用Mキーの扉
                 }
             }
             else
@@ -932,6 +976,116 @@ void GameContext::Draw() const
                         DrawTriangleLines(topLeft, tip, topRight, BLUE);
                     }
                 }
+            }
+        }
+
+        // 銃への誘導ピンの描画
+        if (showGunPin_)
+        {
+            // インベントリから実際の銃のワールド座標を取得する
+            Vector3 worldPos = inventory_.GetGunPosition();
+            worldPos.y += 0.5f; // 少し上方に浮かせる
+
+            const Camera3D& currentCam = cameraController_.GetPlayerCamera().GetRaylibCamera();
+            Vector2 screenPos = GetWorldToScreen(worldPos, currentCam);
+
+			Vector3 toPoint = Vector3Subtract(worldPos, currentCam.position);
+            float forwardDot = Vector3DotProduct(
+                Vector3Normalize(Vector3Subtract(currentCam.target, currentCam.position)),
+                Vector3Normalize(toPoint)
+            );
+
+            if (forwardDot > 0.0f &&
+                screenPos.x >= 0 && screenPos.x <= GetScreenWidth() &&
+                screenPos.y >= 0 && screenPos.y <= GetScreenHeight())
+            {
+                float distance = Vector3Length(toPoint);
+                float baseSize = 40.0f;
+                float scaleFactor = Clamp(6.0f / (distance + 1.0f), 0.5f, 1.5f);
+                float size = baseSize * scaleFactor;
+
+                float floatOffset = std::sin(GetTime() * 4.0f) * 4.0f * scaleFactor;
+                float centerY = screenPos.y + floatOffset;
+
+                Vector2 tip = { screenPos.x, centerY + size * 0.5f };
+                Vector2 topLeft = { screenPos.x - size * 0.45f, centerY - size * 0.5f };
+                Vector2 topRight = { screenPos.x + size * 0.45f, centerY - size * 0.5f };
+
+                DrawTriangle(topLeft, tip, topRight, YELLOW);
+                DrawTriangleLines(topLeft, tip, topRight, ORANGE);
+            }
+        }
+
+        // PCへの誘導ピンの描画
+        if (showPCPin_)
+        {
+            Vector3 worldPos = securityPC_.GetPosition();
+            worldPos.y += 0.8f; // 少し上方に浮かせる
+
+            const Camera3D& currentCam = cameraController_.GetPlayerCamera().GetRaylibCamera();
+            Vector2 screenPos = GetWorldToScreen(worldPos, currentCam);
+
+            Vector3 toPoint = Vector3Subtract(worldPos, currentCam.position);
+            float forwardDot = Vector3DotProduct(
+                Vector3Normalize(Vector3Subtract(currentCam.target, currentCam.position)),
+                Vector3Normalize(toPoint)
+            );
+
+            if (forwardDot > 0.0f &&
+                screenPos.x >= 0 && screenPos.x <= GetScreenWidth() &&
+                screenPos.y >= 0 && screenPos.y <= GetScreenHeight())
+            {
+                float distance = Vector3Length(toPoint);
+                float baseSize = 40.0f;
+                float scaleFactor = Clamp(6.0f / (distance + 1.0f), 0.5f, 1.5f);
+                float size = baseSize * scaleFactor;
+
+                float floatOffset = std::sin(GetTime() * 4.0f) * 4.0f * scaleFactor;
+                float centerY = screenPos.y + floatOffset;
+
+                Vector2 tip = { screenPos.x, centerY + size * 0.5f };
+                Vector2 topLeft = { screenPos.x - size * 0.45f, centerY - size * 0.5f };
+                Vector2 topRight = { screenPos.x + size * 0.45f, centerY - size * 0.5f };
+
+                // PCへの誘導は色を変えると分かりやすい（例：シアンや青緑など）
+                DrawTriangle(topLeft, tip, topRight, SKYBLUE);
+                DrawTriangleLines(topLeft, tip, topRight, BLUE);
+            }
+        }
+
+        if (showAuthKeyPin_)
+        {
+            Vector3 worldPos = inventory_.GetAuthenticationKeyPosition();
+            worldPos.y += 0.5f; // 少し上方に浮かせる
+
+            const Camera3D& currentCam = cameraController_.GetPlayerCamera().GetRaylibCamera();
+            Vector2 screenPos = GetWorldToScreen(worldPos, currentCam);
+
+            Vector3 toPoint = Vector3Subtract(worldPos, currentCam.position);
+            float forwardDot = Vector3DotProduct(
+                Vector3Normalize(Vector3Subtract(currentCam.target, currentCam.position)),
+                Vector3Normalize(toPoint)
+            );
+
+            if (forwardDot > 0.0f &&
+                screenPos.x >= 0 && screenPos.x <= GetScreenWidth() &&
+                screenPos.y >= 0 && screenPos.y <= GetScreenHeight())
+            {
+                float distance = Vector3Length(toPoint);
+                float baseSize = 40.0f;
+                float scaleFactor = Clamp(6.0f / (distance + 1.0f), 0.5f, 1.5f);
+                float size = baseSize * scaleFactor;
+
+                float floatOffset = std::sin(GetTime() * 4.0f) * 4.0f * scaleFactor;
+                float centerY = screenPos.y + floatOffset;
+
+                Vector2 tip = { screenPos.x, centerY + size * 0.5f };
+                Vector2 topLeft = { screenPos.x - size * 0.45f, centerY - size * 0.5f };
+                Vector2 topRight = { screenPos.x + size * 0.45f, centerY - size * 0.5f };
+
+                // 認証キーへの誘導は緑色などの分かりやすい色に設定
+                DrawTriangle(topLeft, tip, topRight, GREEN);
+                DrawTriangleLines(topLeft, tip, topRight, DARKGREEN);
             }
         }
     }

@@ -136,4 +136,11 @@ private:
     bool hasTriggeredLostItemDialogue_{ false };
     bool securityTeleportUnlocked_{ false };
     bool pendingSecurityDialogue_{ false };
+
+    bool showGunPin_{ false };
+    Vector3 gunPinPosition_{ 0.0f, 0.0f, 0.0f };
+
+    bool showPCPin_{ false };
+    bool showAuthKeyPin_{ false };
+    bool hasTriggeredAuthKeyPickup_{ false };
 };

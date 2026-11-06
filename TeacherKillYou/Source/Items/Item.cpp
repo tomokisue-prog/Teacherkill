@@ -17,6 +17,7 @@ const char* Item::GetName(ItemType type)
     case ItemType::Key:     return "KEY";
 	case ItemType::LostItem: return "LOST ITEM";
     case ItemType::Gun:     return "GUN";
+    case ItemType::AuthenticationKey: return "AUTHENTICATION KEY";
     default:                return "EMPTY";
     }
 }

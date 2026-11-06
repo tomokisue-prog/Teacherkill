@@ -39,6 +39,8 @@ void Inventory::Reset()
     items_.emplace_back(ItemType::Medkit, Vector3{ 0.0f, 0.35f, 1.8f });
     items_.emplace_back(ItemType::Ammo, Vector3{ 1.2f, 0.35f, 2.0f });
     items_.emplace_back(ItemType::Gun, Vector3{ 2.0f, 0.35f, 2.0f });
+
+    items_.emplace_back(ItemType::AuthenticationKey, Vector3{ 3.0f, 0.35f, -2.0f });
 }
 
 void Inventory::PlaceOnStage(const Stage& stage)
@@ -179,12 +181,15 @@ void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage)
             pickedUpItem_ = ItemType::Ammo;
             message_ = TextFormat("+%d AMMO", AMMO_PICKUP_AMOUNT);
         }
-        else if (type == ItemType::LostItem || type == ItemType::Gun)
+        else if (type == ItemType::LostItem || type == ItemType::Gun || type == ItemType::AuthenticationKey)
         {
-            // LostItemやGunはインベントリに入れず、回収（取得）のみ行う
+            // LostItem、Gun、AuthenticationKeyはインベントリに入れず、回収（取得）のみ行う
             item.Collect();
             pickedUpItem_ = type;
-            message_ = (type == ItemType::Gun) ? "Picked up GUN" : "Picked up LOST ITEM";
+
+            if (type == ItemType::Gun) message_ = "Picked up GUN";
+            else if (type == ItemType::AuthenticationKey) message_ = "Picked up AUTHENTICATION KEY";
+            else message_ = "Picked up LOST ITEM";
         }
         else if (AddItem(type))
         {
@@ -238,6 +243,7 @@ const char* Inventory::GetItemModelKey(ItemType type) const
     case ItemType::Ammo:     return ResourceKeys::Model_Ammo;
     case ItemType::LostItem: return ResourceKeys::Model_LostItem;
     case ItemType::Gun:      return ResourceKeys::Model_Gun;
+    case ItemType::AuthenticationKey: return ResourceKeys::Model_Authentication_Key;
     default:                 return nullptr;
     }
 }
@@ -251,6 +257,7 @@ float Inventory::GetItemModelScale(ItemType type) const
     case ItemType::Ammo:     return 0.15f; // 弾薬のサイズ
     case ItemType::LostItem: return 0.15f; // 忘れ物のサイズ
     case ItemType::Gun:      return 0.05f;
+    case ItemType::AuthenticationKey: return 0.15f;
     default:                 return 1.0f;
     }
 }
@@ -521,4 +528,40 @@ bool Inventory::IsGunCollected() const
         }
     }
     return false;
+}
+
+bool Inventory::IsAuthenticationKeyCollected() const
+{
+    for (const auto& item : items_)
+    {
+        if (item.GetType() == ItemType::AuthenticationKey)
+        {
+            return item.IsCollected();
+        }
+    }
+    return false;
+}
+
+Vector3 Inventory::GetGunPosition() const
+{
+    for (const auto& item : items_)
+    {
+        if (item.GetType() == ItemType::Gun)
+        {
+            return item.GetPosition();
+        }
+    }
+    return { 0.0f, 0.0f, 0.0f };
+}
+
+Vector3 Inventory::GetAuthenticationKeyPosition() const
+{
+    for (const auto& item : items_)
+    {
+        if (item.GetType() == ItemType::AuthenticationKey)
+        {
+            return item.GetPosition();
+        }
+    }
+    return { 0.0f, 0.0f, 0.0f };
 }

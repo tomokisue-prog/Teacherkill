@@ -14,6 +14,8 @@ public:
     void Update(float deltaTime); 
     void Draw() const;
 
+    Vector3 GetPosition() const { return position_; }
+
     // プレイヤーとの距離がインタラクト範囲内か判定
     bool CanInteract(const Vector3& playerPos) const {
         return Vector3Distance(position_, playerPos) <= interactRadius_;

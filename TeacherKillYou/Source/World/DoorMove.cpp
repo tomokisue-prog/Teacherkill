@@ -52,7 +52,8 @@ bool DoorMove::IsOpenConditionSatisfied() const
         return true;
     }
     if (openConditionType_ == DoorOpenConditionType::TestMKey ||
-        openConditionType_ == DoorOpenConditionType::SecurityTeleportEntered)
+        openConditionType_ == DoorOpenConditionType::SecurityTeleportEntered ||
+        openConditionType_ == DoorOpenConditionType::SecurityPCActivated) // ★SecurityPCActivatedに対応
     {
         return openConditionSatisfied_;
     }
@@ -80,25 +81,20 @@ bool DoorMove::HasClosedByCondition(const Inventory* inventory) const
 // 実際に現在ロックされていて開けられない状態か
 bool DoorMove::IsLocked(const Inventory* inventory) const
 {
-    // すでにMキー（開ける条件）で一度解除されている場合は、永遠にロックされない（ずっと開く）
     if (openConditionSatisfied_)
     {
         return false;
     }
 
-    //「閉じる条件」が設定されている場合
     if (lockType_ != DoorLockType::None)
     {
-        // まだ閉じる条件が発動していなければ、ロックされていない（普通の扉）
         if (!HasClosedByCondition(inventory))
         {
             return false;
         }
-        // 閉じる条件が発動した後は、開ける条件（Mキー）が満たされるまでロック状態
         return !IsOpenConditionSatisfied();
     }
 
-    //「閉じる条件が None」で「開ける条件だけ」が設定されている場合
     if (lockType_ == DoorLockType::None && openConditionType_ != DoorOpenConditionType::None)
     {
         return !IsOpenConditionSatisfied();
@@ -107,12 +103,47 @@ bool DoorMove::IsLocked(const Inventory* inventory) const
     return false;
 }
 
+bool DoorMove::IsPlayerInInteractionRange(const Player& player) const
+{
+    // 常に現在のスライド位置を反映した正確なボックスを取得する
+    float radY = rotation_.y * DEG2RAD;
+    float currentSlide = openDistance_ * slideProgress_; // スケールを掛けない正しい距離
+    Vector3 localOffset = { currentSlide, 0.0f, 0.0f };
+    Vector3 worldOffset = {
+        localOffset.x * cosf(radY) - localOffset.z * sinf(radY),
+        localOffset.y,
+        localOffset.x * sinf(radY) + localOffset.z * cosf(radY)
+    };
+    Vector3 currentPos = Vector3Add(position_, worldOffset);
+
+    float width = 1.2f * scale_.x;
+    float height = 2.0f * scale_.y;
+    float depth = 0.2f * scale_.z;
+
+    if (fabsf(sinf(radY)) > 0.707f)
+    {
+        std::swap(width, depth);
+    }
+
+    Vector3 halfSize = { width * 0.5f, height * 0.5f, depth * 0.5f };
+    BoundingBox box = { Vector3Subtract(currentPos, halfSize), Vector3Add(currentPos, halfSize) };
+
+    // interactRadius_ 分だけボックスを全方向に広げてインタラクション可能エリアを作る
+    Vector3 min = { box.min.x - interactRadius_, box.min.y - interactRadius_, box.min.z - interactRadius_ };
+    Vector3 max = { box.max.x + interactRadius_, box.max.y + interactRadius_, box.max.z + interactRadius_ };
+    BoundingBox expandedBox = { min, max };
+
+    Vector3 playerPos = player.GetPosition();
+    Vector3 playerCenter = { playerPos.x, playerPos.y + player.GetHeight() * 0.5f, playerPos.z };
+
+    return (playerCenter.x >= expandedBox.min.x && playerCenter.x <= expandedBox.max.x &&
+        playerCenter.y >= expandedBox.min.y && playerCenter.y <= expandedBox.max.y &&
+        playerCenter.z >= expandedBox.min.z && playerCenter.z <= expandedBox.max.z);
+}
+
 bool DoorMove::CanInteract(const Player& player, const Inventory* inventory) const
 {
-    float distance = Vector3Distance(position_, player.GetPosition());
-    if (distance > interactRadius_) return false;
-
-    // ロックされていなければインタラクション可能
+    if (!IsPlayerInInteractionRange(player)) return false;
     return !IsLocked(inventory);
 }
 
@@ -121,17 +152,13 @@ void DoorMove::Update(float deltaTime, const Player& player, const Inventory* in
     bool closedByCondition = HasClosedByCondition(inventory);
     bool openSatisfied = IsOpenConditionSatisfied();
 
-    // 閉じる条件の評価 閉じる条件が成立した瞬間、ドアが開いていたら強制的に閉じる
     if (lockType_ != DoorLockType::None && closedByCondition && !openSatisfied && isOpen_)
     {
         Close();
     }
 
-    float distance = Vector3Distance(position_, player.GetPosition());
-
-    if (distance <= interactRadius_)
+    if (IsPlayerInInteractionRange(player))
     {
-        // Mキーによる「開ける条件」の解除判定
         bool needsMKey = false;
         if (lockType_ == DoorLockType::None)
         {
@@ -144,11 +171,10 @@ void DoorMove::Update(float deltaTime, const Player& player, const Inventory* in
 
         if (needsMKey && IsKeyPressed(KEY_M))
         {
-            openConditionSatisfied_ = true; // 一度解除したら以後ずっと開く
-            AM().PlaySe(SeId::Confirm);     // 解除音
+            openConditionSatisfied_ = true;
+            AM().PlaySe(SeId::Confirm);
         }
 
-        // Eキーによる開閉
         if (IsKeyPressed(KEY_E))
         {
             if (CanInteract(player, inventory))
@@ -158,7 +184,6 @@ void DoorMove::Update(float deltaTime, const Player& player, const Inventory* in
         }
     }
 
-    // スライド補間処理
     if (isOpen_)
     {
         slideProgress_ += slideSpeed_ * deltaTime;
@@ -175,10 +200,17 @@ void DoorMove::Draw() const
 {
     Model doorModel = ResourceManager::GetInstance().GetModel(ResourceKeys::Model_Door);
 
-    Vector3 currentPos = Vector3Add(
-        position_,
-        Vector3Scale({ 1.0f, 0.0f, 0.0f }, openDistance_ * slideProgress_)
-    );
+    float radY = rotation_.y * DEG2RAD;
+    float currentSlide = openDistance_ * slideProgress_; // スケールを掛けない
+
+    Vector3 localOffset = { currentSlide, 0.0f, 0.0f };
+    Vector3 worldOffset = {
+        localOffset.x * cosf(radY) - localOffset.z * sinf(radY),
+        localOffset.y,
+        localOffset.x * sinf(radY) + localOffset.z * cosf(radY)
+    };
+
+    Vector3 currentPos = Vector3Add(position_, worldOffset);
 
     rlPushMatrix();
     {
@@ -198,14 +230,16 @@ void DoorMove::Draw() const
 
 BoundingBox DoorMove::GetBoundingBox() const
 {
+    // ドアが完全に開ききった（95%以上）ときは通り抜けられるように判定を消す
     if (slideProgress_ >= 0.95f)
     {
         return { { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } };
     }
 
-    Vector3 localOffset = { openDistance_ * slideProgress_, 0.0f, 0.0f };
-
     float radY = rotation_.y * DEG2RAD;
+    float currentSlide = openDistance_ * slideProgress_; // スケールを掛けない
+
+    Vector3 localOffset = { currentSlide, 0.0f, 0.0f };
     Vector3 worldOffset = {
         localOffset.x * cosf(radY) - localOffset.z * sinf(radY),
         localOffset.y,

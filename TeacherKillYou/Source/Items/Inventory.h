@@ -46,6 +46,9 @@ public:
 
     bool IsLostItemCollected() const;
     bool IsGunCollected() const;
+    bool IsAuthenticationKeyCollected() const;
+    Vector3 GetGunPosition() const;
+    Vector3 GetAuthenticationKeyPosition() const;
 
 private:
     static constexpr int MAX_SLOTS = 4;

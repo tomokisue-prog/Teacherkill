@@ -23,6 +23,7 @@ enum class DoorOpenConditionType
     None,       // 制限なし（デフォルトで開閉可能）
     TestMKey,   // テスト用：近づいてMキーを押したとき
     SecurityTeleportEntered,// 警備室テレポートに入ったとき
+    SecurityPCActivated,
 };
 
 class DoorMove : public GameObject
@@ -75,6 +76,8 @@ public:
     bool IsLocked(const Inventory* inventory) const;
 
     void SetOpenConditionSatisfied(bool satisfied) { openConditionSatisfied_ = satisfied; }
+
+    bool IsPlayerInInteractionRange(const Player& player) const;
 private:
 
 	Player player;

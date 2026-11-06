@@ -18,5 +18,17 @@
   "security_room_arrival": {
     "speaker": "主人公",
     "text": "何とか警備室に逃げ込んだ、とりあえず武器を回収しておこう"
+  },
+  "security_pc_missing_key": {
+    "speaker": "主人公",
+    "text": "階段の扉が閉まっている、警備用PCで開けるはずだけど、認証キーがない、確か警備員が認証キーを奥の教室に忘れたと言っていたな"
+  },
+  "security_pc_with_key": {
+    "speaker": "主人公",
+    "text": "認証キーを手に入れた、これで下に降りられる"
+  },
+  "security_pc_door_open": {
+    "speaker": "主人公",
+    "text": "扉が開いたみたいだ下に降りよう"
   }
 }

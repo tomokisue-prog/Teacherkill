@@ -12,7 +12,8 @@ enum class ItemType
     KeyCard,
     Ammo,
     LostItem,
-    Gun
+    Gun,
+    AuthenticationKey,
 };
 
 class Item
