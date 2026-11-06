@@ -38,6 +38,9 @@ namespace ResourceKeys {
 
 	inline constexpr const char* WASD_UI = "WASD_UI";
 
+    inline constexpr const char* Gun_UI1 = "Gun_UI1";
+    inline constexpr const char* Gun_UI2 = "Gun_UI2";
+
     // ObjectModel用のキー
 	inline constexpr const char* Security_PC = "Security_PC";
 

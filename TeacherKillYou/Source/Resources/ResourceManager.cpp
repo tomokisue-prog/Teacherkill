@@ -40,6 +40,8 @@ namespace {
         {LoadKind::FbxAnimation, ResourceKeys::Animation_FemaleZombieHit, "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 hit.fbx", ResourceKeys::Model_FemaleZombie},
         {LoadKind::Model, ResourceKeys::Model_Door, "Data/Image/slide door.glb"},
 		{LoadKind::Texture, ResourceKeys::WASD_UI, "Data/Image/WASDUI.png"},
+		{LoadKind::Texture, ResourceKeys::Gun_UI1, "Data/Image/GunUI1.png"},
+		{LoadKind::Texture, ResourceKeys::Gun_UI2, "Data/Image/GunUI2.png"},
 
         // アイテムモデルのロード
         {LoadKind::Model, ResourceKeys::Model_KeyCard, "Data/Image/Items/Key_Card.glb"},

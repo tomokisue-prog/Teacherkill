@@ -6,8 +6,7 @@
 class GunTutorialUI
 {
 public:
-
-	GunTutorialUI() = default;
+    GunTutorialUI() = default;
     void Init();
     void Reset();
     void Update();
@@ -23,7 +22,6 @@ private:
     int currentSlide_{ 0 };
     static constexpr int MAX_SLIDES = 2;
 
-    // スライド用の写真テクスチャと説明文
-    std::vector<Texture2D> slideTextures_;
+    // 説明文のみ保持
     std::vector<std::string> slideDescriptions_;
 };

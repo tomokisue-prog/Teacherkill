@@ -10,10 +10,6 @@ void GunTutorialUI::Init()
     slideDescriptions_.clear();
     slideDescriptions_.push_back(u8"【射撃の説明】\nマウス左クリックで銃を撃つことができます。\n弾が当たると敵にダメージを与えられます。");
     slideDescriptions_.push_back(u8"【リロードの説明】\n弾薬がなくなったら [R] キーを押すことで\n予備弾倉からリロードが行えます。");
-
-    slideTextures_.resize(MAX_SLIDES);
-    slideTextures_[0] = LoadTexture("Data/Image/Tutorial/ShootTutorial.png");
-    slideTextures_[1] = LoadTexture("Data/Image/Tutorial/ReloadTutorial.png");
 }
 
 void GunTutorialUI::Reset()
@@ -72,7 +68,7 @@ void GunTutorialUI::Draw() const
     // 1. 背景を暗くする半透明オーバーレイ
     DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.75f));
 
-    // 2. ウィンドウ全体のサイズを少し大きく確保（画面の80%幅・85%高さ）
+    // 2. ウィンドウ全体のサイズ
     const float panelWidth = static_cast<float>(screenWidth) * 0.80f;
     const float panelHeight = static_cast<float>(screenHeight) * 0.85f;
     const float panelX = (screenWidth - panelWidth) * 0.5f;
@@ -85,22 +81,30 @@ void GunTutorialUI::Draw() const
     // 3. 写真（画像）表示枠のレイアウト
     const float marginX = panelWidth * 0.05f;
     const float imgWidth = panelWidth - (marginX * 2.0f);
-    const float imgHeight = panelHeight * 0.38f; // 大きな文字の分、画像高さを少し調整
+    const float imgHeight = panelHeight * 0.38f;
     const float imgX = panelX + marginX;
     const float imgY = panelY + panelHeight * 0.07f;
 
     DrawRectangle(static_cast<int>(imgX), static_cast<int>(imgY), static_cast<int>(imgWidth), static_cast<int>(imgHeight), BLACK);
     DrawRectangleLines(static_cast<int>(imgX), static_cast<int>(imgY), static_cast<int>(imgWidth), static_cast<int>(imgHeight), LIGHTGRAY);
 
-    if (currentSlide_ < static_cast<int>(slideTextures_.size()) && slideTextures_[currentSlide_].id != 0)
+    // ResourceManager から対応するキーのテクスチャを取得して描画
+    const Texture2D* tex = nullptr;
+    if (currentSlide_ == 0) {
+        tex = RM().GetTexture(ResourceKeys::Gun_UI1); //射撃用画像キー
+    }
+    else if (currentSlide_ == 1) {
+        tex = RM().GetTexture(ResourceKeys::Gun_UI2); //リロード用画像キー
+    }
+
+    if (tex != nullptr && tex->id != 0)
     {
-        const Texture2D& tex = slideTextures_[currentSlide_];
-        DrawTexturePro(
-            tex,
-            { 0.0f, 0.0f, static_cast<float>(tex.width), static_cast<float>(tex.height) },
-            { imgX, imgY, imgWidth, imgHeight },
-            { 0.0f, 0.0f }, 0.0f, WHITE
-        );
+        Rectangle sourceRec = { 0.0f, 0.0f, static_cast<float>(tex->width), static_cast<float>(tex->height) };
+        Rectangle destRec = { imgX, imgY, imgWidth, imgHeight };
+        Vector2 origin = { 0.0f, 0.0f };
+
+        // 枠にぴったり収まるように拡大・縮小して描画
+        DrawTexturePro(*tex, sourceRec, destRec, origin, 0.0f, WHITE);
     }
     else
     {
@@ -111,7 +115,7 @@ void GunTutorialUI::Draw() const
         JPFont().DrawText(noImgText, static_cast<int>(imgX + (imgWidth - textW) * 0.5f), static_cast<int>(imgY + imgHeight * 0.5f - 18.0f), fontSizeNoImg, LIGHTGRAY);
     }
 
-    // 4. 説明枠のレイアウト（48pxの文字が3行収まるように高さを大きく確保）
+    // 4. 説明枠のレイアウト
     const float descWidth = imgWidth;
     const float descHeight = panelHeight * 0.35f;
     const float descX = imgX;
@@ -122,7 +126,6 @@ void GunTutorialUI::Draw() const
 
     if (currentSlide_ < static_cast<int>(slideDescriptions_.size()))
     {
-        // ★ メイン説明文のフォントサイズを 48.0f に設定
         const float descFontSize = 48.0f;
         JPFont().DrawText(slideDescriptions_[currentSlide_], static_cast<int>(descX + 25), static_cast<int>(descY + 20), descFontSize, RAYWHITE);
     }
@@ -151,13 +154,5 @@ void GunTutorialUI::Draw() const
 
 void GunTutorialUI::End()
 {
-    for (auto& tex : slideTextures_)
-    {
-        if (tex.id != 0)
-        {
-            UnloadTexture(tex);
-        }
-    }
-    slideTextures_.clear();
     slideDescriptions_.clear();
 }
