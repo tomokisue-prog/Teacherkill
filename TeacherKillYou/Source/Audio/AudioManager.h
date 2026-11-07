@@ -26,6 +26,8 @@ public:
 
     bool PlayBgm(BgmId id);
     void StopBgm();
+    void SetChaseActive(bool active);
+    void StopChase();
     bool PlayAmbience();
     void StopAmbience();
     bool IsAmbiencePlaying() const;
@@ -61,6 +63,7 @@ private:
     std::array<Sound, static_cast<std::size_t>(SeId::Count)> se_{};
     Music ambience_{};
     Music wind_{};
+    Music chase_{};
     std::array<float, static_cast<std::size_t>(SeId::Count)> seGains_{};
     std::array<bool, static_cast<std::size_t>(SeId::Count)> pausedSe_{};
     BgmId currentBgm_ = BgmId::Count;
@@ -70,10 +73,14 @@ private:
     float windFade_ = 0.0f;
     float windMix_ = 1.0f;
     float bgmFade_ = 0.0f;
+    float chaseFade_ = 0.0f;
     bool paused_ = false;
     bool pausedBgm_ = false;
     bool pausedAmbience_ = false;
     bool pausedWind_ = false;
+    bool pausedChase_ = false;
+    bool chaseWanted_ = false;
+    bool chasePlaying_ = false;
     bool windPlaying_ = false;
     bool ready_ = false;
     bool ownsDevice_ = false;

@@ -22,6 +22,7 @@ void HorrorAudio::Reset(Vector3 position) {
     trackedEnemy_ = 0;
     stepDistance_ = enemyStepDistance_ = 0.0f;
     previousPlayerStep_ = previousFemaleStep_ = -1;
+    AM().StopChase();
     AM().StopSe(SeId::Heartbeat);
     AM().StopSe(SeId::MaleFootstep);
 }
@@ -29,6 +30,14 @@ void HorrorAudio::Reset(Vector3 position) {
 void HorrorAudio::Update(float dt, const Player& player, const PlayerCamera& camera,
     const demo::EnemyManager& enemies, const Stage& stage, bool playerView) {
     (void)dt;
+    // Keep the track playing until every enemy stops pursuing or searching.
+    const auto& list = enemies.GetEnemies();
+    const bool detected = playerView && player.IsAlive() && std::any_of(list.begin(), list.end(), [](const demo::Enemy& enemy) {
+        const auto state = enemy.GetState();
+        return enemy.IsAlive() && (state == demo::EnemyState::Chase ||
+            state == demo::EnemyState::Attack || state == demo::EnemyState::Search);
+    });
+    AM().SetChaseActive(detected);
     const auto position = player.GetPosition();
     const float distance = Vector2Distance({position.x, position.z}, {previousPosition_.x, previousPosition_.z});
     previousPosition_ = position;
