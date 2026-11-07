@@ -273,6 +273,20 @@
     <ClCompile Include="Source\Events\SecurityTeleportPoint.cpp">
       <Filter>Source\Events</Filter>
     </ClCompile>
+    <ClCompile Include="Source\UI\GunTutorialUI.cpp" />
+    <ClCompile Include="Source\Actors\Player\PlayerStatusHud.cpp" />
+    <ClCompile Include="LowHpBloodOverlay.cpp" />
+    <ClCompile Include="Source\Scenes\IntroVideoPlayer.cpp" />
+    <ClCompile Include="Source\Items\ItemCatalog.cpp" />
+    <ClCompile Include="Source\Core\GameContextDraw.cpp">
+      <Filter>Source\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Core\GameContextCombat.cpp">
+      <Filter>Source\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Core\GameContextCheckpoint.cpp">
+      <Filter>Source\Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Audio\AudioManager.h">
@@ -506,6 +520,11 @@
     <ClInclude Include="Source\Events\SecurityTeleportPoint.h">
       <Filter>Source\Events</Filter>
     </ClInclude>
+    <ClInclude Include="Source\UI\GunTutorialUI.h" />
+    <ClInclude Include="Source\Actors\Player\PlayerStatusHud.h" />
+    <ClInclude Include="Source\Scenes\IntroVideoPlayer.h" />
+    <ClInclude Include="LowHpBloodOverlay.h" />
+    <ClInclude Include="Source\Items\ItemCatalog.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config">

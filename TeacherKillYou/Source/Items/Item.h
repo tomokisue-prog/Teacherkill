@@ -40,10 +40,22 @@ public:
     void SetType(ItemType type) { type_ = type; }
     Vector3 GetPosition() const { return position_; }
     void SetPosition(Vector3 position) { position_ = position; }
-    float GetYaw() const { return yaw_; }
-    void SetYaw(float yaw) { yaw_ = yaw; }
+
+    Vector3 GetRotation() const { return rotation_; }
+    void SetRotation(Vector3 rotation) {
+        rotation_ = rotation;
+        yaw_ = rotation.y * DEG2RAD;
+    }
+
+    float GetYaw() const { return rotation_.y * DEG2RAD; }
+    void SetYaw(float yaw) {
+        yaw_ = yaw;
+        rotation_.y = yaw * RAD2DEG;
+    }
+
     float GetScale() const { return scale_; }
     void SetScale(float scale) { scale_ = scale; }
+
     bool IsPickup() const {
         switch (type_) {
         case ItemType::Medkit:
@@ -60,9 +72,6 @@ public:
         }
     }
 
-    Vector3 GetRotation() const { return rotation_; }
-    void SetRotation(Vector3 rotation) { rotation_ = rotation; }
-
     bool IsCollected() const { return collected_; }
     void Collect() { collected_ = true; }
 
@@ -77,7 +86,7 @@ public:
 private:
     ItemType type_{ ItemType::None };
     Vector3 position_{ 0.0f, 0.0f, 0.0f };
-    Vector3 rotation_{ 0.0f, 0.0f, 0.0f };
+    Vector3 rotation_{ 0.0f, 0.0f, 0.0f }; // ìxêîñ@ (X, Y, Z)
     bool collected_{ false };
     float yaw_ = 0.0f;
     float scale_ = 1.0f;

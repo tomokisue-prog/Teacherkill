@@ -7,33 +7,33 @@
 namespace {
     struct ItemModel {
         const char* key;
-        float size; 
+        float size;
     };
 
     ItemModel ModelFor(ItemType type) {
         switch (type) {
-        case ItemType::Medkit: return {ResourceKeys::Model_Medkit, .65f};
-        case ItemType::Ammo: return {ResourceKeys::Model_Ammo, .55f};
-        case ItemType::KeyCard: return {ResourceKeys::Model_KeyCard, .47f};
-        case ItemType::LostItem: return {ResourceKeys::Model_LostItem, .40f};
-        case ItemType::Gun: return {ResourceKeys::Model_Gun, .52f};
-        case ItemType::AuthenticationKey: return {ResourceKeys::Model_Authentication_Key, .47f};
-        case ItemType::Books: return {ResourceKeys::Model_Books, .58f};
-        case ItemType::Chair1: return {ResourceKeys::Model_Chair1, 1.55f};
-        case ItemType::Chair2: return {ResourceKeys::Model_Chair2, 1.4f};
-        case ItemType::Computer: return {ResourceKeys::Model_Computer, .90f};
-        case ItemType::Locker: return {ResourceKeys::Model_Locker, 3.0f};
-        case ItemType::Whiteboard: return {ResourceKeys::Model_Whiteboard, 3.1f};
-        case ItemType::TrashBin: return {ResourceKeys::Model_TrashBin, .85f};
-        case ItemType::Table: return {ResourceKeys::Model_Table, 1.8f};
-        case ItemType::HorrorTable: return {ResourceKeys::Model_HorrorTable, 2.6f};
-        case ItemType::SlideDoorProp: return {ResourceKeys::Model_SlideDoorProp, 3.6f};
+        case ItemType::Medkit: return { ResourceKeys::Model_Medkit, .65f };
+        case ItemType::Ammo: return { ResourceKeys::Model_Ammo, .55f };
+        case ItemType::KeyCard: return { ResourceKeys::Model_KeyCard, .47f };
+        case ItemType::LostItem: return { ResourceKeys::Model_LostItem, .40f };
+        case ItemType::Gun: return { ResourceKeys::Model_Gun, .52f };
+        case ItemType::AuthenticationKey: return { ResourceKeys::Model_Authentication_Key, .47f };
+        case ItemType::Books: return { ResourceKeys::Model_Books, .58f };
+        case ItemType::Chair1: return { ResourceKeys::Model_Chair1, 1.55f };
+        case ItemType::Chair2: return { ResourceKeys::Model_Chair2, 1.4f };
+        case ItemType::Computer: return { ResourceKeys::Model_Computer, .90f };
+        case ItemType::Locker: return { ResourceKeys::Model_Locker, 3.0f };
+        case ItemType::Whiteboard: return { ResourceKeys::Model_Whiteboard, 3.1f };
+        case ItemType::TrashBin: return { ResourceKeys::Model_TrashBin, .85f };
+        case ItemType::Table: return { ResourceKeys::Model_Table, 1.8f };
+        case ItemType::HorrorTable: return { ResourceKeys::Model_HorrorTable, 2.6f };
+        case ItemType::SlideDoorProp: return { ResourceKeys::Model_SlideDoorProp, 3.6f };
         default: return {};
         }
     }
 
     float ModelScale(ItemModel asset, Vector3 size, float multiplier) {
-        const float longest = (std::max)({size.x, size.y, size.z});
+        const float longest = (std::max)({ size.x, size.y, size.z });
         return longest > .001f ? asset.size / longest * multiplier : multiplier;
     }
 }
@@ -52,7 +52,7 @@ const char* Item::GetName(ItemType type)
     case ItemType::KeyCard: return "KEY CARD";
     case ItemType::Battery: return "BATTERY";
     case ItemType::Key:     return "KEY";
-	case ItemType::LostItem: return "LOST ITEM";
+    case ItemType::LostItem: return "LOST ITEM";
     case ItemType::Gun:     return "GUN";
     case ItemType::AuthenticationKey: return "AUTHENTICATION KEY";
     case ItemType::Books: return "BOOKS";
@@ -78,31 +78,65 @@ void Item::Draw() const
     if (model.meshCount <= 0 || !model.meshes) return;
 
     const auto bounds = RM().GetModelBounds(asset.key);
-    const float scale = ModelScale(asset, Vector3Subtract(bounds.max, bounds.min), scale_);
-    // Use the bottom centre as the anchor so floor and tabletop clicks align with the model.
-    model.transform = MatrixMultiply(model.transform, MatrixTranslate(
-        -(bounds.min.x + bounds.max.x) * .5f, -bounds.min.y, -(bounds.min.z + bounds.max.z) * .5f));
-    DrawHorrorModelEx(model, position_, {0, 1, 0}, yaw_ * RAD2DEG, {scale, scale, scale});
+    const float baseScale = ModelScale(asset, Vector3Subtract(bounds.max, bounds.min), scale_);
+
+    // 底面中心を原点にするピボット補正
+    const Matrix pivot = MatrixTranslate(
+        -(bounds.min.x + bounds.max.x) * 0.5f,
+        -bounds.min.y,
+        -(bounds.min.z + bounds.max.z) * 0.5f
+    );
+
+    // 3軸回転 (X -> Y -> Z) とスケール・平行移動を合成
+    const Matrix matScale = MatrixScale(baseScale, baseScale, baseScale);
+    const Matrix matRotX = MatrixRotateX(rotation_.x * DEG2RAD);
+    const Matrix matRotY = MatrixRotateY(rotation_.y * DEG2RAD);
+    const Matrix matRotZ = MatrixRotateZ(rotation_.z * DEG2RAD);
+    const Matrix matRot = MatrixMultiply(MatrixMultiply(matRotX, matRotY), matRotZ);
+    const Matrix matTrans = MatrixTranslate(position_.x, position_.y, position_.z);
+
+    const Matrix fullTransform = MatrixMultiply(
+        MatrixMultiply(model.transform, pivot),
+        MatrixMultiply(MatrixMultiply(matScale, matRot), matTrans)
+    );
+
+    for (int i = 0; i < model.meshCount; ++i)
+    {
+        DrawHorrorMesh(model.meshes[i], model.materials[model.meshMaterial[i]], fullTransform);
+    }
 }
 
 RayCollision Item::RaycastPlacement(Ray ray) const
 {
     const auto asset = ModelFor(type_);
-    Vector3 size{.35f, .35f, .35f};
+    Vector3 size{ .35f, .35f, .35f };
     if (asset.key) {
         const auto bounds = RM().GetModelBounds(asset.key);
         const auto dimensions = Vector3Subtract(bounds.max, bounds.min);
         size = Vector3Scale(dimensions, ModelScale(asset, dimensions, scale_));
     }
-    if (IsPickup()) size = Vector3Max(size, {.30f, .25f, .30f});
-    const auto inverse = MatrixRotateY(-yaw_);
-    const Ray local{Vector3Transform(Vector3Subtract(ray.position, position_), inverse),
-        Vector3Transform(ray.direction, inverse)};
-    auto hit = GetRayCollisionBox(local, {{-size.x * .5f, 0, -size.z * .5f},
-                                         { size.x * .5f, size.y, size.z * .5f}});
+    if (IsPickup()) size = Vector3Max(size, { .30f, .25f, .30f });
+
+    // 3軸回転の逆行列でレイをローカル座標空間に変換
+    const Matrix matRotX = MatrixRotateX(rotation_.x * DEG2RAD);
+    const Matrix matRotY = MatrixRotateY(rotation_.y * DEG2RAD);
+    const Matrix matRotZ = MatrixRotateZ(rotation_.z * DEG2RAD);
+    const Matrix matRot = MatrixMultiply(MatrixMultiply(matRotX, matRotY), matRotZ);
+    const Matrix inverse = MatrixInvert(matRot);
+
+    const Ray local{
+        Vector3Transform(Vector3Subtract(ray.position, position_), inverse),
+        Vector3Transform(ray.direction, inverse)
+    };
+
+    auto hit = GetRayCollisionBox(local, {
+        { -size.x * 0.5f, 0.0f, -size.z * 0.5f },
+        {  size.x * 0.5f, size.y,  size.z * 0.5f }
+        });
+
     if (hit.hit) {
         hit.point = Vector3Add(ray.position, Vector3Scale(ray.direction, hit.distance));
-        hit.normal = Vector3Transform(hit.normal, MatrixRotateY(yaw_));
+        hit.normal = Vector3Transform(hit.normal, matRot);
     }
     return hit;
 }

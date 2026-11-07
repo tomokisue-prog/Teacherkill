@@ -30,8 +30,13 @@
     <None Include="third_party\ufbx\README.md" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="LowHpBloodOverlay.cpp" />
+    <ClCompile Include="Source\Actors\Player\PlayerStatusHud.cpp" />
     <ClCompile Include="Source\Audio\AudioManager.cpp" />
     <ClCompile Include="Source\Camera\CameraController.cpp" />
+    <ClCompile Include="Source\Core\GameContextCheckpoint.cpp" />
+    <ClCompile Include="Source\Core\GameContextCombat.cpp" />
+    <ClCompile Include="Source\Core\GameContextDraw.cpp" />
     <ClCompile Include="Source\Debug\DebugUI.cpp" />
     <ClCompile Include="Source\Events\EventDialoguePoint.cpp" />
     <ClCompile Include="Source\Debug\DebugMenu.cpp" />
@@ -40,6 +45,8 @@
     <ClCompile Include="Source\Events\SecurityPC.cpp" />
     <ClCompile Include="Source\Events\SecurityTeleportPoint.cpp" />
     <ClCompile Include="Source\Events\Tutorial4FFloorEvent.cpp" />
+    <ClCompile Include="Source\Items\ItemCatalog.cpp" />
+    <ClCompile Include="Source\Scenes\IntroVideoPlayer.cpp" />
     <ClCompile Include="Source\UI\DialogueManager.cpp" />
     <ClCompile Include="Source\UI\GunTutorialUI.cpp" />
     <ClCompile Include="Source\World\DoorMove.cpp" />
@@ -118,9 +125,8 @@
     <ClCompile Include="Source\Scenes\TitleScene.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="IntroVideoPlayer.h" />
     <ClInclude Include="LowHpBloodOverlay.h" />
-    <ClInclude Include="PlayerStatusHud.h" />
+    <ClInclude Include="Source\Actors\Player\PlayerStatusHud.h" />
     <ClInclude Include="Source\Audio\AudioManager.h" />
     <ClInclude Include="Source\Camera\CameraController.h" />
     <ClInclude Include="Source\Debug\DebugUI.h" />
@@ -132,6 +138,8 @@
     <ClInclude Include="Source\Events\SecurityPC.h" />
     <ClInclude Include="Source\Events\SecurityTeleportPoint.h" />
     <ClInclude Include="Source\Events\Tutorial4FFloorEvent.h" />
+    <ClInclude Include="Source\Items\ItemCatalog.h" />
+    <ClInclude Include="Source\Scenes\IntroVideoPlayer.h" />
     <ClInclude Include="Source\UI\DialogueEntry.h" />
     <ClInclude Include="Source\UI\DialogueManager.h" />
     <ClInclude Include="Source\UI\GunTutorialUI.h" />
