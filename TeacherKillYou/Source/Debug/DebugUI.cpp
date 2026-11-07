@@ -817,7 +817,7 @@ void DebugUI::DrawEnemyHierarchy(GameContext& gameContext)
     for (int i = 0; i < static_cast<int>(spawnPoints.size()); ++i) {
         const bool selected = selectedObject_ == SelectedObjectType::EnemyManager && selectedEnemyIndex_ == i;
         const auto type = spawnPoints[i].config.type;
-        if (ImGui::Selectable(TextFormat("%d  %s##enemy%d", i + 1, EnemyTypes[int(type)], i), selected)) {
+        if (ImGui::Selectable(TextFormat("%d  %s##enemy%d", i + 1, EnemyTypes[EnemyTypeIndex(type)], i), selected)) {
             selectedEnemyIndex_ = i;
             selectedObject_ = SelectedObjectType::EnemyManager;
             pendingEnemy_.reset();
