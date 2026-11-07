@@ -22,5 +22,10 @@ private:
     Texture2D logo_{};
     Texture2D menu_{};
     Texture2D lightning_{}; // Optional: loaded when the designer's PNG exists.
+    Shader lightningLight_{};
+    int lightningStrengthLocation_ = -1;
+    int lightningViewportLocation_ = -1;
     float windTime_ = 0.0f;
+    float lastLightningAt_ = -1.0f;
+    float nextLightningAt_ = 4.0f;
 };
