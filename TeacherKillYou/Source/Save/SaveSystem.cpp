@@ -46,18 +46,25 @@ namespace {
         return items;
     }
 
-    std::vector<demo::EnemyPlacement> ParseEnemyPlacements(const json& entries)
+    std::vector<demo::EnemySpawnData> ParseEnemyPlacements(const json& entries)
     {
         if (!entries.is_array() || entries.size() > demo::MaxEnemyPlacements)
             throw std::runtime_error("invalid enemies array");
-        std::vector<demo::EnemyPlacement> placements;
+        std::vector<demo::EnemySpawnData> placements;
         placements.reserve(entries.size());
         for (const auto& entry : entries) {
-            // Older scenes may still contain the retired enemy ID 0.
             if (SaveData::Integer(entry.at("config").at("type"), 0, 2) == 0) continue;
-            placements.push_back({ParsePlacementPosition(entry.at("position")),
-                SaveData::Number(entry.at("yaw"), -PI, PI),
-                SaveData::ParseEnemyConfig(entry.at("config"))});
+            demo::EnemySpawnData placement;
+            placement.SetPosition(ParsePlacementPosition(entry.at("position")));
+            placement.yaw = SaveData::Number(entry.at("yaw"), -PI, PI);
+            placement.config = SaveData::ParseEnemyConfig(entry.at("config"));
+            placement.condition = static_cast<demo::EnemySpawnCondition>(
+                SaveData::Integer(entry.value("condition", 1), 0, 2));
+            placement.despawnCondition = static_cast<demo::EnemyDespawnCondition>(
+                SaveData::Integer(entry.value("despawnCondition", 0), 0, 1));
+            placement.spawned = false;
+            placement.spawnedEnemyId = 0;
+            placements.push_back(std::move(placement));
         }
         return placements;
     }
@@ -86,22 +93,7 @@ bool SaveSystem::SaveScene(const GameContext& gameContext, const std::string& fi
     }
     root["worldItems"] = itemArray;
 
-    // Enemy (保存処理)
-    nlohmann::json enemyArray = nlohmann::json::array();
-    for (const auto& sp : gameContext.GetEnemyManager().GetSpawnPoints())
-    {
-        nlohmann::json spJson;
-        spJson["position"] = Vector3ToJson(sp.GetPosition());
-        spJson["yaw"] = sp.yaw;
-        spJson["type"] = static_cast<int>(sp.config.type);
-        spJson["condition"] = static_cast<int>(sp.condition);
-        spJson["despawnCondition"] = static_cast<int>(sp.despawnCondition);
-        spJson["spawned"] = sp.spawned;
-        spJson["config"] = SaveData::PackEnemyConfig(sp.config); // Config全体をパックして保存
-        spJson["spawnedEnemyId"] = sp.spawnedEnemyId;
-        enemyArray.push_back(spJson);
-    }
-    root["enemies"] = enemyArray;
+
 
     // 2. Doors (複数ドアの配列保存)
     nlohmann::json doorArray = nlohmann::json::array();
@@ -178,10 +170,12 @@ bool SaveSystem::SaveScene(const GameContext& gameContext, const std::string& fi
     }
     root["securityTeleportPoints"] = secTpArray;
 
+    // The inspector edits spawn points, so they are the single source of truth for scene JSON.
     auto& enemies = root["enemies"] = nlohmann::json::array();
-    for (const auto& placement : gameContext.GetEnemyPlacements())
+    for (const auto& placement : gameContext.GetEnemyManager().GetSpawnPoints())
     {
-        enemies.push_back({{"position", Vector3ToJson(placement.position)}, {"yaw", placement.yaw},
+        enemies.push_back({{"position", Vector3ToJson(placement.GetPosition())}, {"yaw", placement.yaw},
+            {"condition", int(placement.condition)}, {"despawnCondition", int(placement.despawnCondition)},
             {"config", SaveData::PackEnemyConfig(placement.config)}});
     }
 
@@ -192,13 +186,9 @@ bool SaveSystem::SaveScene(const GameContext& gameContext, const std::string& fi
             {"yaw", item.GetYaw()}, {"scale", item.GetScale()}});
     }
 
-    std::ofstream file(filepath);
-    if (file.is_open())
-    {
-        file << root.dump(4);
-        TraceLog(LOG_INFO, "SAVE_SYSTEM: Saved successfully to %s", filepath.c_str());
-        return true;
-    }
+    if (!SaveData::Write(filepath, root)) return false;
+    TraceLog(LOG_INFO, "SAVE_SYSTEM: Saved successfully to %s", filepath.c_str());
+    return true;
 }
 
 bool SaveSystem::LoadScene(GameContext& gameContext, const std::string& filepath)
@@ -206,7 +196,7 @@ bool SaveSystem::LoadScene(GameContext& gameContext, const std::string& filepath
     nlohmann::json root;
     if (!SaveData::Read(filepath, root)) return false;
 
-    std::optional<std::vector<demo::EnemyPlacement>> placements;
+    std::optional<std::vector<demo::EnemySpawnData>> placements;
     std::optional<std::vector<Item>> items;
     try {
         if (root.contains("enemies"))
@@ -251,31 +241,7 @@ bool SaveSystem::LoadScene(GameContext& gameContext, const std::string& filepath
         }
     }
 
-    // Enemy (ロード処理)
-    if (root.contains("enemies") && root["enemies"].is_array())
-    {
-        auto& spawnPoints = gameContext.GetEnemyManager().GetSpawnPoints();
-        spawnPoints.clear();
-        gameContext.GetEnemyManager().Clear();
 
-        for (const auto& spJson : root["enemies"])
-        {
-            demo::EnemySpawnData sp;
-            if (spJson.contains("position")) sp.SetPosition(JsonToVector3(spJson["position"]));
-            if (spJson.contains("yaw"))      sp.yaw = spJson["yaw"].get<float>();
-            if (spJson.contains("type"))     sp.config.type = static_cast<demo::EnemyType>(spJson["type"].get<int>());
-            if (spJson.contains("condition")) sp.condition = static_cast<demo::EnemySpawnCondition>(spJson["condition"].get<int>());
-            if (spJson.contains("despawnCondition")) sp.despawnCondition = static_cast<demo::EnemyDespawnCondition>(spJson["despawnCondition"].get<int>());
-
-            // パックされたConfigの復元
-            if (spJson.contains("config"))   sp.config = SaveData::ParseEnemyConfig(spJson["config"]);
-
-            sp.spawned = false;
-            if (spJson.contains("spawnedEnemyId")) sp.spawnedEnemyId = static_cast<demo::EnemyId>(spJson["spawnedEnemyId"].get<int>());
-
-            spawnPoints.push_back(sp);
-        }
-    }
 
     // 2. Doors (複数ドアの配列復元)
     if (root.contains("doors") && root["doors"].is_array())
@@ -379,8 +345,9 @@ bool SaveSystem::LoadScene(GameContext& gameContext, const std::string& filepath
     );
 
     if (placements) {
-        gameContext.GetEnemyPlacements() = std::move(*placements);
-        gameContext.ApplyEnemyPlacements();
+        auto& spawnPoints = gameContext.GetEnemyManager().GetSpawnPoints();
+        gameContext.GetEnemyManager().Clear();
+        spawnPoints = std::move(*placements);
     }
 
     if (items) {
