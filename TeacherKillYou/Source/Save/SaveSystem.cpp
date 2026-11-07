@@ -26,9 +26,9 @@ namespace {
 
     Vector3 ParsePlacementPosition(const json& position)
     {
-        return {SaveData::Number(position.at("x"), -100000, 100000),
+        return { SaveData::Number(position.at("x"), -100000, 100000),
                 SaveData::Number(position.at("y"), -100000, 100000),
-                SaveData::Number(position.at("z"), -100000, 100000)};
+                SaveData::Number(position.at("z"), -100000, 100000) };
     }
 
     std::vector<Item> ParseItemPlacements(const json& entries)
@@ -40,7 +40,16 @@ namespace {
         for (const auto& entry : entries) {
             const auto type = static_cast<ItemType>(SaveData::Integer(entry.at("type"), 1, int(ItemType::Count) - 1));
             items.emplace_back(type, ParsePlacementPosition(entry.at("position")));
-            items.back().SetYaw(SaveData::Number(entry.at("yaw"), -PI, PI));
+
+            // rotationが存在すれば3軸で読み込み、無ければ旧仕様のyawから復元
+            if (entry.contains("rotation")) {
+                items.back().SetRotation(JsonToVector3(entry.at("rotation")));
+            }
+            else if (entry.contains("yaw")) {
+                const float y = SaveData::Number(entry.at("yaw"), -PI, PI);
+                items.back().SetRotation({ 0.0f, y * RAD2DEG, 0.0f });
+            }
+
             items.back().SetScale(SaveData::Number(entry.at("scale"), .05f, 20));
         }
         return items;
@@ -81,6 +90,11 @@ bool SaveSystem::SaveScene(const GameContext& gameContext, const std::string& fi
     root["player"]["scale"] = Vector3ToJson(player.GetScale());
     root["player"]["hasGun"] = player.HasGun();
 
+    // Stage
+    const auto& stage = gameContext.GetStage();
+    root["stage"]["position"] = Vector3ToJson(stage.GetPosition());
+    root["stage"]["scale"] = stage.GetScale();
+
     nlohmann::json itemArray = nlohmann::json::array();
     for (const auto& item : gameContext.GetInventory().GetWorldItems())
     {
@@ -93,9 +107,7 @@ bool SaveSystem::SaveScene(const GameContext& gameContext, const std::string& fi
     }
     root["worldItems"] = itemArray;
 
-
-
-    // 2. Doors (複数ドアの配列保存)
+    // 2. Doors
     nlohmann::json doorArray = nlohmann::json::array();
     for (const auto& door : gameContext.GetDoors())
     {
@@ -170,20 +182,24 @@ bool SaveSystem::SaveScene(const GameContext& gameContext, const std::string& fi
     }
     root["securityTeleportPoints"] = secTpArray;
 
-    // The inspector edits spawn points, so they are the single source of truth for scene JSON.
     auto& enemies = root["enemies"] = nlohmann::json::array();
     for (const auto& placement : gameContext.GetEnemyManager().GetSpawnPoints())
     {
-        enemies.push_back({{"position", Vector3ToJson(placement.GetPosition())}, {"yaw", placement.yaw},
+        enemies.push_back({ {"position", Vector3ToJson(placement.GetPosition())}, {"yaw", placement.yaw},
             {"condition", int(placement.condition)}, {"despawnCondition", int(placement.despawnCondition)},
-            {"config", SaveData::PackEnemyConfig(placement.config)}});
+            {"config", SaveData::PackEnemyConfig(placement.config)} });
     }
 
     auto& items = root["items"] = nlohmann::json::array();
     for (const auto& item : gameContext.GetInventory().GetPlacements())
     {
-        items.push_back({{"type", int(item.GetType())}, {"position", Vector3ToJson(item.GetPosition())},
-            {"yaw", item.GetYaw()}, {"scale", item.GetScale()}});
+        items.push_back({
+            {"type", int(item.GetType())},
+            {"position", Vector3ToJson(item.GetPosition())},
+            {"rotation", Vector3ToJson(item.GetRotation())}, // 3軸オイラー角を保存
+            {"yaw", item.GetYaw()},                          // 下位互換用
+            {"scale", item.GetScale()}
+            });
     }
 
     if (!SaveData::Write(filepath, root)) return false;
@@ -220,6 +236,19 @@ bool SaveSystem::LoadScene(GameContext& gameContext, const std::string& filepath
         if (p.contains("hasGun"))   player.SetHasGun(p["hasGun"].get<bool>());
     }
 
+    // Stage
+    if (root.contains("stage"))
+    {
+        const auto& s = root["stage"];
+        auto& stage = gameContext.GetStage();
+        if (s.contains("position")) stage.SetPosition(JsonToVector3(s["position"]));
+        if (s.contains("scale") && s["scale"].is_number())
+        {
+            float sc = s["scale"].get<float>();
+            if (sc > 0.0001f) stage.SetScale(sc);
+        }
+    }
+
     if (root.contains("worldItems") && root["worldItems"].is_array())
     {
         auto& worldItems = gameContext.GetInventory().GetWorldItems();
@@ -241,9 +270,7 @@ bool SaveSystem::LoadScene(GameContext& gameContext, const std::string& filepath
         }
     }
 
-
-
-    // 2. Doors (複数ドアの配列復元)
+    // 2. Doors
     if (root.contains("doors") && root["doors"].is_array())
     {
         auto& doors = gameContext.GetDoors();
