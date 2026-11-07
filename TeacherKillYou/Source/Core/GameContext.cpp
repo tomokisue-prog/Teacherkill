@@ -218,8 +218,23 @@ void GameContext::PlaceCharacters()
 void GameContext::ApplyEnemyPlacements()
 {
     enemyManager_.Clear();
+    auto& spawnPoints = enemyManager_.GetSpawnPoints();
+    spawnPoints.clear();
+
+    // Keep the editor, scene JSON, and in-game spawning on one shared data set.
     for (const auto& placement : enemyPlacements_)
-        enemyManager_.Spawn(placement.position, placement.config, placement.yaw);
+    {
+        demo::EnemySpawnData spawnPoint;
+        spawnPoint.SetPosition(placement.position);
+        spawnPoint.yaw = placement.yaw;
+        spawnPoint.config = placement.config;
+        spawnPoint.condition = demo::EnemySpawnCondition::Normal;
+        spawnPoint.despawnCondition = demo::EnemyDespawnCondition::None;
+        spawnPoint.spawnedEnemyId = enemyManager_.Spawn(
+            spawnPoint.GetPosition(), spawnPoint.config, spawnPoint.yaw);
+        spawnPoint.spawned = true;
+        spawnPoints.push_back(std::move(spawnPoint));
+    }
 }
 
 void GameContext::ProcessPlayerShot()
@@ -704,11 +719,9 @@ void GameContext::Draw() const
 
     if (!playerView)
     {
-        for (const auto& tp : teleportPoints_)
-        {
-            tp.Draw();
-        }
-
+        for (const auto& tp : teleportPoints_) tp.Draw();
+        for (const auto& securityTeleport : securityTeleportPoints_)
+            securityTeleport.Draw();
         goalPoint_.Draw();
     }
 
@@ -727,8 +740,9 @@ void GameContext::Draw() const
     if (playerView) {
         enemyManager_.Draw();
     } else {
-        for (const auto& placement : enemyPlacements_)
-            demo::Enemy(0, placement.config, placement.position, placement.yaw).Draw();
+        // Preview the exact spawn points edited by the hierarchy and written to scene.json.
+        for (const auto& spawnPoint : enemyManager_.GetSpawnPoints())
+            demo::Enemy(0, spawnPoint.config, spawnPoint.GetPosition(), spawnPoint.yaw).Draw();
     }
     DrawBulletMarks();
     DrawShotEffects();
