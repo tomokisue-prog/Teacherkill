@@ -98,6 +98,7 @@ void GameScene::BeginGameOver()
     checkpointAvailable_ = CheckpointSave::Load(checkpoint);
     gameOverScreen_.SetCheckpointAvailable(checkpointAvailable_);
     gameContext->GetInventory().CancelHealing();
+    AM().StopChase();
     AM().StopBgm();
     AM().StopWind();
     AM().StopAmbience();
@@ -290,6 +291,7 @@ void GameScene::End()
     gameOverScreen_.End();
     pauseMenu_.End();
     SaveSettings();
+    AM().StopChase();
     AM().StopBgm();
     AM().StopWind();
     AM().StopAmbience();

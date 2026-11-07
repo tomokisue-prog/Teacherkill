@@ -23,8 +23,17 @@ constexpr const char* SeFiles[] = {
 static_assert(sizeof(BgmAssets) / sizeof(BgmAssets[0]) == static_cast<std::size_t>(BgmId::Count), "BGM file list mismatch");
 static_assert(sizeof(SeFiles) / sizeof(SeFiles[0]) == static_cast<std::size_t>(SeId::Count), "SE file list mismatch");
 constexpr float FadeSeconds = 0.8f;
+constexpr float ChaseFadeInSeconds = 0.5f;
+constexpr float ChaseFadeOutSeconds = 1.3f;
+constexpr float ChaseGain = 0.75f;
+constexpr float ChaseAmbienceDuck = 0.75f;
 float Volume(float value, float fallback) {
     return std::isfinite(value) ? (std::max)(0.0f, (std::min)(1.0f, value)) : fallback;
+}
+float ChaseAmbienceVolume(float ambience, float bgm, float fade) {
+    // Muting the music should not mute the atmosphere too.
+    const float audible = (std::min)(1.0f, bgm / 0.35f);
+    return ambience * (1.0f - ChaseAmbienceDuck * fade * audible);
 }
 std::string Path(const std::string& dir, const char* name) { return dir + "/" + name; }
 }
@@ -45,6 +54,12 @@ bool AudioManager::Init(const std::string& directory) {
         ambience_ = LoadMusicStream(ambiencePath.c_str());
         if (IsMusicValid(ambience_)) { ambience_.looping = true; SetMusicVolume(ambience_, ambienceVolume_); }
     } else TraceLog(LOG_WARNING, "AUDIO: Missing %s", ambiencePath.c_str());
+    const auto chasePath = Path(directory, "horror action.mp3");
+    if (FileExists(chasePath.c_str())) {
+        chase_ = LoadMusicStream(chasePath.c_str());
+        if (IsMusicValid(chase_)) { chase_.looping = true; SetMusicVolume(chase_, 0.0f); }
+        else TraceLog(LOG_WARNING, "AUDIO: Could not load %s", chasePath.c_str());
+    } else TraceLog(LOG_WARNING, "AUDIO: Missing %s", chasePath.c_str());
     const auto windPath = Path(directory, "game cover wind_loop.wav");
     if (FileExists(windPath.c_str())) {
         wind_ = LoadMusicStream(windPath.c_str());
@@ -98,10 +113,26 @@ void AudioManager::StopBgm() {
     pausedBgm_ = false;
     bgmFade_ = 0.0f;
 }
+void AudioManager::SetChaseActive(bool active) {
+    if (!IsReady() || !IsMusicValid(chase_)) return;
+    chaseWanted_ = active;
+    if (!active || chasePlaying_) return;
+    chaseFade_ = 0.0f;
+    SetMusicVolume(chase_, 0.0f);
+    PlayMusicStream(chase_);
+    chasePlaying_ = true;
+    if (paused_) { PauseMusicStream(chase_); pausedChase_ = true; }
+}
+void AudioManager::StopChase() {
+    if (IsReady() && IsMusicValid(chase_) && chasePlaying_) StopMusicStream(chase_);
+    chaseWanted_ = chasePlaying_ = pausedChase_ = false;
+    chaseFade_ = 0.0f;
+    if (IsReady() && IsMusicValid(ambience_)) SetMusicVolume(ambience_, ambienceVolume_);
+}
 bool AudioManager::PlayAmbience() {
     if (!IsReady() || !IsMusicValid(ambience_)) return false;
     if (IsAmbiencePlaying() || pausedAmbience_) return true;
-    SetMusicVolume(ambience_, ambienceVolume_);
+    SetMusicVolume(ambience_, ChaseAmbienceVolume(ambienceVolume_, bgmVolume_, chaseFade_));
     PlayMusicStream(ambience_);
     if (paused_) { PauseMusicStream(ambience_); pausedAmbience_ = true; }
     return true;
@@ -138,7 +169,19 @@ void AudioManager::SetWindMix(float gain) {
 void AudioManager::Update() {
     if (!IsReady() || paused_) return;
     const float dt = std::isfinite(GetFrameTime()) ? (std::max)(0.0f, (std::min)(GetFrameTime(), 0.1f)) : 0.0f;
-    if (IsMusicValid(ambience_) && IsMusicStreamPlaying(ambience_)) UpdateMusicStream(ambience_);
+    if (chasePlaying_ && IsMusicValid(chase_)) {
+        if (chaseWanted_) chaseFade_ = (std::min)(1.0f, chaseFade_ + dt / ChaseFadeInSeconds);
+        else chaseFade_ = (std::max)(0.0f, chaseFade_ - dt / ChaseFadeOutSeconds);
+        if (!chaseWanted_ && chaseFade_ <= 0.0f) StopChase();
+        else {
+            SetMusicVolume(chase_, bgmVolume_ * ChaseGain * chaseFade_);
+            UpdateMusicStream(chase_);
+        }
+    }
+    if (IsMusicValid(ambience_) && IsMusicStreamPlaying(ambience_)) {
+        SetMusicVolume(ambience_, ChaseAmbienceVolume(ambienceVolume_, bgmVolume_, chaseFade_));
+        UpdateMusicStream(ambience_);
+    }
     if (windPlaying_ && IsMusicValid(wind_)) {
         windFade_ = (std::min)(1.0f, windFade_ + dt / FadeSeconds);
         // The default BGM slider is 0.35, so the wind plays at 35% by default.
@@ -186,6 +229,9 @@ void AudioManager::SetBgmVolume(float volume) {
     bgmVolume_ = Volume(volume, bgmVolume_);
     if (!IsReady()) return;
     if (IsMusicValid(wind_)) SetMusicVolume(wind_, bgmVolume_ * windFade_ * windMix_);
+    if (IsMusicValid(chase_)) SetMusicVolume(chase_, bgmVolume_ * ChaseGain * chaseFade_);
+    if (IsMusicValid(ambience_))
+        SetMusicVolume(ambience_, ChaseAmbienceVolume(ambienceVolume_, bgmVolume_, chaseFade_));
     if (HasBgm(currentBgm_)) {
         const auto i = static_cast<std::size_t>(currentBgm_);
         SetMusicVolume(bgm_[i], bgmVolume_ * BgmAssets[i].gain * bgmFade_);
@@ -198,7 +244,8 @@ void AudioManager::SetSeVolume(float volume) {
 }
 void AudioManager::SetAmbienceVolume(float volume) {
     ambienceVolume_ = Volume(volume, ambienceVolume_);
-    if (IsReady() && IsMusicValid(ambience_)) SetMusicVolume(ambience_, ambienceVolume_);
+    if (IsReady() && IsMusicValid(ambience_))
+        SetMusicVolume(ambience_, ChaseAmbienceVolume(ambienceVolume_, bgmVolume_, chaseFade_));
 }
 void AudioManager::SetPaused(bool paused) {
     if (paused_ == paused) return;
@@ -208,9 +255,11 @@ void AudioManager::SetPaused(bool paused) {
         pausedBgm_ = IsBgmPlaying();
         pausedAmbience_ = IsAmbiencePlaying();
         pausedWind_ = windPlaying_ && IsMusicValid(wind_) && IsMusicStreamPlaying(wind_);
+        pausedChase_ = chasePlaying_ && IsMusicValid(chase_) && IsMusicStreamPlaying(chase_);
         if (pausedBgm_) PauseMusicStream(bgm_[static_cast<std::size_t>(currentBgm_)]);
         if (pausedAmbience_) PauseMusicStream(ambience_);
         if (pausedWind_) PauseMusicStream(wind_);
+        if (pausedChase_) PauseMusicStream(chase_);
         for (std::size_t i = 0; i < se_.size(); ++i) {
             pausedSe_[i] = HasSe(static_cast<SeId>(i)) && IsSoundPlaying(se_[i]);
             if (pausedSe_[i]) PauseSound(se_[i]);
@@ -219,21 +268,23 @@ void AudioManager::SetPaused(bool paused) {
         if (pausedBgm_ && HasBgm(currentBgm_)) ResumeMusicStream(bgm_[static_cast<std::size_t>(currentBgm_)]);
         if (pausedAmbience_ && IsMusicValid(ambience_)) ResumeMusicStream(ambience_);
         if (pausedWind_ && IsMusicValid(wind_)) ResumeMusicStream(wind_);
+        if (pausedChase_ && chasePlaying_ && IsMusicValid(chase_)) ResumeMusicStream(chase_);
         for (std::size_t i = 0; i < se_.size(); ++i) if (pausedSe_[i] && HasSe(static_cast<SeId>(i))) ResumeSound(se_[i]);
-        pausedBgm_ = pausedAmbience_ = pausedWind_ = false;
+        pausedBgm_ = pausedAmbience_ = pausedWind_ = pausedChase_ = false;
         pausedSe_.fill(false);
     }
 }
 void AudioManager::Shutdown() {
-    StopBgm(); StopAmbience(); StopWind(); StopAllSe();
-    paused_ = pausedBgm_ = pausedAmbience_ = pausedWind_ = false;
+    StopBgm(); StopChase(); StopAmbience(); StopWind(); StopAllSe();
+    paused_ = pausedBgm_ = pausedAmbience_ = pausedWind_ = pausedChase_ = false;
     if (IsAudioDeviceReady()) {
         if (IsMusicValid(ambience_)) UnloadMusicStream(ambience_);
         if (IsMusicValid(wind_)) UnloadMusicStream(wind_);
+        if (IsMusicValid(chase_)) UnloadMusicStream(chase_);
         for (Music music : bgm_) if (IsMusicValid(music)) UnloadMusicStream(music);
         for (Sound sound : se_) if (IsSoundValid(sound)) UnloadSound(sound);
     }
-    ambience_ = {}; wind_ = {}; bgm_ = {}; se_ = {};
+    ambience_ = {}; wind_ = {}; chase_ = {}; bgm_ = {}; se_ = {};
     if (ownsDevice_ && IsAudioDeviceReady()) CloseAudioDevice();
     ready_ = ownsDevice_ = false;
 }
