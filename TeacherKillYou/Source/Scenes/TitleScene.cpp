@@ -2,6 +2,7 @@
 #include "SceneManager.h"
 #include "AudioManager.h"
 #include "CheckpointSave.h"
+#include "rlgl.h"
 #include <algorithm>
 #include <cmath>
 
@@ -21,9 +22,27 @@ namespace {
     constexpr int FallingLeafCount = 16;
     constexpr float LeafFallSeconds = 7.5f; // Smaller values make leaves fall faster.
     constexpr float LeafDriftPixels = 32.0f; // Side-to-side drift at 1920 x 1080.
-    constexpr float LightningIntervalSeconds = 6.0f;
-    constexpr float LightningEffectSeconds = 0.60f;
+    constexpr float FirstLightningSeconds = 4.0f;
+    constexpr float LightningFrameSeconds = 0.25f;
+    constexpr float ThunderDelaySeconds = 0.37f;
     constexpr float TitleWindMix = 0.22f;
+
+    const char* LightningLightFragment = R"(#version 330
+in vec2 fragTexCoord;
+in vec4 fragColor;
+uniform sampler2D texture0;
+uniform vec4 colDiffuse;
+uniform vec2 viewportSize;
+uniform float flashStrength;
+out vec4 finalColor;
+void main() {
+    vec4 surface = texture(texture0, fragTexCoord) * colDiffuse * fragColor;
+    vec2 position = vec2(gl_FragCoord.x, viewportSize.y - gl_FragCoord.y) / viewportSize;
+    vec2 distanceFromFlash = (position - vec2(0.79, 0.30)) / vec2(0.46, 0.70);
+    float falloff = 1.0 - smoothstep(0.05, 1.0, length(distanceFromFlash));
+    vec3 reflectedLight = surface.rgb * vec3(0.23, 0.34, 0.50) + vec3(0.045, 0.060, 0.092);
+    finalColor = vec4(clamp(surface.rgb + reflectedLight * falloff * flashStrength, 0.0, 1.0), surface.a);
+})";
 
     enum MenuButton { StartButton, SaveButton, ExitButton, ButtonCount };
 
@@ -105,45 +124,48 @@ namespace {
         return t * t * (3.0f - 2.0f * t);
     }
 
-    // Draw the optional lightning on top of the scene. When the image matches
-    // the cover dimensions, keep the designer's artwork aligned with it.
-    void DrawLightningImage(const Texture2D& image, const Texture2D& cover, float opacity) {
-        if (image.id == 0 || image.width <= 0 || image.height <= 0 || opacity <= 0.0f) return;
-        Rectangle area{};
-        if (cover.id != 0 && image.width == cover.width && image.height == cover.height) {
-            area = CoverArea(cover);
-        } else {
-            const float screenWidth = static_cast<float>(GetScreenWidth());
-            const float screenHeight = static_cast<float>(GetScreenHeight());
-            const float scale = (std::min)(screenWidth / image.width, screenHeight / image.height);
-            const float width = image.width * scale;
-            const float height = image.height * scale;
-            area = {(screenWidth - width) * 0.5f, (screenHeight - height) * 0.5f, width, height};
+    struct LightningFrame {
+        float light;
+        float bolt;
+    };
+
+    LightningFrame GetLightningFrame(float age) {
+        constexpr float lightLevels[] = {0.55f, 1.0f, 0.70f, 0.48f, 0.95f};
+        constexpr float boltLevels[] = {0.0f, 1.0f, 0.82f, 0.0f, 1.0f};
+        constexpr int frameCount = 5;
+        if (age < 0.0f || age >= LightningFrameSeconds * frameCount) return {0.0f, 0.0f};
+        const int frame = (std::min)(frameCount - 1, static_cast<int>(age / LightningFrameSeconds));
+        const float localTime = age - frame * LightningFrameSeconds;
+        const float transition = Smooth01(localTime / 0.04f);
+        const float previousLight = frame > 0 ? lightLevels[frame - 1] : 0.0f;
+        float light = previousLight + (lightLevels[frame] - previousLight) * transition;
+        if (frame == frameCount - 1) light *= 1.0f - Smooth01((localTime - 0.20f) / 0.05f);
+
+        float bolt = boltLevels[frame];
+        if (bolt > 0.0f) {
+            const float previousBolt = frame > 0 ? boltLevels[frame - 1] : 0.0f;
+            bolt = previousBolt + (bolt - previousBolt) * transition;
+            if (frame + 1 == frameCount || boltLevels[frame + 1] == 0.0f)
+                bolt *= 1.0f - Smooth01((localTime - 0.21f) / 0.04f);
         }
-        const Rectangle source{0, 0, static_cast<float>(image.width), static_cast<float>(image.height)};
-        DrawTexturePro(image, source, area, {0, 0}, 0.0f, Fade(WHITE, opacity));
+        return {light, bolt};
     }
 
-    void DrawLightningEffect(const Texture2D& image, const Texture2D& cover, float time) {
-        if (LightningIntervalSeconds <= 0.0f || LightningEffectSeconds <= 0.0f ||
-            time < LightningIntervalSeconds) return;
-        const float phase = std::fmod(time - LightningIntervalSeconds, LightningIntervalSeconds);
-        if (phase >= LightningEffectSeconds) return;
-
-        // A quick flash, then a short blackout, and finally a gentle recovery.
-        // The effects work even when the optional lightning PNG is missing.
-        const float flashSeconds = LightningEffectSeconds * (7.0f / 30.0f);
-        const float imageHoldSeconds = LightningEffectSeconds * 0.4f;
-        const float flash = phase < flashSeconds ? 0.45f * (1.0f - phase / flashSeconds) : 0.0f;
-        const float darkness = phase >= flashSeconds
-            ? 0.82f * (1.0f - Smooth01((phase - flashSeconds) / (LightningEffectSeconds - flashSeconds))) : 0.0f;
-        const float imageOpacity = phase < imageHoldSeconds ? 1.0f :
-            1.0f - Smooth01((phase - imageHoldSeconds) / (LightningEffectSeconds - imageHoldSeconds));
-        if (darkness > 0.0f)
-            DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, darkness));
-        if (flash > 0.0f)
-            DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(WHITE, flash));
-        DrawLightningImage(image, cover, imageOpacity);
+    // Place the bolt behind the moving canopy, near the upper-right corner.
+    void DrawLightningImage(const Texture2D& image, float opacity) {
+        if (image.id == 0 || image.width <= 0 || image.height <= 0 || opacity <= 0.0f) return;
+        const float screenWidth = static_cast<float>(GetScreenWidth());
+        const float screenHeight = static_cast<float>(GetScreenHeight());
+        const float scale = (std::min)(screenWidth * 0.95f / image.width, screenHeight * 0.90f / image.height);
+        const float width = image.width * scale;
+        const float height = image.height * scale;
+        const Rectangle area{screenWidth * 0.985f - width, screenHeight * 0.015f, width, height};
+        const Rectangle source{0, 0, static_cast<float>(image.width), static_cast<float>(image.height)};
+        DrawTexturePro(image, source, area, {0, 0}, 0.0f, Fade(WHITE, opacity));
+        // Add a soft blue-white glow along the bolt.
+        BeginBlendMode(BLEND_ADDITIVE);
+        DrawTexturePro(image, source, area, {0, 0}, 0.0f, Fade(Color{175, 205, 255, 255}, opacity * 0.22f));
+        EndBlendMode();
     }
 
     // Rectangles in the supplied 2048 x 1423 transparent leaf image. Each
@@ -216,6 +238,8 @@ void TitleScene::Init()
     finished = false;
     nextScene = nullptr;
     windTime_ = 0.0f;
+    lastLightningAt_ = -1.0f;
+    nextLightningAt_ = FirstLightningSeconds;
     hoveredButton_ = -1;
     cover_ = LoadTitleTexture(CoverPath);
     canopy_ = LoadTitleTexture(CanopyPath);
@@ -224,6 +248,14 @@ void TitleScene::Init()
     menu_ = LoadTitleTexture(MenuPath);
     // A missing optional image is normal; no warning and no placeholder needed.
     if (FileExists(LightningPath)) lightning_ = LoadTitleTexture(LightningPath);
+    lightningLight_ = LoadShaderFromMemory(nullptr, LightningLightFragment);
+    if (lightningLight_.id == 0 || lightningLight_.id == rlGetShaderIdDefault()) {
+        lightningLight_ = {};
+        TraceLog(LOG_WARNING, "TITLE: Could not load lightning light shader.");
+    } else {
+        lightningStrengthLocation_ = GetShaderLocation(lightningLight_, "flashStrength");
+        lightningViewportLocation_ = GetShaderLocation(lightningLight_, "viewportSize");
+    }
     CheckpointData checkpoint;
     checkpointAvailable_ = CheckpointSave::Load(checkpoint);
     AM().PlayBgm(BgmId::Title);
@@ -244,9 +276,12 @@ void TitleScene::Update(float deltaTime)
     }
     const float previousWindTime = windTime_;
     windTime_ += (std::max)(0.0f, (std::min)(deltaTime, 0.1f));
-    if (LightningIntervalSeconds > 0.0f &&
-        static_cast<int>(windTime_ / LightningIntervalSeconds) >
-        static_cast<int>(previousWindTime / LightningIntervalSeconds)) {
+    if (windTime_ >= nextLightningAt_) {
+        lastLightningAt_ = windTime_;
+        nextLightningAt_ = windTime_ + GetRandomValue(8000, 15000) / 1000.0f;
+    }
+    if (lastLightningAt_ >= 0.0f && previousWindTime < lastLightningAt_ + ThunderDelaySeconds &&
+        windTime_ >= lastLightningAt_ + ThunderDelaySeconds) {
         AM().PlaySe(SeId::Thunder, 0.7f);
     }
     const TitleLayout layout = GetTitleLayout();
@@ -302,9 +337,23 @@ void TitleScene::Render() const
 
     ClearBackground({3, 5, 8, 255});
     if (cover_.id != 0 && cover_.width > 0 && cover_.height > 0) {
+        const float age = lastLightningAt_ < 0.0f ? -1.0f : windTime_ - lastLightningAt_;
+        const LightningFrame frame = GetLightningFrame(age);
+        const float lightStrength = frame.light;
+        const float boltOpacity = frame.bolt;
+        const bool lightActive = lightningLight_.id != 0 && lightStrength > 0.0f &&
+            lightningStrengthLocation_ >= 0 && lightningViewportLocation_ >= 0;
+        if (lightActive) {
+            const Vector2 viewport{static_cast<float>((std::max)(1, GetRenderWidth())),
+                                   static_cast<float>((std::max)(1, GetRenderHeight()))};
+            SetShaderValue(lightningLight_, lightningStrengthLocation_, &lightStrength, SHADER_UNIFORM_FLOAT);
+            SetShaderValue(lightningLight_, lightningViewportLocation_, &viewport, SHADER_UNIFORM_VEC2);
+            BeginShaderMode(lightningLight_);
+        }
         const Rectangle area = CoverArea(cover_);
         const Rectangle source{0, 0, static_cast<float>(cover_.width), static_cast<float>(cover_.height)};
         DrawTexturePro(cover_, source, area, {0, 0}, 0.0f, WHITE);
+        DrawLightningImage(lightning_, boltOpacity);
         const float pixelScale = area.width / cover_.width;
         const float wave = windTime_ * WindSpeed;
         const float gust = std::sin(wave);
@@ -313,6 +362,7 @@ void TitleScene::Render() const
         const float tilt = std::sin(wave * 0.83f) * CanopyTiltDegrees;
         DrawWindLayer(canopy_, area, x, y, tilt, 0.5f, 0.8f);
         DrawFallingLeaves(leaves_, windTime_);
+        if (lightActive) EndShaderMode();
     }
 
     const TitleLayout layout = GetTitleLayout();
@@ -324,7 +374,6 @@ void TitleScene::Render() const
     for (int i = 0; i < ButtonCount; ++i)
         DrawMenuButton(menu_, i, layout.buttons[i], i != SaveButton || checkpointAvailable_, hoveredButton_ == i);
 
-    DrawLightningEffect(lightning_, cover_, windTime_);
 }
 
 void TitleScene::End()
@@ -336,11 +385,15 @@ void TitleScene::End()
     if (logo_.id != 0) UnloadTexture(logo_);
     if (menu_.id != 0) UnloadTexture(menu_);
     if (lightning_.id != 0) UnloadTexture(lightning_);
+    if (lightningLight_.id != 0) UnloadShader(lightningLight_);
     cover_ = {};
     canopy_ = {};
     leaves_ = {};
     logo_ = {};
     menu_ = {};
     lightning_ = {};
+    lightningLight_ = {};
+    lightningStrengthLocation_ = -1;
+    lightningViewportLocation_ = -1;
     StopTitleAudio();
 }
