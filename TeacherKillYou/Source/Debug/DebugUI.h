@@ -25,7 +25,6 @@ enum class SelectedObjectType
 
 class GameContext;
 
-// シーン内の選択状態を保持し、HierarchyとInspectorを描画する。
 class DebugUI
 {
 public:
@@ -47,6 +46,7 @@ private:
 
     GizmoDrawer gizmoDrawer_;
     DoorMove door_;
+    GameObject stageProxy_{ GameObjectType::Stage, "StageProxy" };
 
     int selectedTeleportIndex_{ 0 };
     int selectedEnemyIndex_{ 0 };

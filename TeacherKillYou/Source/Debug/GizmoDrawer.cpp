@@ -1,4 +1,3 @@
-
 #include "GizmoDrawer.h"
 #include "DebugUI.h"
 #include "GameContext.h"
@@ -16,7 +15,7 @@ bool GizmoDrawer::Draw(
     if (!targetObj)
         return false;
 
-    // ImGuiがキーボード入力を使用中は、ギズモ用ショートカットを処理しない。
+    // ImGuiキーボード入力使用時は、ギズモ用ショートカットを無効化
     if (!ImGui::GetIO().WantCaptureKeyboard)
     {
         if (IsKeyPressed(KEY_W) &&
@@ -79,8 +78,6 @@ bool GizmoDrawer::Draw(
     Vector3 rot = targetObj->GetRotation();
     Vector3 scale = targetObj->GetScale();
 
-    // スケールが 0 やマイナスになってギズモが崩れるのを防ぐ
-
     scale.x = (std::max)(0.001f, scale.x);
     scale.y = (std::max)(0.001f, scale.y);
     scale.z = (std::max)(0.001f, scale.z);
@@ -97,9 +94,10 @@ bool GizmoDrawer::Draw(
     Matrix rlRotZ =
         MatrixRotateZ(rot.z * DEG2RAD);
 
+    // ImGuizmoの内部Decompose順序(XYZ)に合わせて合成
     Matrix rlRot = MatrixMultiply(
-        MatrixMultiply(rlRotZ, rlRotX),
-        rlRotY
+        MatrixMultiply(rlRotX, rlRotY),
+        rlRotZ
     );
 
     Matrix rlTrans =
@@ -115,11 +113,13 @@ bool GizmoDrawer::Draw(
     ImGuizmo::OPERATION operation = currentOperation_;
     if (uprightOnly)
         operation = currentOperation_ == ImGuizmo::ROTATE ? ImGuizmo::ROTATE_Y : ImGuizmo::TRANSLATE;
+
+    // LOCALモードで操作することで、選択した軸だけを独立して回転可能にする
     const bool manipulated = ImGuizmo::Manipulate(
         &viewMat.m0,
         &projMat.m0,
         operation,
-        ImGuizmo::WORLD,
+        ImGuizmo::LOCAL,
         &modelMat.m0
     );
 
@@ -161,9 +161,10 @@ bool GizmoDrawer::Draw(
 
         if (uprightOnly) {
             const float yaw = std::atan2(-matrix[2], matrix[0]) * RAD2DEG;
-            targetObj->SetRotation({0, yaw, 0});
-        } else {
-            targetObj->SetRotation({matrixRotation[0], matrixRotation[1], matrixRotation[2]});
+            targetObj->SetRotation({ 0.0f, yaw, 0.0f });
+        }
+        else {
+            targetObj->SetRotation({ matrixRotation[0], matrixRotation[1], matrixRotation[2] });
         }
 
         targetObj->SetScale({

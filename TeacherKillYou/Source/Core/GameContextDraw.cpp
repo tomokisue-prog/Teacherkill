@@ -120,8 +120,9 @@ void GameContext::Draw() const
         enemyManager_.Draw();
     }
     else {
-        for (const auto& placement : enemyPlacements_)
-            demo::Enemy(0, placement.config, placement.position, placement.yaw).Draw();
+        // エディタ（Hierarchy / Inspector）で編集している本物のスポーン設定位置に敵を描画
+        for (const auto& spawnPoint : enemyManager_.GetSpawnPoints())
+            demo::Enemy(0, spawnPoint.config, spawnPoint.GetPosition(), spawnPoint.yaw).Draw();
     }
     DrawBulletMarks();
     DrawShotEffects();

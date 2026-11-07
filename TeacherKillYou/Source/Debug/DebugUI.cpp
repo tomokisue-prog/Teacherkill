@@ -29,6 +29,14 @@ void DebugUI::Draw(GameContext& gameContext)
         {
             targetObj = &gameContext.GetPlayer();
         }
+        else if (selectedObject_ == SelectedObjectType::Stage)
+        {
+            Stage& stage = gameContext.GetStage();
+            stageProxy_.SetPosition(stage.GetPosition());
+            float s = stage.GetScale();
+            stageProxy_.SetScale({ s, s, s });
+            targetObj = &stageProxy_;
+        }
         else if (selectedObject_ == SelectedObjectType::Door)
         {
             auto& doors = gameContext.GetDoors();
@@ -77,6 +85,15 @@ void DebugUI::Draw(GameContext& gameContext)
         }
 
         gizmoDrawer_.Draw(gameContext, targetObj);
+
+        if (targetObj == &stageProxy_)
+        {
+            Stage& stage = gameContext.GetStage();
+            stage.SetPosition(stageProxy_.GetPosition());
+            float s = stageProxy_.GetScale().x;
+            if (s > 0.0001f) stage.SetScale(s);
+        }
+
         HandlePlacementViewport(gameContext);
     }
     else
@@ -238,8 +255,8 @@ void DebugUI::DrawInspector(GameContext& gameContext)
     ImGui::Separator();
 
     ImGui::Text("Gizmo Mode");
-    const bool uprightPlacement = selectedObject_ == SelectedObjectType::EnemyManager ||
-        selectedObject_ == SelectedObjectType::Items;
+    // アイテムは全回転・拡縮を許可するため、直立制限はEnemyManagerのみ
+    const bool uprightPlacement = (selectedObject_ == SelectedObjectType::EnemyManager);
     ImGuizmo::OPERATION currentOp = gizmoDrawer_.GetOperation();
 
     if (ImGui::RadioButton("Translate (Ctrl+W)", currentOp == ImGuizmo::TRANSLATE ||
@@ -309,8 +326,46 @@ void DebugUI::DrawInspector(GameContext& gameContext)
         break;
 
     case SelectedObjectType::Stage:
-        ImGui::Text("Stage");
+    {
+        Stage& stage = gameContext.GetStage();
+        Vector3 position = stage.GetPosition();
+        float scale = stage.GetScale();
+
+        ImGui::Text("Stage Transform");
+
+        if (ImGui::DragFloat3("Position", &position.x, 0.1f))
+        {
+            stage.SetPosition(position);
+        }
+
+        if (ImGui::DragFloat("Scale", &scale, 0.005f, 0.001f, 50.0f, "%.4f"))
+        {
+            if (scale > 0.0001f) stage.SetScale(scale);
+        }
+
+        ImGui::Separator();
+        ImGui::Text("Quick Scale Presets:");
+        if (ImGui::Button("0.01x")) stage.SetScale(0.01f);
+        ImGui::SameLine();
+        if (ImGui::Button("0.05x")) stage.SetScale(0.05f);
+        ImGui::SameLine();
+        if (ImGui::Button("0.1x"))  stage.SetScale(0.1f);
+        ImGui::SameLine();
+        if (ImGui::Button("0.2x"))  stage.SetScale(0.2f);
+        ImGui::SameLine();
+        if (ImGui::Button("0.5x"))  stage.SetScale(0.5f);
+        ImGui::SameLine();
+        if (ImGui::Button("1.0x"))  stage.SetScale(1.0f);
+
+        ImGui::Separator();
+        if (ImGui::Button("Snap Player to Stage Floor"))
+        {
+            Player& player = gameContext.GetPlayer();
+            player.SetPosition(stage.FindGroundPosition(player.GetPosition()));
+        }
+
         break;
+    }
 
     case SelectedObjectType::PaladinModel:
         ImGui::Text("Paladin Model");
@@ -715,8 +770,8 @@ void DebugUI::DrawCameraController(CameraController& cameraController)
 }
 
 namespace {
-    constexpr const char* EnemyTypes[] = {"ZOMBIE", "MONSTER MALE 2"};
-    constexpr demo::EnemyType EnemyKinds[] = {demo::EnemyType::FemaleZombie, demo::EnemyType::MonsterMale2};
+    constexpr const char* EnemyTypes[] = { "ZOMBIE", "MONSTER MALE 2" };
+    constexpr demo::EnemyType EnemyKinds[] = { demo::EnemyType::FemaleZombie, demo::EnemyType::MonsterMale2 };
     static_assert(IM_ARRAYSIZE(EnemyTypes) == IM_ARRAYSIZE(EnemyKinds));
     int EnemyTypeIndex(demo::EnemyType type) { return type == demo::EnemyType::MonsterMale2 ? 1 : 0; }
 
@@ -772,7 +827,8 @@ namespace {
         return changed;
     }
 
-    bool DrawPlacementGizmo(GizmoDrawer& gizmo, GameContext& context, Vector3& position, float& yaw) {
+    // 敵用（Y軸回転固定）
+    bool DrawEnemyPlacementGizmo(GizmoDrawer& gizmo, GameContext& context, Vector3& position, float& yaw) {
         GameObject transform;
         transform.SetPosition(position);
         transform.SetRotation({ 0, yaw * RAD2DEG, 0 });
@@ -782,6 +838,23 @@ namespace {
         if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z) || !std::isfinite(angle)) return false;
         if (gizmo.GetOperation() == ImGuizmo::ROTATE)
             yaw = std::remainder(angle, 2 * PI);
+        else
+            position = Vector3Clamp(p, { -100000, -100000, -100000 }, { 100000, 100000, 100000 });
+        return true;
+    }
+
+    // アイテム用（3軸全回転対応）
+    bool DrawItemPlacementGizmo(GizmoDrawer& gizmo, GameContext& context, Vector3& position, Vector3& rotationDeg) {
+        GameObject transform;
+        transform.SetPosition(position);
+        transform.SetRotation(rotationDeg);
+        if (!gizmo.Draw(context, &transform, false)) return false;
+        const auto p = transform.GetPosition();
+        const auto r = transform.GetRotation();
+        if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z) ||
+            !std::isfinite(r.x) || !std::isfinite(r.y) || !std::isfinite(r.z)) return false;
+        if (gizmo.GetOperation() == ImGuizmo::ROTATE)
+            rotationDeg = r;
         else
             position = Vector3Clamp(p, { -100000, -100000, -100000 }, { 100000, 100000, 100000 });
         return true;
@@ -1019,11 +1092,14 @@ void DebugUI::DrawItemInspector(GameContext& gameContext)
         item.SetPosition(position);
         sceneSaveMessage_ = nullptr;
     }
-    float degrees = item.GetYaw() * RAD2DEG;
-    if (ImGui::DragFloat(u8"向き", &degrees, 1, -180, 180, "%.0f deg", ClampInput)) {
-        item.SetYaw(degrees * DEG2RAD);
+
+    // 3軸の回転コントロール
+    Vector3 rotation = item.GetRotation();
+    if (ImGui::DragFloat3(u8"回転 (X/Y/Z)", &rotation.x, 1.0f, -180.0f, 180.0f, "%.1f deg", ClampInput)) {
+        item.SetRotation(rotation);
         sceneSaveMessage_ = nullptr;
     }
+
     float scale = item.GetScale();
     if (ImGui::DragFloat(u8"サイズ倍率", &scale, .02f, .05f, 20, "%.2fx", ClampInput)) {
         item.SetScale(scale);
@@ -1069,24 +1145,27 @@ void DebugUI::HandlePlacementViewport(GameContext& gameContext)
     auto& spawnPoints = gameContext.GetEnemyManager().GetSpawnPoints();
     auto& items = gameContext.GetInventory().GetPlacements();
     const bool placing = pendingEnemy_.has_value() || pendingItem_.has_value();
+
     if (!placing && selectedObject_ == SelectedObjectType::EnemyManager &&
         HasSelection(selectedEnemyIndex_, spawnPoints)) {
         auto& placement = spawnPoints[selectedEnemyIndex_];
         Vector3 pos = placement.GetPosition();
         float yaw = -placement.yaw;
-        if (DrawPlacementGizmo(gizmoDrawer_, gameContext, pos, yaw)) {
+        if (DrawEnemyPlacementGizmo(gizmoDrawer_, gameContext, pos, yaw)) {
             placement.SetPosition(pos);
             placement.yaw = -yaw;
             sceneSaveMessage_ = nullptr;
         }
     }
+
+    // アイテムの3軸ギズモ操作
     if (!placing && selectedObject_ == SelectedObjectType::Items && HasSelection(selectedItemIndex_, items)) {
         auto& item = items[selectedItemIndex_];
         auto position = item.GetPosition();
-        auto yaw = item.GetYaw();
-        if (DrawPlacementGizmo(gizmoDrawer_, gameContext, position, yaw)) {
+        auto rotation = item.GetRotation();
+        if (DrawItemPlacementGizmo(gizmoDrawer_, gameContext, position, rotation)) {
             item.SetPosition(position);
-            item.SetYaw(yaw);
+            item.SetRotation(rotation);
             sceneSaveMessage_ = nullptr;
         }
     }
