@@ -33,6 +33,7 @@ void GameContext::Init()
 #endif
     gameFade_.Reset();
     messageWindow_.Close();
+    gunTutorialUI_.Init();
     doors_.clear();
     doors_.emplace_back();
     doors_.back().Init();
@@ -43,6 +44,10 @@ void GameContext::Init()
     inventory_.Init(stage_);
     bloodEffect_.Init();
     lowHpBlood_.Init();
+
+    enemyManager_.Clear();
+    enemyManager_.GetSpawnPoints().clear();
+
     enemyPlacements_ = {
         {stage_.FindGroundPosition({0.9f, 0.0f, 2.5f}), 0.0f, demo::EnemyConfig::ForType(demo::EnemyType::MonsterMale2)},
         {stage_.FindGroundPosition({-0.9f, 0.0f, 2.5f}), 0.0f, demo::EnemyConfig::ForType(demo::EnemyType::FemaleZombie)},
@@ -52,7 +57,7 @@ void GameContext::Init()
     horrorAudio_.Reset(player_.GetPosition());
     checkpointRequested_ = false;
     goalRequested_ = false;
-    lighting_.Init(RM().GetModelShaders(), RM().GetModel(ResourceKeys::Model_Stage1));
+    lighting_.Init(RM().GetModelShaders(), RM().GetModel(stage_.GetStageKey()));
     hitMarkerTimer_ = 0.0f;
     hitMarkerKill_ = false;
 
@@ -111,11 +116,13 @@ void GameContext::Reset()
     inventory_.Reset();
     bloodEffect_.Reset();
     lowHpBlood_.Reset();
+    gunTutorialUI_.Reset();
+    securityPC_.Reset();
     PlaceCharacters();
     horrorAudio_.Reset(player_.GetPosition());
     checkpointRequested_ = false;
     goalRequested_ = false;
-    lighting_.Init(RM().GetModelShaders(), RM().GetModel(ResourceKeys::Model_Stage1));
+    lighting_.Init(RM().GetModelShaders(), RM().GetModel(stage_.GetStageKey()));
     hitMarkerTimer_ = 0.0f;
     hitMarkerKill_ = false;
     bulletMarks_.clear();
@@ -136,6 +143,16 @@ void GameContext::Reset()
     tracerActive_ = false;
     tracerAge_ = 0.0f;
     goalPoint_.Reset();
+    showGunPin_ = false;
+    showPCPin_ = false;
+    showAuthKeyPin_ = false;
+    showSecurityDoorPin_ = false;
+    showEmergencyStairsDoorPin_ = false;
+    showEmergencyKeyPin_ = false;
+    hasTriggeredEmergencyDoorDialogue_ = false;
+    securityTeleportUnlocked_ = false;
+    pendingSecurityDialogue_ = false;
+    wasSystemCamera_ = false;
 }
 
 void GameContext::ShowDialogue(const std::string& dialogueId)
@@ -144,6 +161,26 @@ void GameContext::ShowDialogue(const std::string& dialogueId)
     if (entry != nullptr)
     {
         messageWindow_.Open(entry->speaker, entry->text);
+    }
+    else if (dialogueId == "security_room_arrival")
+    {
+        messageWindow_.Open("", u8"ここは…警備室か？");
+    }
+    else if (dialogueId == "security_pc_missing_key")
+    {
+        messageWindow_.Open(u8"警備室PC", u8"エラー：認証キーが挿入されていません。\n認証キーを探してセットしてください。");
+    }
+    else if (dialogueId == "security_pc_with_key")
+    {
+        messageWindow_.Open("", u8"認証キーを手に入れた。警備室のPCに戻って操作しよう。");
+    }
+    else if (dialogueId == "security_pc_door_open")
+    {
+        messageWindow_.Open(u8"警備室PC", u8"認証完了。セキュリティドアのロックを解除しました。");
+    }
+    else if (dialogueId == "3rd_floor_second")
+    {
+        messageWindow_.Open("", u8"鍵がかかっている…非常階段の鍵を探さなければ。");
     }
 }
 
@@ -159,22 +196,48 @@ void GameContext::PlaceCharacters()
 
 void GameContext::ApplyEnemyPlacements()
 {
-    enemyManager_.Clear();
     auto& spawnPoints = enemyManager_.GetSpawnPoints();
-    spawnPoints.clear();
 
-    for (const auto& placement : enemyPlacements_)
+    if (spawnPoints.empty())
     {
-        demo::EnemySpawnData spawnPoint;
-        spawnPoint.SetPosition(placement.position);
-        spawnPoint.yaw = placement.yaw;
-        spawnPoint.config = placement.config;
-        spawnPoint.condition = demo::EnemySpawnCondition::Normal;
-        spawnPoint.despawnCondition = demo::EnemyDespawnCondition::None;
-        spawnPoint.spawnedEnemyId = enemyManager_.Spawn(
-            spawnPoint.GetPosition(), spawnPoint.config, spawnPoint.yaw);
-        spawnPoint.spawned = true;
-        spawnPoints.push_back(std::move(spawnPoint));
+        for (const auto& placement : enemyPlacements_)
+        {
+            demo::EnemySpawnData spawnPoint;
+            spawnPoint.SetPosition(placement.position);
+            spawnPoint.yaw = placement.yaw;
+            spawnPoint.config = placement.config;
+            spawnPoint.condition = demo::EnemySpawnCondition::Normal;
+            spawnPoint.despawnCondition = demo::EnemyDespawnCondition::None;
+            spawnPoints.push_back(std::move(spawnPoint));
+        }
+    }
+
+    enemyManager_.Clear();
+
+    for (auto& sp : spawnPoints)
+    {
+        sp.spawned = false;
+        sp.spawnedEnemyId = 0;
+
+        bool shouldSpawn = false;
+        if (sp.condition == demo::EnemySpawnCondition::Normal)
+        {
+            shouldSpawn = true;
+        }
+        else if (sp.condition == demo::EnemySpawnCondition::LostItemCollected)
+        {
+            if (inventory_.IsLostItemCollected())
+            {
+                shouldSpawn = true;
+            }
+        }
+
+        if (shouldSpawn)
+        {
+            sp.spawnedEnemyId = enemyManager_.Spawn(
+                sp.GetPosition(), sp.config, sp.yaw);
+            sp.spawned = true;
+        }
     }
 }
 
@@ -184,12 +247,27 @@ void GameContext::Update(float deltaTime)
         inventory_.CancelHealing();
         return;
     }
+
+    if (gunTutorialUI_.IsOpen())
+    {
+        gunTutorialUI_.Update();
+        return;
+    }
+
     if (cameraController_.GetActiveType() == CameraType::System) {
         inventory_.CancelHealing();
         for (auto& door : doors_) door.Update(deltaTime, player_, &inventory_);
         cameraController_.Update();
+        wasSystemCamera_ = true;
         return;
     }
+
+    if (wasSystemCamera_) {
+        wasSystemCamera_ = false;
+        inventory_.ApplyPlacements();
+        ApplyEnemyPlacements();
+    }
+
     if (IsMessageActive())
     {
         messageWindow_.Update(deltaTime);
@@ -237,6 +315,7 @@ void GameContext::Update(float deltaTime)
             break;
         }
 
+        // 通常テレポートポイントのフェード開始判定
         if (!gameFade_.IsFading())
         {
             for (auto& sourcePt : teleportPoints_)
@@ -251,10 +330,21 @@ void GameContext::Update(float deltaTime)
                     }
                 }
             }
+
+            for (auto& sourceStp : securityTeleportPoints_)
+            {
+                if (sourceStp.GetTeleportType() == SecurityTeleportType::Source &&
+                    sourceStp.CheckPlayerInArea(player_.GetPosition(), inventory_))
+                {
+                    gameFade_.StartFade(2.5f);
+                    break;
+                }
+            }
         }
 
         gameFade_.Update(deltaTime);
 
+        // フェード暗転頂点でのテレポート実行
         if (gameFade_.IsMidpoint())
         {
             for (auto& sourcePt : teleportPoints_)
@@ -278,6 +368,52 @@ void GameContext::Update(float deltaTime)
                     }
                 }
             }
+
+            for (auto& sourceStp : securityTeleportPoints_)
+            {
+                if (sourceStp.GetTeleportType() == SecurityTeleportType::Source &&
+                    sourceStp.CheckPlayerInArea(player_.GetPosition(), inventory_))
+                {
+                    sourceStp.SetTriggered(true);
+                    securityTeleportUnlocked_ = false;
+
+                    for (const auto& destStp : securityTeleportPoints_)
+                    {
+                        if (destStp.GetTeleportType() == SecurityTeleportType::Destination &&
+                            destStp.GetPointNumber() == sourceStp.GetPointNumber())
+                        {
+                            Vector3 targetPos = stage_.FindGroundPosition(destStp.GetPosition());
+                            player_.SetPosition(targetPos);
+                            checkpointRequested_ = true;
+                            break;
+                        }
+                    }
+
+                    enemyManager_.DespawnBySecurityTeleport();
+
+                    for (auto& d : doors_)
+                    {
+                        if (d.GetOpenConditionType() == DoorOpenConditionType::SecurityTeleportEntered)
+                        {
+                            d.SetOpenConditionSatisfied(true);
+                        }
+                    }
+
+                    pendingSecurityDialogue_ = true;
+                    break;
+                }
+            }
+        }
+
+        // 警備室到着セリフを表示し、銃オブジェクトへの誘導ピンを点灯
+        if (!gameFade_.IsFading() && pendingSecurityDialogue_)
+        {
+            pendingSecurityDialogue_ = false;
+            ShowDialogue("security_room_arrival");
+            if (!inventory_.IsGunCollected())
+            {
+                showGunPin_ = true;
+            }
         }
 
         float distToGoal = Vector3Distance(player_.GetPosition(), goalPoint_.GetPosition());
@@ -285,6 +421,118 @@ void GameContext::Update(float deltaTime)
         {
             goalRequested_ = true;
             return;
+        }
+
+        // イベントセリフポイントの判定
+        for (auto& ep : eventDialoguePoints_)
+        {
+            if (ep.CheckPlayerInArea(player_.GetPosition(), inventory_, &doors_))
+            {
+                ep.SetTriggered(true);
+
+                const auto* dialogue = DM().GetDialogue(ep.GetDialogueId());
+                if (dialogue != nullptr)
+                {
+                    messageWindow_.Open(dialogue->speaker, dialogue->text);
+                }
+                else if (ep.GetDialogueId() == "stairs_blocked_3f")
+                {
+                    messageWindow_.Open("", u8"階段はふさがれていてこれ以上下には行けないようだ、おそらく非常階段なら下に行けそうだ");
+                }
+
+                if (ep.GetCondition() == EventDialogueCondition::LostItemCollected)
+                {
+                    securityTeleportUnlocked_ = true;
+                }
+
+                // ★ SecurityPCDoorUnlocked のセリフポイントに入ったら、非常階段ドアへ誘導ピンを点灯！
+                if (ep.GetCondition() == EventDialogueCondition::SecurityPCDoorUnlocked)
+                {
+                    showSecurityDoorPin_ = false; // セキュリティドアのピンを消灯
+                    showEmergencyStairsDoorPin_ = true; // 非常階段ドアへの誘導ピンを点灯
+                }
+            }
+        }
+
+        // ★ 修正：SecurityPCDoorUnlockedに触れて非常階段ドアへのピン（showEmergencyStairsDoorPin_）が出ている状態で、
+        // 鍵未所持のまま非常階段ドアを [E] キーで開けようとした時のみセリフを出してキーへ誘導する！
+        if (showEmergencyStairsDoorPin_ && !inventory_.HasEmergencyStairsKey())
+        {
+            for (const auto& d : doors_)
+            {
+                if (d.GetOpenConditionType() == DoorOpenConditionType::EmergencyStairsKey)
+                {
+                    if (d.IsPlayerInInteractionRange(player_) && IsKeyPressed(KEY_E))
+                    {
+                        ShowDialogue("3rd_floor_second");
+                        showEmergencyStairsDoorPin_ = false; // ドアへの誘導ピンを消灯
+                        showEmergencyKeyPin_ = true;         // 非常階段の鍵へ誘導するピンを点灯！
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 非常階段ドアが開いた場合は誘導ピンを消灯
+        if (showEmergencyStairsDoorPin_)
+        {
+            for (const auto& d : doors_)
+            {
+                if (d.GetOpenConditionType() == DoorOpenConditionType::EmergencyStairsKey && d.IsOpen())
+                {
+                    showEmergencyStairsDoorPin_ = false;
+                    break;
+                }
+            }
+        }
+
+        // SecurityPCActivatedドアが開いた場合は誘導ピンを消灯
+        if (showSecurityDoorPin_)
+        {
+            for (const auto& d : doors_)
+            {
+                if (d.GetOpenConditionType() == DoorOpenConditionType::SecurityPCActivated && d.IsOpen())
+                {
+                    showSecurityDoorPin_ = false;
+                    break;
+                }
+            }
+        }
+
+        // 警備室PC（SecurityPC）のインタラクト操作
+        if (!IsMessageActive() && !gunTutorialUI_.IsOpen() && securityPC_.CanInteract(player_.GetPosition()))
+        {
+            if (IsKeyPressed(KEY_E))
+            {
+                if (securityPC_.IsActivated())
+                {
+                    ShowDialogue("security_pc_door_open");
+                    AM().PlaySe(SeId::Confirm);
+                }
+                else if (!inventory_.IsAuthenticationKeyCollected())
+                {
+                    ShowDialogue("security_pc_missing_key");
+                    showPCPin_ = false;
+                    showAuthKeyPin_ = true;
+                    AM().PlaySe(SeId::Error);
+                }
+                else
+                {
+                    securityPC_.SetActivated(true);
+                    showPCPin_ = false;
+                    showSecurityDoorPin_ = true;
+                    ShowDialogue("security_pc_door_open");
+                    AM().PlaySe(SeId::Confirm);
+
+                    for (auto& d : doors_)
+                    {
+                        if (d.GetOpenConditionType() == DoorOpenConditionType::SecurityPCActivated)
+                        {
+                            d.SetOpenConditionSatisfied(true);
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -318,6 +566,38 @@ void GameContext::Update(float deltaTime)
             cameraController_.GetPlayerCamera().GetRaylibCamera();
 
         inventory_.Update(deltaTime, camera, &stage_);
+
+        // 銃（GUN）を拾った瞬間
+        if (inventory_.GetPickedUpItem() == ItemType::Gun)
+        {
+            player_.SetHasGun(true);
+            showGunPin_ = false;
+            gunTutorialUI_.Open();
+
+            if (!securityPC_.IsActivated())
+            {
+                showPCPin_ = true;
+            }
+        }
+
+        // 認証キーを拾った瞬間
+        if (inventory_.GetPickedUpItem() == ItemType::AuthenticationKey)
+        {
+            showAuthKeyPin_ = false;
+            ShowDialogue("security_pc_with_key");
+
+            if (!securityPC_.IsActivated())
+            {
+                showPCPin_ = true;
+            }
+        }
+
+        // 非常階段のキー（EmergencyStairsKey）を拾った瞬間：キーピン消灯＆ドアへ誘導ピンを再点灯！
+        if (inventory_.GetPickedUpItem() == ItemType::EmergencyStairsKey)
+        {
+            showEmergencyKeyPin_ = false;        // キーへのピンを消灯
+            showEmergencyStairsDoorPin_ = true;  // ドアへ戻る誘導ピンを点灯
+        }
 
         if (inventory_.GetPickedUpItem() == ItemType::Ammo)
         {
@@ -353,6 +633,7 @@ void GameContext::End()
     bloodEffect_.Shutdown();
     lowHpBlood_.Shutdown();
     lighting_.Shutdown();
+    gunTutorialUI_.End();
 
     if (muzzleFlashTexture_.id != 0)
     {

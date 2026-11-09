@@ -30,5 +30,9 @@
   "security_pc_door_open": {
     "speaker": "主人公",
     "text": "扉が開いたみたいだ下に降りよう"
+  },
+  "3rd_floor_first": {
+    "speaker": "主人公",
+    "text": "これ以上は下には行けなかった、非常階段なら下に行けそうだ"
   }
 }

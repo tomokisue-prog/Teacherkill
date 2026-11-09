@@ -99,9 +99,6 @@
     <ClCompile Include="Source\UI\DialogueManager.cpp">
       <Filter>Source\UI</Filter>
     </ClCompile>
-    <ClCompile Include="Source\World\DoorMove.cpp">
-      <Filter>Source\World</Filter>
-    </ClCompile>
     <ClCompile Include="Source\Actors\Enemy\Enemy.cpp">
       <Filter>Source\Actors\Enemy</Filter>
     </ClCompile>
@@ -290,6 +287,9 @@
     <ClCompile Include="Source\Core\GameContextCheckpoint.cpp">
       <Filter>Source\Core</Filter>
     </ClCompile>
+    <ClCompile Include="Source\World\DoorMove.cpp">
+      <Filter>Source\World</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Audio\AudioManager.h">
@@ -312,9 +312,6 @@
     </ClInclude>
     <ClInclude Include="Source\UI\DialogueManager.h">
       <Filter>Source\UI</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\World\DoorMove.h">
-      <Filter>Source\World</Filter>
     </ClInclude>
     <ClInclude Include="Source\Graphics\DamageFlash.h">
       <Filter>Source\Graphics</Filter>
@@ -531,6 +528,9 @@
     <ClInclude Include="Source\Scenes\IntroVideoPlayer.h" />
     <ClInclude Include="LowHpBloodOverlay.h" />
     <ClInclude Include="Source\Items\ItemCatalog.h" />
+    <ClInclude Include="Source\World\DoorMove.h">
+      <Filter>Source\World</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config">

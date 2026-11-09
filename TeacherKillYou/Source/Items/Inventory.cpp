@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <cmath>
 
 namespace
 {
@@ -32,7 +33,7 @@ void Inventory::Init(const Stage& stage)
         const auto position = item.GetPosition();
         const auto floor = stage.FindGroundPosition(position);
         if (position.y < floor.y + .08f)
-            item.SetPosition({position.x, floor.y + .2f, position.z});
+            item.SetPosition({ position.x, floor.y + .2f, position.z });
     }
     Reset();
     const char* path = "Data/Image/UI/Inventory.png";
@@ -84,7 +85,6 @@ float Inventory::GetHealingProgress() const
     return Clamp(progress, 0.0f, 1.0f);
 }
 
-// 内部ロジック & ヘルパー
 bool Inventory::AddItem(ItemType item)
 {
     if (item < ItemType::Medkit || item > ItemType::LostItem || item == ItemType::Ammo)
@@ -145,7 +145,6 @@ void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage)
     pickedUpItem_ = ItemType::None;
     messageTimer_ = (std::max)(0.0f, messageTimer_ - deltaTime);
 
-    // スロット切り替え
     const int oldSlot = selectedSlot_;
     if (IsKeyPressed(KEY_ONE))   selectedSlot_ = 0;
     if (IsKeyPressed(KEY_TWO))   selectedSlot_ = 1;
@@ -191,18 +190,19 @@ void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage)
         if (type == ItemType::Ammo)
         {
             item.Collect();
-            pickedUpItem_ = ItemType::Ammo;
+            pickedUpItem_ = type;
             AM().PlaySe(SeId::Pickup);
             message_ = TextFormat("+%d AMMO", AMMO_PICKUP_AMOUNT);
         }
-        else if (type == ItemType::LostItem || type == ItemType::Gun || type == ItemType::AuthenticationKey)
+        else if (type == ItemType::LostItem || type == ItemType::Gun || type == ItemType::AuthenticationKey || type == ItemType::EmergencyStairsKey)
         {
-            // LostItem、Gun、AuthenticationKeyはインベントリに入れず、回収（取得）のみ行う
             item.Collect();
             pickedUpItem_ = type;
+            AM().PlaySe(SeId::Pickup);
 
             if (type == ItemType::Gun) message_ = "Picked up GUN";
             else if (type == ItemType::AuthenticationKey) message_ = "Picked up AUTHENTICATION KEY";
+            else if (type == ItemType::EmergencyStairsKey) message_ = "Picked up EMERGENCY STAIRS KEY";
             else message_ = "Picked up LOST ITEM";
         }
         else if (AddItem(type))
@@ -278,7 +278,7 @@ void Inventory::DrawHealingHUD() const
 
     const float progress = GetHealingProgress();
     const float uiScale = Clamp((std::min)(GetScreenWidth() / 1280.0f,
-                                            GetScreenHeight() / 720.0f), 0.5f, 1.5f);
+        GetScreenHeight() / 720.0f), 0.5f, 1.5f);
     const float hudWidth = (std::min)(600.0f * uiScale, GetScreenWidth() - 20.0f * uiScale);
     const float hudHeight = 144.0f * uiScale;
     const float x = (GetScreenWidth() - hudWidth) * 0.5f;
@@ -325,59 +325,47 @@ void Inventory::DrawHealingHUD() const
 
 void Inventory::DrawHUD() const
 {
-    // 3Dワールド上の未回収 LostItem のFPS風三角形ピンを描画
     for (const auto& item : items_)
     {
         if (item.GetType() == ItemType::LostItem && !item.IsCollected())
         {
             Vector3 worldPos = item.GetPosition();
-            worldPos.y += 0.8f; // 少し頭上にオフセット
+            worldPos.y += 0.8f;
 
-            // 3D座標を2Dスクリーン座標に変換
             Vector2 screenPos = GetWorldToScreen(worldPos, lastCamera_);
 
-            // カメラの背後にある場合は描画しない
             Vector3 toItem = Vector3Subtract(worldPos, lastCamera_.position);
             float forwardDot = Vector3DotProduct(
                 Vector3Normalize(Vector3Subtract(lastCamera_.target, lastCamera_.position)),
                 Vector3Normalize(toItem)
             );
 
-            // 画面内に入っている場合のみ描画
             if (forwardDot > 0.0f &&
                 screenPos.x >= 0 && screenPos.x <= GetScreenWidth() &&
                 screenPos.y >= 0 && screenPos.y <= GetScreenHeight())
             {
-                // プレイヤーからアイテムまでの距離を計算
                 float distance = Vector3Length(toItem);
 
-                // 近づくほど大きく、遠いと小さくなるようにスケールを計算
                 float baseSize = 40.0f;
                 float scaleFactor = Clamp(6.0f / (distance + 1.0f), 0.5f, 1.5f);
                 float size = baseSize * scaleFactor;
 
-                // ふわふわと上下に浮遊するアニメーション
-                float floatOffset = std::sin(GetTime() * 4.0f) * 4.0f * scaleFactor;
+                // float への安全なキャストにより C4244 警告を解消
+                float floatOffset = sinf(static_cast<float>(GetTime()) * 4.0f) * 4.0f * scaleFactor;
                 float centerY = screenPos.y + floatOffset;
 
-                // 下向きの三角形ピンの頂点計算
                 Vector2 tip = { screenPos.x, centerY + size * 0.5f };
                 Vector2 topLeft = { screenPos.x - size * 0.45f, centerY - size * 0.5f };
                 Vector2 topRight = { screenPos.x + size * 0.45f, centerY - size * 0.5f };
 
-                // 内部を塗りつぶした黄色い三角形を描画
                 DrawTriangle(topLeft, tip, topRight, YELLOW);
-
-                // 視認性を上げるためのオレンジ色の枠線を描画
                 DrawTriangleLines(topLeft, tip, topRight, ORANGE);
             }
         }
     }
 
-    // インベントリスロットの描画
-    // Four slots using the supplied circular border image.
     const float uiScale = Clamp((std::min)(GetScreenWidth() / 1280.0f,
-                                            GetScreenHeight() / 720.0f), 0.5f, 1.5f);
+        GetScreenHeight() / 720.0f), 0.5f, 1.5f);
     const int slotWidth = static_cast<int>(88.0f * uiScale);
     const int slotHeight = static_cast<int>(slotWidth * 586.0f / 606.0f);
     const int gap = static_cast<int>(6.0f * uiScale);
@@ -402,11 +390,10 @@ void Inventory::DrawHUD() const
             DrawTexturePro(slotBorder_, source, rect, { 0, 0 }, 0.0f, tint);
             if (selected)
                 DrawCircleLines(static_cast<int>(centerX), static_cast<int>(centerY),
-                                slotWidth * 0.235f, Color{ 225, 195, 150, 230 });
+                    slotWidth * 0.235f, Color{ 225, 195, 150, 230 });
         }
         else
         {
-            // Keep the original slots usable if the image has not been copied yet.
             DrawRectangleRec(rect, selected ? Color{ 50, 60, 45, 215 } : Color{ 20, 20, 25, 190 });
             DrawRectangleLinesEx(rect, selected ? 3.0f : 1.0f, selected ? LIME : GRAY);
         }
@@ -431,11 +418,10 @@ void Inventory::DrawHUD() const
             const char* name = Item::GetName(type);
             const int fontSize = (std::max)(9, static_cast<int>(11.0f * uiScale));
             DrawText(name, static_cast<int>(centerX) - MeasureText(name, fontSize) / 2,
-                     static_cast<int>(centerY) - fontSize / 2, fontSize, WHITE);
+                static_cast<int>(centerY) - fontSize / 2, fontSize, WHITE);
         }
     }
 
-    // プロンプト / コンテキスト表示
     if (focusedPickup_ >= 0)
     {
         const ItemType targetType = items_[focusedPickup_].GetType();
@@ -470,18 +456,15 @@ void Inventory::DrawHUD() const
         DrawText(prompt, (GetScreenWidth() - MeasureText(prompt, size)) / 2, y - 35, size, WHITE);
     }
 
-    // システムメッセージ表示
     if (messageTimer_ > 0.0f && !message_.empty())
     {
         const int size = 20;
         DrawText(message_.c_str(), (GetScreenWidth() - MeasureText(message_.c_str(), size)) / 2, y - 68, size, YELLOW);
     }
 
-    // 回復ゲージHUD描画
     DrawHealingHUD();
 }
 
-// チェックポイントの保存 / 復元
 InventoryCheckpoint Inventory::CaptureCheckpoint() const
 {
     InventoryCheckpoint data;

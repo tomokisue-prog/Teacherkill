@@ -71,10 +71,8 @@ public:
     std::vector<SecurityTeleportPoint>& GetSecurityTeleportPoints() { return securityTeleportPoints_; }
     const std::vector<SecurityTeleportPoint>& GetSecurityTeleportPoints() const { return securityTeleportPoints_; }
 
-    // IDを指定して1行でセリフを呼び出す関数
     void ShowDialogue(const std::string& dialogueId);
 
-    // メッセージウィンドウが開いている最中かどうか
     bool IsMessageActive() const { return messageWindow_.IsOpen(); }
 
     Inventory& GetInventory() { return inventory_; }
@@ -118,8 +116,8 @@ private:
     GameFade gameFade_;
     Inventory inventory_;
     GoalPoint goalPoint_;
-	MessageWindow messageWindow_;
-	Tutorial4FFloorEvent tutorial4FFloorEvent;
+    MessageWindow messageWindow_;
+    Tutorial4FFloorEvent tutorial4FFloorEvent;
     SecurityPC securityPC_;
     GunTutorialUI gunTutorialUI_;
 
@@ -142,7 +140,6 @@ private:
     float tracerDuration_{ 0.05f };
     bool tracerActive_{ false };
 
-    // Small, temporary bullet-hole marks on stage walls.
     struct BulletMark
     {
         Vector3 position{};
@@ -165,4 +162,10 @@ private:
     bool showAuthKeyPin_{ false };
     bool hasTriggeredAuthKeyPickup_{ false };
     bool showSecurityDoorPin_{ false };
+
+    bool showEmergencyStairsDoorPin_{ false };
+    bool showEmergencyKeyPin_{ false }; // 非常階段のキーへの誘導ピン
+    bool hasTriggeredEmergencyDoorDialogue_{ false }; // 非常階段ドア接触セリフの重複防止フラグ
+
+    bool wasSystemCamera_{ false };
 };

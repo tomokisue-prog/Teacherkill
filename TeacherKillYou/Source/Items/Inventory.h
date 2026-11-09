@@ -20,14 +20,14 @@ public:
     void Init(const Stage& stage);
     void Reset();
     void ApplyPlacements();
-    void End(); // Release the inventory slot texture.
+    void End();
 
     // --- 更新 & 描画 ---
     void Update(float deltaTime, const Camera3D& camera, Stage* stage = nullptr);
     void DrawWorld(bool editing = false) const;
     void DrawHUD() const;
 
-    // --- 回復アクション制御 ---
+    // --- 回復アクション関連 ---
     void CancelHealing();
     bool IsHealing() const { return healing_; }
     float GetHealingProgress() const;
@@ -49,14 +49,49 @@ public:
     bool IsLostItemCollected() const;
     bool IsGunCollected() const;
     bool IsAuthenticationKeyCollected() const;
+
+    // 非常階段キー関連
+    bool IsEmergencyStairsKeyCollected() const
+    {
+        for (const auto& item : items_)
+        {
+            if (item.GetType() == ItemType::EmergencyStairsKey && item.IsCollected())
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool HasEmergencyStairsKey() const
+    {
+        for (const auto& slot : slots_)
+        {
+            if (slot == ItemType::EmergencyStairsKey) return true;
+        }
+        return IsEmergencyStairsKeyCollected();
+    }
+
     Vector3 GetGunPosition() const;
     Vector3 GetAuthenticationKeyPosition() const;
+
+    // 非常階段のキーの位置取得
+    Vector3 GetEmergencyStairsKeyPosition() const
+    {
+        for (const auto& item : items_)
+        {
+            if (item.GetType() == ItemType::EmergencyStairsKey)
+            {
+                return item.GetPosition();
+            }
+        }
+        return { 0.0f, 0.0f, 0.0f };
+    }
 
 private:
     static constexpr int MAX_SLOTS = 4;
     static constexpr float HEAL_DURATION = 3.0f;
 
-    // インベントリスロット & ワールド設置アイテム
     Texture2D slotBorder_{};
     std::array<ItemType, MAX_SLOTS> slots_{};
     std::vector<Item> items_;
@@ -65,25 +100,20 @@ private:
 
     Camera3D lastCamera_{};
 
-    // 選択・フォーカス状態
     int selectedSlot_{ 0 };
     int focusedPickup_{ -1 };
     ItemType usedItem_{ ItemType::None };
     ItemType pickedUpItem_{ ItemType::None };
 
-    // 回復タイマー状態
     bool healing_{ false };
     float healTimer_{ 0.0f };
 
-    // HUD用通知メッセージ
     std::string message_;
     float messageTimer_{ 0.0f };
 
-    // --- 内部ヘルパー関数 ---
     bool AddItem(ItemType item);
     int FindFocusedPickup(const Camera3D& camera, Stage* stage) const;
 
-    // リソース連携用アクセサ
     const Texture2D* GetItemIcon(ItemType type) const;
 
     void DrawHealingHUD() const;

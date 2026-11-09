@@ -1,5 +1,6 @@
 #include "SaveSystem.h"
 #include "GameContext.h"
+#include "ResourceManager.h"
 #include "raymath.h"
 #include "json.hpp"
 #include "SaveData.h"
@@ -41,7 +42,6 @@ namespace {
             const auto type = static_cast<ItemType>(SaveData::Integer(entry.at("type"), 1, int(ItemType::Count) - 1));
             items.emplace_back(type, ParsePlacementPosition(entry.at("position")));
 
-            // rotationが存在すれば3軸で読み込み、無ければ旧仕様のyawから復元
             if (entry.contains("rotation")) {
                 items.back().SetRotation(JsonToVector3(entry.at("rotation")));
             }
@@ -81,6 +81,10 @@ namespace {
 
 bool SaveSystem::SaveScene(const GameContext& gameContext, const std::string& filepath)
 {
+    // ★ セーブ実行前に最新の配置データをワールド実体にも強制同期
+    const_cast<GameContext&>(gameContext).GetInventory().ApplyPlacements();
+    const_cast<GameContext&>(gameContext).ApplyEnemyPlacements();
+
     nlohmann::json root;
 
     // 1. Player
@@ -90,10 +94,29 @@ bool SaveSystem::SaveScene(const GameContext& gameContext, const std::string& fi
     root["player"]["scale"] = Vector3ToJson(player.GetScale());
     root["player"]["hasGun"] = player.HasGun();
 
-    // Stage
+    // Stages (All sections)
     const auto& stage = gameContext.GetStage();
-    root["stage"]["position"] = Vector3ToJson(stage.GetPosition());
-    root["stage"]["scale"] = stage.GetScale();
+    nlohmann::json stageArray = nlohmann::json::array();
+    for (const auto& sec : stage.GetSections())
+    {
+        nlohmann::json sJson;
+        sJson["name"] = sec.name;
+        sJson["modelKey"] = sec.modelKey;
+        sJson["position"] = Vector3ToJson(sec.position);
+        sJson["rotation"] = Vector3ToJson(sec.rotation);
+        sJson["scale"] = sec.scale;
+        sJson["active"] = sec.active;
+        stageArray.push_back(sJson);
+    }
+    root["stages"] = stageArray;
+
+    // 後方互換性用
+    if (!stage.GetSections().empty()) {
+        const auto& mainSec = stage.GetSections().front();
+        root["stage"]["modelKey"] = mainSec.modelKey;
+        root["stage"]["position"] = Vector3ToJson(mainSec.position);
+        root["stage"]["scale"] = mainSec.scale;
+    }
 
     nlohmann::json itemArray = nlohmann::json::array();
     for (const auto& item : gameContext.GetInventory().GetWorldItems())
@@ -196,8 +219,8 @@ bool SaveSystem::SaveScene(const GameContext& gameContext, const std::string& fi
         items.push_back({
             {"type", int(item.GetType())},
             {"position", Vector3ToJson(item.GetPosition())},
-            {"rotation", Vector3ToJson(item.GetRotation())}, // 3軸オイラー角を保存
-            {"yaw", item.GetYaw()},                          // 下位互換用
+            {"rotation", Vector3ToJson(item.GetRotation())},
+            {"yaw", item.GetYaw()},
             {"scale", item.GetScale()}
             });
     }
@@ -236,17 +259,37 @@ bool SaveSystem::LoadScene(GameContext& gameContext, const std::string& filepath
         if (p.contains("hasGun"))   player.SetHasGun(p["hasGun"].get<bool>());
     }
 
-    // Stage
-    if (root.contains("stage"))
+    // Stages
+    auto& stage = gameContext.GetStage();
+    if (root.contains("stages") && root["stages"].is_array() && !root["stages"].empty())
+    {
+        auto& sections = stage.GetSections();
+        sections.clear();
+        for (const auto& sJson : root["stages"])
+        {
+            StageSection sec;
+            sec.name = sJson.value("name", "Stage");
+            sec.modelKey = sJson.value("modelKey", ResourceKeys::Model_Stage1);
+            sec.position = JsonToVector3(sJson.value("position", nlohmann::json::object()));
+            sec.rotation = JsonToVector3(sJson.value("rotation", nlohmann::json::object()));
+            sec.scale = sJson.value("scale", 1.0f);
+            sec.active = sJson.value("active", true);
+            sections.push_back(sec);
+        }
+    }
+    else if (root.contains("stage"))
     {
         const auto& s = root["stage"];
-        auto& stage = gameContext.GetStage();
-        if (s.contains("position")) stage.SetPosition(JsonToVector3(s["position"]));
-        if (s.contains("scale") && s["scale"].is_number())
+        if (auto* mainSec = stage.GetSection(0))
         {
-            float sc = s["scale"].get<float>();
-            if (sc > 0.0001f) stage.SetScale(sc);
+            if (s.contains("modelKey") && s["modelKey"].is_string()) mainSec->modelKey = s["modelKey"].get<std::string>();
+            if (s.contains("position")) mainSec->position = JsonToVector3(s["position"]);
+            if (s.contains("scale") && s["scale"].is_number()) mainSec->scale = s["scale"].get<float>();
         }
+    }
+    if (!stage.GetSections().empty()) {
+        gameContext.GetLighting().Init(ResourceManager::GetInstance().GetModelShaders(),
+            ResourceManager::GetInstance().GetModel(stage.GetSections().front().modelKey));
     }
 
     if (root.contains("worldItems") && root["worldItems"].is_array())
