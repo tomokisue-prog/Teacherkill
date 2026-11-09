@@ -18,6 +18,7 @@ namespace {
         case ItemType::LostItem: return { ResourceKeys::Model_LostItem, .40f };
         case ItemType::Gun: return { ResourceKeys::Model_Gun, .52f };
         case ItemType::AuthenticationKey: return { ResourceKeys::Model_Authentication_Key, .47f };
+        case ItemType::EmergencyStairsKey: return { ResourceKeys::Model_Authentication_Key, .47f };
         case ItemType::Books: return { ResourceKeys::Model_Books, .58f };
         case ItemType::Chair1: return { ResourceKeys::Model_Chair1, 1.55f };
         case ItemType::Chair2: return { ResourceKeys::Model_Chair2, 1.4f };
@@ -55,6 +56,7 @@ const char* Item::GetName(ItemType type)
     case ItemType::LostItem: return "LOST ITEM";
     case ItemType::Gun:     return "GUN";
     case ItemType::AuthenticationKey: return "AUTHENTICATION KEY";
+    case ItemType::EmergencyStairsKey: return "EMERGENCY STAIRS KEY";
     case ItemType::Books: return "BOOKS";
     case ItemType::Chair1: return "CHAIR 1";
     case ItemType::Chair2: return "CHAIR 2";
@@ -80,14 +82,12 @@ void Item::Draw() const
     const auto bounds = RM().GetModelBounds(asset.key);
     const float baseScale = ModelScale(asset, Vector3Subtract(bounds.max, bounds.min), scale_);
 
-    // 底面中心を原点にするピボット補正
     const Matrix pivot = MatrixTranslate(
         -(bounds.min.x + bounds.max.x) * 0.5f,
         -bounds.min.y,
         -(bounds.min.z + bounds.max.z) * 0.5f
     );
 
-    // 3軸回転 (X -> Y -> Z) とスケール・平行移動を合成
     const Matrix matScale = MatrixScale(baseScale, baseScale, baseScale);
     const Matrix matRotX = MatrixRotateX(rotation_.x * DEG2RAD);
     const Matrix matRotY = MatrixRotateY(rotation_.y * DEG2RAD);
@@ -117,7 +117,6 @@ RayCollision Item::RaycastPlacement(Ray ray) const
     }
     if (IsPickup()) size = Vector3Max(size, { .30f, .25f, .30f });
 
-    // 3軸回転の逆行列でレイをローカル座標空間に変換
     const Matrix matRotX = MatrixRotateX(rotation_.x * DEG2RAD);
     const Matrix matRotY = MatrixRotateY(rotation_.y * DEG2RAD);
     const Matrix matRotZ = MatrixRotateZ(rotation_.z * DEG2RAD);

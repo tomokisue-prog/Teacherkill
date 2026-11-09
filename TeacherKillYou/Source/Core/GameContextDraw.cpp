@@ -28,6 +28,7 @@ static void DrawCrosshair()
 
     DrawCircle(x, y, 2.0f, WHITE);
 }
+
 static void DrawHitMarker(bool isKill)
 {
     const float x = GetScreenWidth() * 0.5f;
@@ -120,7 +121,6 @@ void GameContext::Draw() const
         enemyManager_.Draw();
     }
     else {
-        // エディタ（Hierarchy / Inspector）で編集している本物のスポーン設定位置に敵を描画
         for (const auto& spawnPoint : enemyManager_.GetSpawnPoints())
             demo::Enemy(0, spawnPoint.config, spawnPoint.GetPosition(), spawnPoint.yaw).Draw();
     }
@@ -192,6 +192,10 @@ void GameContext::Draw() const
                 {
                     prompt = "Locked (Requires Security PC)";
                 }
+                else if (nearestDoor->GetOpenConditionType() == DoorOpenConditionType::EmergencyStairsKey)
+                {
+                    prompt = "Locked (Emergency Stairs Key Required)";
+                }
                 else
                 {
                     prompt = "[M] Unlock";
@@ -212,6 +216,17 @@ void GameContext::Draw() const
                 JPFont().DrawText(prompt, x + 2, y + 2, fontSize, BLACK);
                 JPFont().DrawText(prompt, x, y, fontSize, RAYWHITE);
             }
+        }
+        else if (!IsMessageActive() && !gunTutorialUI_.IsOpen() && securityPC_.CanInteract(player_.GetPosition()))
+        {
+            std::string prompt = securityPC_.IsActivated() ? "[E] PC (Activated)" : "[E] Operate PC";
+            const float fontSize = 36.0f;
+            Vector2 textSize = JPFont().MeasureText(prompt, fontSize);
+            const int x = static_cast<int>((GetScreenWidth() - textSize.x) / 2.0f);
+            const int y = static_cast<int>((GetScreenHeight() / 2.0f) + 30.0f);
+
+            JPFont().DrawText(prompt, x + 2, y + 2, fontSize, BLACK);
+            JPFont().DrawText(prompt, x, y, fontSize, RAYWHITE);
         }
 
         if (securityTeleportUnlocked_)
@@ -406,6 +421,90 @@ void GameContext::Draw() const
                     DrawTriangle(topLeft, tip, topRight, MAGENTA);
                     DrawTriangleLines(topLeft, tip, topRight, PURPLE);
                 }
+            }
+        }
+
+        if (showEmergencyStairsDoorPin_)
+        {
+            Vector3 worldPos{};
+            bool foundDoor = false;
+            for (const auto& d : doors_)
+            {
+                if (d.GetOpenConditionType() == DoorOpenConditionType::EmergencyStairsKey)
+                {
+                    worldPos = d.GetPosition();
+                    worldPos.y += 1.0f;
+                    foundDoor = true;
+                    break;
+                }
+            }
+
+            if (foundDoor)
+            {
+                const Camera3D& currentCam = cameraController_.GetPlayerCamera().GetRaylibCamera();
+                Vector2 screenPos = GetWorldToScreen(worldPos, currentCam);
+
+                Vector3 toPoint = Vector3Subtract(worldPos, currentCam.position);
+                float forwardDot = Vector3DotProduct(
+                    Vector3Normalize(Vector3Subtract(currentCam.target, currentCam.position)),
+                    Vector3Normalize(toPoint)
+                );
+
+                if (forwardDot > 0.0f &&
+                    screenPos.x >= 0 && screenPos.x <= GetScreenWidth() &&
+                    screenPos.y >= 0 && screenPos.y <= GetScreenHeight())
+                {
+                    float distance = Vector3Length(toPoint);
+                    float baseSize = 40.0f;
+                    float scaleFactor = Clamp(6.0f / (distance + 1.0f), 0.5f, 1.5f);
+                    float size = baseSize * scaleFactor;
+
+                    float floatOffset = sinf(static_cast<float>(GetTime()) * 4.0f) * 4.0f * scaleFactor;
+                    float centerY = screenPos.y + floatOffset;
+
+                    Vector2 tip = { screenPos.x, centerY + size * 0.5f };
+                    Vector2 topLeft = { screenPos.x - size * 0.45f, centerY - size * 0.5f };
+                    Vector2 topRight = { screenPos.x + size * 0.45f, centerY - size * 0.5f };
+
+                    DrawTriangle(topLeft, tip, topRight, GREEN);
+                    DrawTriangleLines(topLeft, tip, topRight, LIME);
+                }
+            }
+        }
+
+        // ★ 非常階段のキー（EmergencyStairsKey）への誘導ピン
+        if (showEmergencyKeyPin_)
+        {
+            Vector3 worldPos = inventory_.GetEmergencyStairsKeyPosition();
+            worldPos.y += 0.5f;
+
+            const Camera3D& currentCam = cameraController_.GetPlayerCamera().GetRaylibCamera();
+            Vector2 screenPos = GetWorldToScreen(worldPos, currentCam);
+
+            Vector3 toPoint = Vector3Subtract(worldPos, currentCam.position);
+            float forwardDot = Vector3DotProduct(
+                Vector3Normalize(Vector3Subtract(currentCam.target, currentCam.position)),
+                Vector3Normalize(toPoint)
+            );
+
+            if (forwardDot > 0.0f &&
+                screenPos.x >= 0 && screenPos.x <= GetScreenWidth() &&
+                screenPos.y >= 0 && screenPos.y <= GetScreenHeight())
+            {
+                float distance = Vector3Length(toPoint);
+                float baseSize = 40.0f;
+                float scaleFactor = Clamp(6.0f / (distance + 1.0f), 0.5f, 1.5f);
+                float size = baseSize * scaleFactor;
+
+                float floatOffset = sinf(static_cast<float>(GetTime()) * 4.0f) * 4.0f * scaleFactor;
+                float centerY = screenPos.y + floatOffset;
+
+                Vector2 tip = { screenPos.x, centerY + size * 0.5f };
+                Vector2 topLeft = { screenPos.x - size * 0.45f, centerY - size * 0.5f };
+                Vector2 topRight = { screenPos.x + size * 0.45f, centerY - size * 0.5f };
+
+                DrawTriangle(topLeft, tip, topRight, GOLD);
+                DrawTriangleLines(topLeft, tip, topRight, ORANGE);
             }
         }
     }

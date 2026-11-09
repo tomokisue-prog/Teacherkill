@@ -20,10 +20,11 @@ enum class DoorLockType
 // ドアが開くための条件の種類（アンロック条件）
 enum class DoorOpenConditionType
 {
-    None,       // 制限なし（デフォルトで開閉可能）
-    TestMKey,   // テスト用：近づいてMキーを押したとき
-    SecurityTeleportEntered,// 警備室テレポートに入ったとき
-    SecurityPCActivated,
+    None,                    // 制限なし（デフォルトで開閉可能）
+    TestMKey,                // テスト用：近づいてMキーを押したとき
+    SecurityTeleportEntered, // 警備室テレポートに入ったとき
+    SecurityPCActivated,     // 警備室PCが起動されたとき
+    EmergencyStairsKey,      // 非常階段のキー所持で開く
 };
 
 class DoorMove : public GameObject
@@ -66,7 +67,7 @@ public:
     DoorOpenConditionType GetOpenConditionType() const { return openConditionType_; }
     void SetOpenConditionType(DoorOpenConditionType type) { openConditionType_ = type; }
 
-	bool HasClosedByCondition(const Inventory* inventory) const;
+    bool HasClosedByCondition(const Inventory* inventory) const;
 
     bool IsOpenConditionSatisfied() const;
 
@@ -80,7 +81,7 @@ public:
     bool IsPlayerInInteractionRange(const Player& player) const;
 private:
 
-	Player player;
+    Player player;
 
     bool isOpen_{ false };
     float slideProgress_{ 0.0f }; // 0.0f (全閉) 〜 1.0f (全開)

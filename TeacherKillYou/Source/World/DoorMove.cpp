@@ -51,7 +51,8 @@ bool DoorMove::IsOpenConditionSatisfied() const
     }
     if (openConditionType_ == DoorOpenConditionType::TestMKey ||
         openConditionType_ == DoorOpenConditionType::SecurityTeleportEntered ||
-        openConditionType_ == DoorOpenConditionType::SecurityPCActivated) // ★SecurityPCActivatedに対応
+        openConditionType_ == DoorOpenConditionType::SecurityPCActivated ||
+        openConditionType_ == DoorOpenConditionType::EmergencyStairsKey)
     {
         return openConditionSatisfied_;
     }
@@ -84,6 +85,15 @@ bool DoorMove::IsLocked(const Inventory* inventory) const
         return false;
     }
 
+    if (openConditionType_ == DoorOpenConditionType::EmergencyStairsKey)
+    {
+        if (inventory != nullptr && inventory->HasEmergencyStairsKey())
+        {
+            return false;
+        }
+        return true;
+    }
+
     if (lockType_ != DoorLockType::None)
     {
         if (!HasClosedByCondition(inventory))
@@ -105,7 +115,7 @@ bool DoorMove::IsPlayerInInteractionRange(const Player& player) const
 {
     // 常に現在のスライド位置を反映した正確なボックスを取得する
     float radY = rotation_.y * DEG2RAD;
-    float currentSlide = openDistance_ * slideProgress_; // スケールを掛けない正しい距離
+    float currentSlide = openDistance_ * slideProgress_;
     Vector3 localOffset = { currentSlide, 0.0f, 0.0f };
     Vector3 worldOffset = {
         localOffset.x * cosf(radY) - localOffset.z * sinf(radY),
@@ -126,7 +136,6 @@ bool DoorMove::IsPlayerInInteractionRange(const Player& player) const
     Vector3 halfSize = { width * 0.5f, height * 0.5f, depth * 0.5f };
     BoundingBox box = { Vector3Subtract(currentPos, halfSize), Vector3Add(currentPos, halfSize) };
 
-    // interactRadius_ 分だけボックスを全方向に広げてインタラクション可能エリアを作る
     Vector3 min = { box.min.x - interactRadius_, box.min.y - interactRadius_, box.min.z - interactRadius_ };
     Vector3 max = { box.max.x + interactRadius_, box.max.y + interactRadius_, box.max.z + interactRadius_ };
     BoundingBox expandedBox = { min, max };
@@ -147,6 +156,15 @@ bool DoorMove::CanInteract(const Player& player, const Inventory* inventory) con
 
 void DoorMove::Update(float deltaTime, const Player& player, const Inventory* inventory)
 {
+    // 非常階段の鍵を持っている場合はアンロック完了にする
+    if (openConditionType_ == DoorOpenConditionType::EmergencyStairsKey)
+    {
+        if (inventory != nullptr && inventory->HasEmergencyStairsKey())
+        {
+            openConditionSatisfied_ = true;
+        }
+    }
+
     bool closedByCondition = HasClosedByCondition(inventory);
     bool openSatisfied = IsOpenConditionSatisfied();
 
@@ -179,6 +197,10 @@ void DoorMove::Update(float deltaTime, const Player& player, const Inventory* in
             {
                 Toggle();
             }
+            else
+            {
+                AM().PlaySe(SeId::Error);
+            }
         }
     }
 
@@ -199,7 +221,7 @@ void DoorMove::Draw() const
     Model doorModel = ResourceManager::GetInstance().GetModel(ResourceKeys::Model_Door);
 
     float radY = rotation_.y * DEG2RAD;
-    float currentSlide = openDistance_ * slideProgress_; // スケールを掛けない
+    float currentSlide = openDistance_ * slideProgress_;
 
     Vector3 localOffset = { currentSlide, 0.0f, 0.0f };
     Vector3 worldOffset = {
@@ -228,14 +250,13 @@ void DoorMove::Draw() const
 
 BoundingBox DoorMove::GetBoundingBox() const
 {
-    // ドアが完全に開ききった（95%以上）ときは通り抜けられるように判定を消す
     if (slideProgress_ >= 0.95f)
     {
         return { { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } };
     }
 
     float radY = rotation_.y * DEG2RAD;
-    float currentSlide = openDistance_ * slideProgress_; // スケールを掛けない
+    float currentSlide = openDistance_ * slideProgress_;
 
     Vector3 localOffset = { currentSlide, 0.0f, 0.0f };
     Vector3 worldOffset = {
