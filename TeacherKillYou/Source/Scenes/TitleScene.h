@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "Scene.h"
+#include "ControlsGuide.h"
 #include "IntroVideoPlayer.h"
 
 class TitleScene final : public Scene
@@ -15,6 +16,7 @@ public:
 private:
     bool checkpointAvailable_ = false;
     int hoveredButton_ = -1;
+    ControlsGuide controlsGuide_;
     IntroVideoPlayer intro_;
     Texture2D cover_{};
     Texture2D canopy_{};

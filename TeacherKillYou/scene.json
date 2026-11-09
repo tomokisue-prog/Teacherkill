@@ -66,7 +66,7 @@
   ],
   "enemies": [
     {
-      "condition": 0,
+      "condition": 1,
       "config": {
         "animationSpeed": 1.5,
         "attackDamage": 15,
@@ -88,13 +88,13 @@
       "despawnCondition": 0,
       "position": {
         "x": -1.5784600973129272,
-        "y": 5.511425018310547,
+        "y": 1.5902113914489746,
         "z": 10.212614059448242
       },
       "yaw": 0.0
     },
     {
-      "condition": 0,
+      "condition": 1,
       "config": {
         "animationSpeed": 1.5,
         "attackDamage": 15,
@@ -116,7 +116,7 @@
       "despawnCondition": 0,
       "position": {
         "x": 2.700000047683716,
-        "y": 5.511425018310547,
+        "y": 1.5902113914489746,
         "z": 13.186999320983887
       },
       "yaw": 0.0

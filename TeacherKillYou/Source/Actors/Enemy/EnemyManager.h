@@ -40,6 +40,7 @@ namespace demo {
         void AddSpawnPoint(const Vector3& position, const EnemyConfig& config, EnemySpawnCondition condition, float yaw = 0.0f);
 
         void Clear();
+        void RespawnFromPlacements();
 
         // Inventory を受け取って条件判定できるように引数を追加
 		void Update(float dt, const TargetInfo& target, const Stage& stage, const Inventory* inventory = nullptr);

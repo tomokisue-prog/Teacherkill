@@ -372,9 +372,9 @@ bool SaveSystem::LoadScene(GameContext& gameContext, const std::string& filepath
     );
 
     if (placements) {
-        auto& spawnPoints = gameContext.GetEnemyManager().GetSpawnPoints();
-        gameContext.GetEnemyManager().Clear();
-        spawnPoints = std::move(*placements);
+        auto& enemyManager = gameContext.GetEnemyManager();
+        enemyManager.GetSpawnPoints() = std::move(*placements);
+        enemyManager.RespawnFromPlacements();
     }
 
     if (items) {

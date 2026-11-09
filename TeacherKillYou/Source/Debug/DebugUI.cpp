@@ -870,7 +870,7 @@ void DebugUI::DrawEnemyHierarchy(GameContext& gameContext)
     ImGui::BeginDisabled(spawnPoints.size() >= demo::MaxEnemyPlacements);
     if (ImGui::Button(u8"+ 敵を配置")) {
         pendingEnemy_ = demo::EnemySpawnData{};
-        pendingEnemy_->config = demo::EnemyConfig::ForType(static_cast<demo::EnemyType>(newEnemyType_));
+        pendingEnemy_->config = demo::EnemyConfig::ForType(EnemyKinds[newEnemyType_]);
         pendingEnemy_->condition = demo::EnemySpawnCondition::Normal;
         pendingEnemy_->despawnCondition = demo::EnemyDespawnCondition::None;
         selectedObject_ = SelectedObjectType::EnemyManager;
@@ -906,15 +906,7 @@ void DebugUI::DrawEnemyInspector(GameContext& gameContext)
 
     ImGui::TextUnformatted(u8"敵の配置設定");
     if (ImGui::Button(u8"この配置でプレイ")) {
-        enemyManager.Clear();
-        for (auto& sp : spawnPoints) {
-            sp.spawned = false;
-            sp.spawnedEnemyId = 0;
-            if (sp.condition == demo::EnemySpawnCondition::Normal) {
-                sp.spawnedEnemyId = enemyManager.Spawn(sp.GetPosition(), sp.config, sp.yaw);
-                sp.spawned = true;
-            }
-        }
+        enemyManager.RespawnFromPlacements();
         pendingEnemy_.reset();
         gameContext.GetCameraController().SetActiveCamera(CameraType::Player);
         return;
@@ -930,9 +922,9 @@ void DebugUI::DrawEnemyInspector(GameContext& gameContext)
     ImGui::PushID(selectedEnemyIndex_);
     auto& placement = spawnPoints[selectedEnemyIndex_];
     auto& config = placement.config;
-    int type = static_cast<int>(config.type);
-    bool changed = ImGui::Combo(u8"種類", &type, EnemyTypes, IM_ARRAYSIZE(EnemyTypes));
-    config.type = static_cast<demo::EnemyType>(type);
+    int typeIndex = EnemyTypeIndex(config.type);
+    bool changed = ImGui::Combo(u8"種類", &typeIndex, EnemyTypes, IM_ARRAYSIZE(EnemyTypes));
+    if (changed) config.type = EnemyKinds[typeIndex];
 
     Vector3 position = placement.GetPosition();
     changed |= ImGui::DragFloat3(u8"位置", &position.x, .05f, -100000, 100000, "%.2f", ClampInput);

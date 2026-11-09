@@ -23,7 +23,6 @@ CheckpointData GameContext::CaptureCheckpoint() const
     const auto& camera = cameraController_.GetPlayerCamera();
     data.yaw = camera.GetYaw();
     data.pitch = camera.GetPitch();
-    data.flashlight = lighting_.IsFlashlightOn();
     return data;
 }
 
@@ -71,7 +70,8 @@ void GameContext::RestoreCheckpoint(const CheckpointData& data)
     goalPoint_.SetRotation(data.goal.rotation);
     goalPoint_.SetScale(data.goal.scale);
     goalPoint_.SetRadius(data.goalRadius);
-    lighting_.SetFlashlightOn(data.flashlight);
+    // Older checkpoints may have saved the light switched off.
+    lighting_.Reset();
     auto& camera = cameraController_.GetPlayerCamera();
     camera.SetEyeHeight(player_.GetHeight() * WorldScale::EyeHeightRatio);
     camera.SetPlayerPosition(player_.GetPosition());

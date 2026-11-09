@@ -2,6 +2,7 @@
 #include "SceneManager.h"
 #include "AudioManager.h"
 #include "CheckpointSave.h"
+#include "ResourceManager.h"
 #include "rlgl.h"
 #include <algorithm>
 #include <cmath>
@@ -44,11 +45,11 @@ void main() {
     finalColor = vec4(clamp(surface.rgb + reflectedLight * falloff * flashStrength, 0.0, 1.0), surface.a);
 })";
 
-    enum MenuButton { StartButton, SaveButton, ExitButton, ButtonCount };
+    enum MenuButton { StartButton, SaveButton, ExitButton, ControlsButton, ButtonCount };
 
     // Trim the transparent margins and split the menu at the gaps in the artwork.
     constexpr Rectangle LogoSource{180.0f, 37.0f, 1157.0f, 954.0f};
-    constexpr Rectangle ButtonSources[ButtonCount] = {
+    constexpr Rectangle ButtonSources[] = {
         {262.0f, 225.0f, 1011.0f, 203.0f},
         {262.0f, 428.0f, 1011.0f, 181.0f},
         {262.0f, 609.0f, 1011.0f, 196.0f}
@@ -72,11 +73,13 @@ void main() {
 
         TitleLayout layout{};
         layout.logo = {w * 0.045f, h * 0.055f, LogoSource.width * logoScale, LogoSource.height * logoScale};
-        for (int i = 0; i < ButtonCount; ++i) {
+        for (int i = StartButton; i <= ExitButton; ++i) {
             const Rectangle source = ButtonSources[i];
             layout.buttons[i] = {menuX, menuY + (source.y - MenuTop) * menuScale,
                                  source.width * menuScale, source.height * menuScale};
         }
+        const float uiScale = (std::min)(w / 1600.0f, h / 900.0f);
+        layout.buttons[ControlsButton] = {w - 260 * uiScale, h - 90 * uiScale, 220 * uiScale, 50 * uiScale};
         return layout;
     }
 
@@ -212,8 +215,24 @@ void main() {
     }
 
     void DrawMenuButton(Texture2D menu, int button, Rectangle dest, bool enabled, bool hovered) {
+        if (button == ControlsButton) {
+            DrawRectangleRec(dest, hovered ? Color{67, 32, 34, 245} : Color{20, 24, 24, 235});
+            DrawRectangleLinesEx(dest, (std::max)(1.0f, dest.height * .04f),
+                                 hovered ? Color{204, 150, 130, 255} : Color{125, 137, 125, 255});
+            const auto& font = JPFont();
+            if (font.IsLoaded()) {
+                const char* label = u8"操作説明  [F1]";
+                const float size = dest.height * .48f;
+                const float width = font.MeasureText(label, size).x;
+                font.DrawText(label, int(dest.x + (dest.width - width) * .5f),
+                              int(dest.y + (dest.height - size) * .5f), size, RAYWHITE);
+            } else {
+                DrawFallbackLabel("CONTROLS  [F1]", dest, .48f, RAYWHITE);
+            }
+            return;
+        }
         if (menu.id == 0) {
-            constexpr const char* labels[ButtonCount] = {"START", "SAVE", "EXIT GAME"};
+            constexpr const char* labels[] = {"START", "SAVE", "EXIT GAME"};
             const char* label = enabled ? labels[button] : "NO SAVE DATA";
             const Color tint = !enabled ? GRAY : hovered ? WHITE : RAYWHITE;
             DrawFallbackLabel(label, dest, 0.36f, tint);
@@ -241,6 +260,7 @@ void TitleScene::Init()
     lastLightningAt_ = -1.0f;
     nextLightningAt_ = FirstLightningSeconds;
     hoveredButton_ = -1;
+    controlsGuide_.Close();
     cover_ = LoadTitleTexture(CoverPath);
     canopy_ = LoadTitleTexture(CanopyPath);
     leaves_ = LoadTitleTexture(LeavesPath);
@@ -284,6 +304,10 @@ void TitleScene::Update(float deltaTime)
         windTime_ >= lastLightningAt_ + ThunderDelaySeconds) {
         AM().PlaySe(SeId::Thunder, 0.7f);
     }
+    if (controlsGuide_.IsOpen()) {
+        controlsGuide_.Update();
+        return;
+    }
     const TitleLayout layout = GetTitleLayout();
     const Vector2 mouse = GetMousePosition();
     const bool click = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
@@ -299,7 +323,11 @@ void TitleScene::Update(float deltaTime)
     hoveredButton_ = hovered;
     if (click && hovered == SaveButton && !checkpointAvailable_) AM().PlayUiSe(SeId::Error);
 
-    if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) || (click && hovered == StartButton)) {
+    if (IsKeyPressed(KEY_F1) || (click && hovered == ControlsButton)) {
+        AM().PlayUiSe(SeId::Confirm);
+        controlsGuide_.Open();
+    }
+    else if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) || (click && hovered == StartButton)) {
         AM().PlaySe(SeId::Confirm);
         StopTitleAudio();
         // Keep the existing loading screen before the opening video.
@@ -373,7 +401,7 @@ void TitleScene::Render() const
 
     for (int i = 0; i < ButtonCount; ++i)
         DrawMenuButton(menu_, i, layout.buttons[i], i != SaveButton || checkpointAvailable_, hoveredButton_ == i);
-
+    if (controlsGuide_.IsOpen()) controlsGuide_.Draw();
 }
 
 void TitleScene::End()

@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <string>
+#include "ControlsGuide.h"
 #include "raylib.h"
 struct GameSettings;
 
@@ -15,6 +16,7 @@ public:
     void SetMessage(const std::string& japanese, const std::string& english);
 private:
     Texture2D background_{};
+    ControlsGuide controlsGuide_;
     bool settingsPage_ = false;
     bool debugEnabled_ = false;
     int selectedOption_ = 0;

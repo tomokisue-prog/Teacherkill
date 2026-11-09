@@ -158,11 +158,9 @@ void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage)
     focusedPickup_ = FindFocusedPickup(camera, stage);
 
     // 回復ホールド処理
-    if (healing_)
+    if (healing_ && focusedPickup_ < 0)
     {
-        if (!IsKeyDown(KEY_E) ||
-            slots_[selectedSlot_] != ItemType::Medkit ||
-            focusedPickup_ >= 0)
+        if (!IsKeyDown(KEY_E) || slots_[selectedSlot_] != ItemType::Medkit)
         {
             CancelHealing();
             return;
@@ -180,12 +178,13 @@ void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage)
         return;
     }
 
-    if (!IsKeyPressed(KEY_E))
-        return;
-
     // フィールド上のアイテムを拾う
     if (focusedPickup_ >= 0)
     {
+        if (healing_) CancelHealing();
+        if (!IsKeyPressed(KEY_F))
+            return;
+
         Item& item = items_[focusedPickup_];
         const ItemType type = item.GetType();
 
@@ -223,6 +222,9 @@ void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage)
         focusedPickup_ = -1;
         return;
     }
+
+    if (!IsKeyPressed(KEY_E))
+        return;
 
     // スロット内アイテムの使用
     const ItemType selectedItem = slots_[selectedSlot_];
@@ -437,7 +439,7 @@ void Inventory::DrawHUD() const
     if (focusedPickup_ >= 0)
     {
         const ItemType targetType = items_[focusedPickup_].GetType();
-        std::string prompt = std::string("[E] PICK UP ") + Item::GetName(targetType);
+        std::string prompt = std::string("[F] PICK UP ") + Item::GetName(targetType);
         if (targetType == ItemType::Ammo)
             prompt += " (+30)";
 

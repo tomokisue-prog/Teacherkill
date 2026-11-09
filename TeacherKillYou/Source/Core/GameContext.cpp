@@ -209,7 +209,6 @@ void GameContext::Update(float deltaTime)
         }
     }
 
-    lighting_.Update();
     bool isPlayerCameraActive = (cameraController_.GetActiveType() == CameraType::Player);
 
     if (isPlayerCameraActive)

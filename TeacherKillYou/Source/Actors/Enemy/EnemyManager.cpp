@@ -36,6 +36,16 @@ void EnemyManager::Clear() {
     enemies_.clear();
 }
 
+void EnemyManager::RespawnFromPlacements() {
+    Clear();
+    for (auto& placement : spawnPoints_) {
+        placement.spawned = placement.condition == EnemySpawnCondition::Normal;
+        placement.spawnedEnemyId = placement.spawned
+            ? Spawn(placement.GetPosition(), placement.config, placement.yaw)
+            : 0;
+    }
+}
+
 void EnemyManager::Update(float dt, const TargetInfo& target, const Stage& stage, const Inventory* inventory) {
     // 条件付きスポーンのチェック
     for (auto& sp : spawnPoints_) {

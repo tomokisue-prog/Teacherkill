@@ -487,13 +487,6 @@ void HorrorLighting::SetDisplaySettings(float brightness, float greenStrength) {
     greenStrength_ = std::isfinite(greenStrength) ? Clamp(greenStrength, 0.0f, 1.0f) : 1.0f;
 }
 
-void HorrorLighting::Update() {
-    // 入力は毎フレーム1回処理する。Fで懐中電灯と切り替え音を更新する。
-    if (IsKeyPressed(KEY_F)) {
-        flashlightOn_ = !flashlightOn_;
-    }
-}
-
 void HorrorLighting::BeginFrame(const Camera3D& view, const Camera3D& flashlight, Vector3 stagePosition, float stageScale, bool editorView) {
     editorView_ = editorView;
     // 表示用カメラとは別にプレイヤーの視線から光源を置き、手で持つ位置へ少しずらす。
@@ -605,7 +598,7 @@ void HorrorLighting::BeginFrame(const Camera3D& view, const Camera3D& flashlight
                      static_cast<unsigned char>(std::round(background.z)), NightBackground.a});
 }
 
-void HorrorLighting::EndFrame(bool drawControls) const {
+void HorrorLighting::EndFrame() const {
     if (editorView_) return;
     // 3D描画を終了し、照射範囲の外だけをぼかして緑のグラデーションを重ねる。HUDはこの後。
     if (scene_.id) {
@@ -634,8 +627,6 @@ void HorrorLighting::EndFrame(bool drawControls) const {
             {0, 0, static_cast<float>(GetScreenWidth()), static_cast<float>(GetScreenHeight())}, {0, 0}, 0, WHITE);
         if (post_.id) EndShaderMode();
     }
-    if (drawControls) DrawText(flashlightOn_ ? "[F] FLASHLIGHT ON" : "[F] FLASHLIGHT OFF",
-        24, GetScreenHeight() - 36, 16, {135, 145, 150, 255});
 }
 
 void HorrorLighting::Shutdown() {

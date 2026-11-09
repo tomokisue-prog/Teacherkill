@@ -65,6 +65,7 @@
     <ClCompile Include="Source\Save\CheckpointSave.cpp" />
     <ClCompile Include="Source\Audio\HorrorAudio.cpp" />
     <ClCompile Include="Source\UI\PauseMenu.cpp" />
+    <ClCompile Include="Source\UI\ControlsGuide.cpp" />
     <ClCompile Include="Source\UI\GameOverScreen.cpp" />
     <ClCompile Include="Source\Debug\GizmoDrawer.cpp" />
     <ClCompile Include="Source\World\GoalPoint.cpp" />
@@ -161,6 +162,7 @@
     <ClInclude Include="Source\Save\CheckpointSave.h" />
     <ClInclude Include="Source\Audio\HorrorAudio.h" />
     <ClInclude Include="Source\UI\PauseMenu.h" />
+    <ClInclude Include="Source\UI\ControlsGuide.h" />
     <ClInclude Include="Source\Save\CheckpointData.h" />
     <ClInclude Include="Source\UI\GameOverScreen.h" />
     <ClInclude Include="Source\Debug\GizmoDrawer.h" />

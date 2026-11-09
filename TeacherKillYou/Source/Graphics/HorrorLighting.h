@@ -42,11 +42,10 @@ public:
     void SetPostProcessSettings(const PostProcessSettings& settings);
     const PostProcessSettings& GetPostProcessSettings() const { return effects_; }
     Vector2 GetSceneRenderSize() const;
-    void Update(); // 毎フレーム1回、懐中電灯の入力とSEを更新する。
     // BeginFrame→3D描画→EndFrameの順に呼ぶ。viewは表示用、flashlightはプレイヤーの視線。
     void BeginFrame(const Camera3D& view, const Camera3D& flashlight, Vector3 stagePosition = {}, float stageScale = 1.0f, bool editorView = false);
     int GetBuildingLightCount() const { return static_cast<int>(buildingLights_.size()); }
-    void EndFrame(bool drawControls) const; // 画面効果を適用。HUDや被弾表示はこの後に描く。
+    void EndFrame() const; // 画面効果を適用。HUDや被弾表示はこの後に描く。
     void Shutdown();
     bool IsFlashlightOn() const { return flashlightOn_; }
     void SetFlashlightOn(bool enabled) { flashlightOn_ = enabled; }

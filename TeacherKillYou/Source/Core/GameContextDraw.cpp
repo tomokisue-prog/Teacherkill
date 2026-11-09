@@ -132,7 +132,7 @@ void GameContext::Draw() const
     securityPC_.Draw();
 
     EndMode3D();
-    lighting_.EndFrame(playerView && player_.IsAlive());
+    lighting_.EndFrame();
 
     // ==================================
     // 2D HUD

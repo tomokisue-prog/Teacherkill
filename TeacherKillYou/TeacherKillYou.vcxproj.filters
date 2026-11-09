@@ -147,6 +147,9 @@
     <ClCompile Include="Source\UI\PauseMenu.cpp">
       <Filter>Source\UI</Filter>
     </ClCompile>
+    <ClCompile Include="Source\UI\ControlsGuide.cpp">
+      <Filter>Source\UI</Filter>
+    </ClCompile>
     <ClCompile Include="Source\UI\GameOverScreen.cpp">
       <Filter>Source\UI</Filter>
     </ClCompile>
@@ -362,6 +365,9 @@
       <Filter>Source\Audio</Filter>
     </ClInclude>
     <ClInclude Include="Source\UI\PauseMenu.h">
+      <Filter>Source\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\UI\ControlsGuide.h">
       <Filter>Source\UI</Filter>
     </ClInclude>
     <ClInclude Include="Source\Save\CheckpointData.h">

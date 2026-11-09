@@ -7,7 +7,8 @@
 
 namespace {
     constexpr int SettingCount = 6;
-    float Scale() { return Clamp((std::min)(GetScreenWidth() / 1920.0f, GetScreenHeight() / 1080.0f), .45f, 1.5f); }
+    enum MenuOption { ResumeOption, SettingsOption, SaveOption, LoadOption, ControlsOption, TitleOption, DebugOption, MenuOptionCount };
+    float Scale() { return Clamp((std::min)(GetScreenWidth() / 1920.0f, GetScreenHeight() / 1080.0f), .01f, 1.5f); }
     Rectangle Button(int row) {
         const float s = Scale();
         return {(GetScreenWidth() - 600 * s) / 2, GetScreenHeight() * .3f + row * 76 * s, 600 * s, 60 * s};
@@ -75,6 +76,7 @@ void PauseMenu::End()
 void PauseMenu::Open(bool debugEnabled)
 {
     settingsPage_ = false;
+    controlsGuide_.Close();
 #ifndef NDEBUG
     debugEnabled_ = debugEnabled;
 #else
@@ -96,12 +98,16 @@ void PauseMenu::SetMessage(const std::string& japanese, const std::string& engli
 
 PauseAction PauseMenu::Update(float dt, GameSettings& settings, bool canLoad, bool canSave)
 {
+    if (controlsGuide_.IsOpen()) {
+        controlsGuide_.Update();
+        return PauseAction::None;
+    }
     elapsed_ += (std::max)(0.0f, dt);
     if (elapsed_ < .15f) return PauseAction::None;
     const bool click = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
     const bool mouseMoved = Vector2LengthSqr(GetMouseDelta()) > 0 || click;
     const auto mouse = GetMousePosition();
-    const int optionCount = settingsPage_ ? SettingCount + 1 : (debugEnabled_ ? 6 : 5);
+    const int optionCount = settingsPage_ ? SettingCount + 1 : (debugEnabled_ ? MenuOptionCount : DebugOption);
     const auto select = [this](int option) {
         if (selectedOption_ != option) { selectedOption_ = option; AM().PlayUiSe(SeId::Hover, 0.7f); }
     };
@@ -109,7 +115,7 @@ PauseAction PauseMenu::Update(float dt, GameSettings& settings, bool canLoad, bo
     if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) select((selectedOption_ + 1) % optionCount);
 
     if (settingsPage_) {
-        if (IsKeyPressed(KEY_ESCAPE)) { settingsPage_ = false; selectedOption_ = 1; return PauseAction::SaveSettings; }
+        if (IsKeyPressed(KEY_ESCAPE)) { settingsPage_ = false; selectedOption_ = SettingsOption; return PauseAction::SaveSettings; }
         // 新しいクリックではドラッグ対象を選び直し、前のスライダーを動かさない。
         if (click) draggingSlider_ = -1;
         bool changed = false;
@@ -139,7 +145,7 @@ PauseAction PauseMenu::Update(float dt, GameSettings& settings, bool canLoad, bo
         if (mouseMoved && overBack) select(SettingCount);
         if ((click && overBack) || (selectedOption_ == SettingCount && (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)))) {
             AM().PlayUiSe(SeId::Confirm);
-            settingsPage_ = false; selectedOption_ = 1; return PauseAction::SaveSettings;
+            settingsPage_ = false; selectedOption_ = SettingsOption; return PauseAction::SaveSettings;
         }
         return changed ? PauseAction::SettingsChanged : PauseAction::None;
     }
@@ -153,18 +159,19 @@ PauseAction PauseMenu::Update(float dt, GameSettings& settings, bool canLoad, bo
         }
     }
     if (!(clickedOption || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE))) return PauseAction::None;
-    if ((selectedOption_ == 2 && !canSave) || (selectedOption_ == 3 && !canLoad)) {
+    if ((selectedOption_ == SaveOption && !canSave) || (selectedOption_ == LoadOption && !canLoad)) {
         AM().PlayUiSe(SeId::Error);
         return PauseAction::None;
     }
     AM().PlayUiSe(SeId::Confirm);
     switch (selectedOption_) {
-    case 0: return PauseAction::Resume;
-    case 1: settingsPage_ = true; selectedOption_ = 0; return PauseAction::None;
-    case 2: return canSave ? PauseAction::SaveCheckpoint : PauseAction::None;
-    case 3: return canLoad ? PauseAction::LoadCheckpoint : PauseAction::None;
-    case 4: return PauseAction::Title;
-    case 5: return debugEnabled_ ? PauseAction::Debug : PauseAction::None;
+    case ResumeOption: return PauseAction::Resume;
+    case SettingsOption: settingsPage_ = true; selectedOption_ = 0; return PauseAction::None;
+    case SaveOption: return PauseAction::SaveCheckpoint;
+    case LoadOption: return PauseAction::LoadCheckpoint;
+    case ControlsOption: controlsGuide_.Open(); return PauseAction::None;
+    case TitleOption: return PauseAction::Title;
+    case DebugOption: return PauseAction::Debug;
     }
     return PauseAction::None;
 }
@@ -213,18 +220,17 @@ void PauseMenu::Draw(const GameSettings& settings, bool canLoad, bool canSave) c
         DrawButton(Button(7), u8"保存して戻る", "SAVE AND BACK", selectedOption_ == SettingCount, true);
     }
     else {
-        const char* jp[] = {u8"ゲームに戻る  [Esc]", u8"画面・音量・マウス設定", u8"チェックポイントを保存", u8"チェックポイントから再開", u8"タイトルへ戻る", u8"デバッグ"};
-        const char* en[] = {"RESUME  [Esc]", "DISPLAY / AUDIO / MOUSE", "SAVE CHECKPOINT", "LOAD CHECKPOINT", "RETURN TO TITLE", "DEBUG"};
-        const int count = debugEnabled_ ? 6 : 5;
-        for (int i = 0; i < count; ++i)
-            DrawButton(Button(i), jp[i], en[i], selectedOption_ == i, i == 2 ? canSave : i == 3 ? canLoad : true);
-        Text(u8"保存すると、前のチェックポイントを更新します。", "Saving replaces the previous checkpoint.", Button(count - 1).y + 87 * s, 20 * s, {159, 176, 172, 255});
-        //const char* jp[] = {u8"ゲームに戻る  [Esc]", u8"画面・音量・マウス設定", u8"チェックポイントを保存", u8"チェックポイントから再開", u8"タイトルへ戻る"};
-        //const char* en[] = {"RESUME  [Esc]", "DISPLAY / AUDIO / MOUSE", "SAVE CHECKPOINT", "LOAD CHECKPOINT", "RETURN TO TITLE"};
-        for (int i = 0; i < 5; ++i)
-            DrawButton(Button(i), jp[i], en[i], selectedOption_ == i, i == 2 ? canSave : i == 3 ? canLoad : true, artwork);
+        const char* jp[] = {u8"ゲームに戻る  [Esc]", u8"画面・音量・マウス設定", u8"チェックポイントを保存",
+                            u8"チェックポイントから再開", u8"操作説明", u8"タイトルへ戻る", u8"デバッグ"};
+        const char* en[] = {"RESUME  [Esc]", "DISPLAY / AUDIO / MOUSE", "SAVE CHECKPOINT",
+                            "LOAD CHECKPOINT", "CONTROLS", "RETURN TO TITLE", "DEBUG"};
+        const int count = debugEnabled_ ? MenuOptionCount : DebugOption;
+        for (int i = 0; i < count; ++i) {
+            const bool enabled = (i != SaveOption || canSave) && (i != LoadOption || canLoad);
+            DrawButton(Button(i), jp[i], en[i], selectedOption_ == i, enabled, artwork);
+        }
         Text(u8"保存すると、前のチェックポイントを更新します。", "Saving replaces the previous checkpoint.",
-             Button(4).y + 87 * s, 20 * s, artwork ? Color{72, 31, 27, 255} : Color{159, 176, 172, 255});
+             Button(count - 1).y + 87 * s, 20 * s, artwork ? Color{72, 31, 27, 255} : Color{159, 176, 172, 255});
     }
     if (!message_.empty()) {
         if (artwork) {
@@ -234,4 +240,5 @@ void PauseMenu::Draw(const GameSettings& settings, bool canLoad, bool canSave) c
         }
         Text(message_.c_str(), fallbackMessage_.c_str(), GetScreenHeight() * .91f, 22 * s, {220, 222, 205, 255});
     }
+    if (controlsGuide_.IsOpen()) controlsGuide_.Draw();
 }
