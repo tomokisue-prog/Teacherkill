@@ -3,7 +3,7 @@
 #include "raylib.h"
 #include <cstddef>
 
-// アイテムの種別定義
+// アイテムの種類定義
 enum class ItemType
 {
     None,
@@ -15,6 +15,7 @@ enum class ItemType
     LostItem,
     Gun,
     AuthenticationKey,
+    EmergencyStairsKey, // 非常階段のキー
     Books,
     Chair1,
     Chair2,
@@ -66,6 +67,7 @@ public:
         case ItemType::LostItem:
         case ItemType::Gun:
         case ItemType::AuthenticationKey:
+        case ItemType::EmergencyStairsKey:
             return true;
         default:
             return false;
@@ -86,7 +88,7 @@ public:
 private:
     ItemType type_{ ItemType::None };
     Vector3 position_{ 0.0f, 0.0f, 0.0f };
-    Vector3 rotation_{ 0.0f, 0.0f, 0.0f }; // 度数法 (X, Y, Z)
+    Vector3 rotation_{ 0.0f, 0.0f, 0.0f };
     bool collected_{ false };
     float yaw_ = 0.0f;
     float scale_ = 1.0f;

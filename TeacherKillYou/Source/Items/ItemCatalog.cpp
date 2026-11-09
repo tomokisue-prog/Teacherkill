@@ -3,7 +3,7 @@
 
 namespace {
     // Array order follows the persisted IDs in ItemType. Keep IDs fixed when adding items.
-    constexpr ItemDefinitionList Definitions{{
+    constexpr ItemDefinitionList Definitions{ {
         {ItemType::None, "EMPTY", u8"空", nullptr, nullptr, 1.0f, false, false},
         {ItemType::Medkit, "MEDKIT", u8"回復キット", ResourceKeys::Model_Medkit,
             "Data/Image/Items/Placeables/medkit.fbx", .65f, true, true},
@@ -19,6 +19,8 @@ namespace {
             "Data/Image/Items/Model_Gun.glb", .52f, true, false},
         {ItemType::AuthenticationKey, "AUTHENTICATION KEY", u8"認証キー", ResourceKeys::Model_Authentication_Key,
             "Data/Image/Items/Key_Card.glb", .47f, true, false},
+        {ItemType::EmergencyStairsKey, "EMERGENCY STAIRS KEY", u8"非常階段のキー", ResourceKeys::Model_EmergencyStairsKey,
+            "Data/Image/Items/Key_Card.glb", .47f, true, false}, // 番号順を一致させる
         {ItemType::Books, "BOOKS", u8"本", ResourceKeys::Model_Books,
             "Data/Image/Items/Placeables/books.fbx", .58f, false, false},
         {ItemType::Chair1, "CHAIR 1", u8"椅子 1", ResourceKeys::Model_Chair1,
@@ -39,12 +41,12 @@ namespace {
             "Data/Image/Items/Placeables/table_horror.fbx", 2.6f, false, false},
         {ItemType::SlideDoorProp, "SLIDE DOOR (PROP)", u8"スライドドア（装飾）", ResourceKeys::Model_SlideDoorProp,
             "Data/Image/Items/Placeables/slide_door.fbx", 3.6f, false, false},
-    }};
+    } };
     static_assert([] {
         for (std::size_t i = 0; i < Definitions.size(); ++i)
             if (static_cast<std::size_t>(Definitions[i].type) != i) return false;
         return true;
-    }(), "The item catalog must cover every persisted item ID in order");
+        }(), "The item catalog must cover every persisted item ID in order");
 }
 
 const ItemDefinitionList& GetItemDefinitions() {

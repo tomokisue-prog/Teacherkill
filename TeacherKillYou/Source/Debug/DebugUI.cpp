@@ -3,9 +3,13 @@
 #include "imgui.h"
 #include "SceneManager.h"
 #include "SaveSystem.h"
+#include "ResourceKeys.h"
+#include "ResourceManager.h"
+#include "WorldScale.h"
 #include "../Events/SecurityTeleportPoint.h"
 #include "raymath.h"
 #include <cmath>
+#include <algorithm>
 
 void DebugUI::Draw(GameContext& gameContext)
 {
@@ -32,10 +36,13 @@ void DebugUI::Draw(GameContext& gameContext)
         else if (selectedObject_ == SelectedObjectType::Stage)
         {
             Stage& stage = gameContext.GetStage();
-            stageProxy_.SetPosition(stage.GetPosition());
-            float s = stage.GetScale();
-            stageProxy_.SetScale({ s, s, s });
-            targetObj = &stageProxy_;
+            if (auto* sec = stage.GetSection(selectedStageIndex_))
+            {
+                stageProxy_.SetPosition(sec->position);
+                stageProxy_.SetRotation(sec->rotation);
+                stageProxy_.SetScale({ sec->scale, sec->scale, sec->scale });
+                targetObj = &stageProxy_;
+            }
         }
         else if (selectedObject_ == SelectedObjectType::Door)
         {
@@ -89,9 +96,14 @@ void DebugUI::Draw(GameContext& gameContext)
         if (targetObj == &stageProxy_)
         {
             Stage& stage = gameContext.GetStage();
-            stage.SetPosition(stageProxy_.GetPosition());
-            float s = stageProxy_.GetScale().x;
-            if (s > 0.0001f) stage.SetScale(s);
+            if (auto* sec = stage.GetSection(selectedStageIndex_))
+            {
+                sec->position = stageProxy_.GetPosition();
+                sec->rotation = stageProxy_.GetRotation();
+                float s = stageProxy_.GetScale().x;
+                if (s > 0.0001f) sec->scale = s;
+                sceneSaveMessage_ = nullptr;
+            }
         }
 
         HandlePlacementViewport(gameContext);
@@ -145,15 +157,27 @@ void DebugUI::DrawHierarchy(GameContext& gameContext)
     {
         EventDialoguePoint newEp;
         newEp.SetPosition(gameContext.GetPlayer().GetPosition());
+        newEp.SetCondition(EventDialogueCondition::None); // 初期値はNone
         eventPoints.push_back(newEp);
         selectedObject_ = SelectedObjectType::EventDialoguePoint;
         selectedEventPointIndex_ = static_cast<int>(eventPoints.size()) - 1;
     }
     DrawItemHierarchy(gameContext);
 
-    if (ImGui::Selectable("Stage", selectedObject_ == SelectedObjectType::Stage))
+    // ステージセクション一覧（Stage 1, Stage 2, Stage 3）
+    auto& stage = gameContext.GetStage();
+    auto& stageSections = stage.GetSections();
+    for (size_t i = 0; i < stageSections.size(); ++i)
     {
-        selectedObject_ = SelectedObjectType::Stage;
+        char label[64];
+        snprintf(label, sizeof(label), "%s##stage%d", stageSections[i].name.c_str(), (int)i);
+
+        bool isSelected = (selectedObject_ == SelectedObjectType::Stage && selectedStageIndex_ == (int)i);
+        if (ImGui::Selectable(label, isSelected))
+        {
+            selectedObject_ = SelectedObjectType::Stage;
+            selectedStageIndex_ = static_cast<int>(i);
+        }
     }
 
     if (ImGui::Selectable("Paladin Model", selectedObject_ == SelectedObjectType::PaladinModel))
@@ -246,6 +270,10 @@ void DebugUI::DrawInspector(GameContext& gameContext)
 
     if (ImGui::Button("Save Scene (JSON)"))
     {
+        // ★ 保存前に最新のアイテム・敵配置を実体へ完全同期
+        gameContext.GetInventory().ApplyPlacements();
+        gameContext.ApplyEnemyPlacements();
+
         sceneSaveMessage_ = SaveSystem::SaveScene(gameContext)
             ? u8"scene.json に保存しました"
             : u8"保存できませんでした。出力ログを確認してください。";
@@ -255,7 +283,6 @@ void DebugUI::DrawInspector(GameContext& gameContext)
     ImGui::Separator();
 
     ImGui::Text("Gizmo Mode");
-    // アイテムは全回転・拡縮を許可するため、直立制限はEnemyManagerのみ
     const bool uprightPlacement = (selectedObject_ == SelectedObjectType::EnemyManager);
     ImGuizmo::OPERATION currentOp = gizmoDrawer_.GetOperation();
 
@@ -293,16 +320,19 @@ void DebugUI::DrawInspector(GameContext& gameContext)
         if (ImGui::DragFloat3("Position", &position.x, 0.1f))
         {
             player.SetPosition(position);
+            sceneSaveMessage_ = nullptr;
         }
 
         if (ImGui::DragFloat3("Rotation", &rotation.x, 1.0f))
         {
             player.SetRotation(rotation);
+            sceneSaveMessage_ = nullptr;
         }
 
         if (ImGui::DragFloat3("Scale", &scale.x, 0.05f, 0.1f, 10.0f))
         {
             player.SetScale(scale);
+            sceneSaveMessage_ = nullptr;
         }
 
         ImGui::Separator();
@@ -328,34 +358,104 @@ void DebugUI::DrawInspector(GameContext& gameContext)
     case SelectedObjectType::Stage:
     {
         Stage& stage = gameContext.GetStage();
-        Vector3 position = stage.GetPosition();
-        float scale = stage.GetScale();
-
-        ImGui::Text("Stage Transform");
-
-        if (ImGui::DragFloat3("Position", &position.x, 0.1f))
+        auto* sec = stage.GetSection(selectedStageIndex_);
+        if (!sec)
         {
-            stage.SetPosition(position);
+            ImGui::Text("No stage section selected.");
+            break;
         }
 
-        if (ImGui::DragFloat("Scale", &scale, 0.005f, 0.001f, 50.0f, "%.4f"))
+        ImGui::Text("%s Settings", sec->name.c_str());
+
+        bool active = sec->active;
+        if (ImGui::Checkbox("Active (Enabled)", &active))
         {
-            if (scale > 0.0001f) stage.SetScale(scale);
+            sec->active = active;
+            sceneSaveMessage_ = nullptr;
+        }
+
+        const char* stageLabels[] = {
+            "Stage 1 (room2)",
+            "Stage 2 (room3)",
+            "Stage 3 (room4)"
+        };
+        const char* stageKeys[] = {
+            ResourceKeys::Model_Stage1,
+            ResourceKeys::Model_Stage2,
+            ResourceKeys::Model_Stage3
+        };
+
+        int currentStageIdx = 0;
+        if (sec->modelKey == ResourceKeys::Model_Stage2) currentStageIdx = 1;
+        else if (sec->modelKey == ResourceKeys::Model_Stage3) currentStageIdx = 2;
+
+        if (ImGui::Combo("Model", &currentStageIdx, stageLabels, IM_ARRAYSIZE(stageLabels)))
+        {
+            sec->modelKey = stageKeys[currentStageIdx];
+            if (selectedStageIndex_ == 0) {
+                gameContext.GetLighting().Init(RM().GetModelShaders(), RM().GetModel(sec->modelKey));
+            }
+            sceneSaveMessage_ = nullptr;
         }
 
         ImGui::Separator();
+        ImGui::Text("Transform");
+
+        Vector3 pos = sec->position;
+        if (ImGui::DragFloat3("Position", &pos.x, 0.1f))
+        {
+            sec->position = pos;
+            sceneSaveMessage_ = nullptr;
+        }
+
+        Vector3 rot = sec->rotation;
+        if (ImGui::DragFloat3("Rotation", &rot.x, 1.0f, -180.0f, 180.0f, "%.1f deg"))
+        {
+            sec->rotation = rot;
+            sceneSaveMessage_ = nullptr;
+        }
+
+        ImGui::Separator();
+        ImGui::Text("Scale Settings");
+
+        float scale = sec->scale;
+        if (ImGui::DragFloat("Scale (Drag)", &scale, 0.005f, 0.001f, 50.0f, "%.4f"))
+        {
+            if (scale > 0.0001f) {
+                sec->scale = scale;
+                sceneSaveMessage_ = nullptr;
+            }
+        }
+
+        float sliderScale = sec->scale;
+        if (ImGui::SliderFloat("Scale (Slider)", &sliderScale, 0.05f, 5.0f, "%.3f"))
+        {
+            sec->scale = sliderScale;
+            sceneSaveMessage_ = nullptr;
+        }
+
+        ImGui::Text("Step Adjust:");
+        if (ImGui::Button("-0.1")) { sec->scale = (std::max)(0.001f, sec->scale - 0.1f); sceneSaveMessage_ = nullptr; }
+        ImGui::SameLine();
+        if (ImGui::Button("-0.01")) { sec->scale = (std::max)(0.001f, sec->scale - 0.01f); sceneSaveMessage_ = nullptr; }
+        ImGui::SameLine();
+        if (ImGui::Button("+0.01")) { sec->scale += 0.01f; sceneSaveMessage_ = nullptr; }
+        ImGui::SameLine();
+        if (ImGui::Button("+0.1")) { sec->scale += 0.1f; sceneSaveMessage_ = nullptr; }
+
+        ImGui::Separator();
         ImGui::Text("Quick Scale Presets:");
-        if (ImGui::Button("0.01x")) stage.SetScale(0.01f);
+        if (ImGui::Button("0.05x")) { sec->scale = 0.05f; sceneSaveMessage_ = nullptr; }
         ImGui::SameLine();
-        if (ImGui::Button("0.05x")) stage.SetScale(0.05f);
+        if (ImGui::Button("0.1x")) { sec->scale = 0.1f; sceneSaveMessage_ = nullptr; }
         ImGui::SameLine();
-        if (ImGui::Button("0.1x"))  stage.SetScale(0.1f);
+        if (ImGui::Button("0.5x")) { sec->scale = 0.5f; sceneSaveMessage_ = nullptr; }
         ImGui::SameLine();
-        if (ImGui::Button("0.2x"))  stage.SetScale(0.2f);
+        if (ImGui::Button("1.0x")) { sec->scale = 1.0f; sceneSaveMessage_ = nullptr; }
         ImGui::SameLine();
-        if (ImGui::Button("0.5x"))  stage.SetScale(0.5f);
+        if (ImGui::Button("1.25x (Default)")) { sec->scale = WorldScale::StageScale; sceneSaveMessage_ = nullptr; }
         ImGui::SameLine();
-        if (ImGui::Button("1.0x"))  stage.SetScale(1.0f);
+        if (ImGui::Button("2.0x")) { sec->scale = 2.0f; sceneSaveMessage_ = nullptr; }
 
         ImGui::Separator();
         if (ImGui::Button("Snap Player to Stage Floor"))
@@ -427,7 +527,8 @@ void DebugUI::DrawInspector(GameContext& gameContext)
                 "None (Normal Open)",
                 "Test: Press M Key",
                 "Security Teleport Entered",
-                "Security PC Activated"
+                "Security PC Activated",
+                "Emergency Stairs Key Required"
             };
             if (ImGui::Combo("Open Condition", &openCondVal, openCondNames, IM_ARRAYSIZE(openCondNames)))
             {
@@ -566,7 +667,9 @@ void DebugUI::DrawInspector(GameContext& gameContext)
             {
                 EventDialoguePoint newEp;
                 newEp.SetPosition(gameContext.GetPlayer().GetPosition());
+                newEp.SetCondition(EventDialogueCondition::None); // 初期値はNone
                 eventPoints.push_back(newEp);
+                selectedObject_ = SelectedObjectType::EventDialoguePoint;
                 selectedEventPointIndex_ = static_cast<int>(eventPoints.size()) - 1;
             }
 
@@ -598,17 +701,22 @@ void DebugUI::DrawInspector(GameContext& gameContext)
             if (ImGui::InputText("Dialogue ID", idBuffer, sizeof(idBuffer)))
             {
                 ep.SetDialogueId(std::string(idBuffer));
+                sceneSaveMessage_ = nullptr;
             }
 
             int condVal = static_cast<int>(ep.GetCondition());
             const char* condNames[] = {
                 "None (Do Not Trigger)",
                 "Normal (Always Active)",
-                "LostItem Collected"
+                "LostItem Collected",
+                "SecurityPC Door Unlocked",
+                "EmergencyStairs Door Can Open (Key Held)",
+                "EmergencyStairs Door Opened"
             };
             if (ImGui::Combo("Event Condition", &condVal, condNames, IM_ARRAYSIZE(condNames)))
             {
                 ep.SetCondition(static_cast<EventDialogueCondition>(condVal));
+                sceneSaveMessage_ = nullptr;
             }
 
             if (ImGui::DragFloat("Radius", &radius, 0.1f, 0.1f, 20.0f)) ep.SetRadius(radius);
@@ -631,6 +739,7 @@ void DebugUI::DrawInspector(GameContext& gameContext)
             if (ImGui::Button("Add Point"))
             {
                 EventDialoguePoint newEp;
+                newEp.SetCondition(EventDialogueCondition::None);
                 eventPoints.push_back(newEp);
                 selectedEventPointIndex_ = 0;
             }
@@ -794,6 +903,9 @@ namespace {
         {ItemType::Ammo, u8"弾薬"},
         {ItemType::KeyCard, u8"キーカード"},
         {ItemType::LostItem, u8"携帯電話（忘れ物）"},
+        {ItemType::Gun, u8"銃 (GUN)"},
+        {ItemType::AuthenticationKey, u8"認証キー"},
+        {ItemType::EmergencyStairsKey, u8"非常階段のキー"},
         {ItemType::Books, u8"本"},
         {ItemType::Chair1, u8"椅子 1"},
         {ItemType::Chair2, u8"椅子 2"},
@@ -906,15 +1018,7 @@ void DebugUI::DrawEnemyInspector(GameContext& gameContext)
 
     ImGui::TextUnformatted(u8"敵の配置設定");
     if (ImGui::Button(u8"この配置でプレイ")) {
-        enemyManager.Clear();
-        for (auto& sp : spawnPoints) {
-            sp.spawned = false;
-            sp.spawnedEnemyId = 0;
-            if (sp.condition == demo::EnemySpawnCondition::Normal) {
-                sp.spawnedEnemyId = enemyManager.Spawn(sp.GetPosition(), sp.config, sp.yaw);
-                sp.spawned = true;
-            }
-        }
+        gameContext.ApplyEnemyPlacements();
         pendingEnemy_.reset();
         gameContext.GetCameraController().SetActiveCamera(CameraType::Player);
         return;
@@ -1081,37 +1185,45 @@ void DebugUI::DrawItemInspector(GameContext& gameContext)
 
     ImGui::PushID(selectedItemIndex_);
     auto& item = placements[selectedItemIndex_];
+    bool changed = false;
+
     auto type = item.GetType();
     if (ItemTypeCombo(u8"種類", type)) {
         item.SetType(type);
-        sceneSaveMessage_ = nullptr;
+        changed = true;
     }
     ImGui::TextDisabled(item.IsPickup() ? u8"取得アイテム" : u8"装飾用の備品");
     auto position = item.GetPosition();
     if (ImGui::DragFloat3(u8"位置", &position.x, .05f, -100000, 100000, "%.2f", ClampInput)) {
         item.SetPosition(position);
-        sceneSaveMessage_ = nullptr;
+        changed = true;
     }
 
     // 3軸の回転コントロール
     Vector3 rotation = item.GetRotation();
     if (ImGui::DragFloat3(u8"回転 (X/Y/Z)", &rotation.x, 1.0f, -180.0f, 180.0f, "%.1f deg", ClampInput)) {
         item.SetRotation(rotation);
-        sceneSaveMessage_ = nullptr;
+        changed = true;
     }
 
     float scale = item.GetScale();
     if (ImGui::DragFloat(u8"サイズ倍率", &scale, .02f, .05f, 20, "%.2fx", ClampInput)) {
         item.SetScale(scale);
-        sceneSaveMessage_ = nullptr;
+        changed = true;
     }
     if (ImGui::Button(u8"近くの床に合わせる")) {
         item.SetPosition(gameContext.GetStage().FindGroundPosition(position));
-        sceneSaveMessage_ = nullptr;
+        changed = true;
     }
     ImGui::SameLine();
     if (ImGui::Button(u8"プレイヤーの足元へ")) {
         item.SetPosition(gameContext.GetStage().FindGroundPosition(gameContext.GetPlayer().GetPosition()));
+        changed = true;
+    }
+
+    // ★ インスペクターで変更されたら即座にワールド実体（items_）へ同期！
+    if (changed) {
+        inventory.ApplyPlacements();
         sceneSaveMessage_ = nullptr;
     }
 
@@ -1128,6 +1240,7 @@ void DebugUI::DrawItemInspector(GameContext& gameContext)
         ImGui::Text(u8"%s の配置を削除しますか？", ItemName(item.GetType()));
         if (ImGui::Button(u8"削除する")) {
             placements.erase(placements.begin() + selectedItemIndex_);
+            inventory.ApplyPlacements(); // ★ 削除時も即座に同期
             selectedItemIndex_ = -1;
             pendingItem_.reset();
             sceneSaveMessage_ = nullptr;
@@ -1166,6 +1279,8 @@ void DebugUI::HandlePlacementViewport(GameContext& gameContext)
         if (DrawItemPlacementGizmo(gizmoDrawer_, gameContext, position, rotation)) {
             item.SetPosition(position);
             item.SetRotation(rotation);
+            // ★ ギズモ操作のたびに即座にワールド実体（items_）へ同期！
+            gameContext.GetInventory().ApplyPlacements();
             sceneSaveMessage_ = nullptr;
         }
     }
@@ -1204,6 +1319,8 @@ void DebugUI::HandlePlacementViewport(GameContext& gameContext)
         else if (pendingItem_ && items.size() < MaxItemPlacements) {
             pendingItem_->SetPosition(surface.point);
             items.push_back(*pendingItem_);
+            // ★ クリック配置時も即座に同期
+            gameContext.GetInventory().ApplyPlacements();
             selectedItemIndex_ = static_cast<int>(items.size()) - 1;
         }
         else {

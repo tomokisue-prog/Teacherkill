@@ -11,24 +11,25 @@ namespace ResourceKeys {
     inline constexpr const char* Animation_MonsterMale2Death = "MonsterMale2Death";
     inline constexpr const char* Model_Stage = "Model_Stage";
 
-	//Player用キー
+    // Player用キー
     inline constexpr const char* Model_HandGunView = "HandGunView";
-  
-	// ドアのモデル
-	inline constexpr const char* Model_Door = "Model_Door";
 
+    // ドアのモデル
+    inline constexpr const char* Model_Door = "Model_Door";
 
     // ステージのモデル
-    
     inline constexpr const char* Model_Stage1 = "Model_Stage1";
-	
+    inline constexpr const char* Model_Stage2 = "Model_Stage2";
+    inline constexpr const char* Model_Stage3 = "Model_Stage3";
+
     // アイテムモデル用キー
     inline constexpr const char* Model_KeyCard = "Model_KeyCard";
     inline constexpr const char* Model_Medkit = "Model_Medkit";
     inline constexpr const char* Model_Ammo = "Model_Ammo";
-	inline constexpr const char* Model_LostItem = "Model_LostItem";
-	inline constexpr const char* Model_Gun = "Model_Gun";
-	inline constexpr const char* Model_Authentication_Key= "Model_Authentication_Key";
+    inline constexpr const char* Model_LostItem = "Model_LostItem";
+    inline constexpr const char* Model_Gun = "Model_Gun";
+    inline constexpr const char* Model_Authentication_Key = "Model_Authentication_Key";
+    inline constexpr const char* Model_EmergencyStairsKey = "Model_EmergencyStairsKey";
 
     inline constexpr const char* Model_Books = "Model_Books";
     inline constexpr const char* Model_Chair1 = "Model_Chair1";
@@ -45,16 +46,14 @@ namespace ResourceKeys {
     inline constexpr const char* Icon_KeyCard = "Icon_KeyCard";
     inline constexpr const char* Icon_Medkit = "Icon_Medkit";
     inline constexpr const char* Icon_HealingBar = "Icon_HealingBar";
-   inline constexpr const char* Icon_LostItem = "Icon_LostItem";
-	inline constexpr const char* Icon_Ammo = "Icon_Ammo";
-	// UI用キー
+    inline constexpr const char* Icon_LostItem = "Icon_LostItem";
+    inline constexpr const char* Icon_Ammo = "Icon_Ammo";
 
-	inline constexpr const char* WASD_UI = "WASD_UI";
-
+    // UI用キー
+    inline constexpr const char* WASD_UI = "WASD_UI";
     inline constexpr const char* Gun_UI1 = "Gun_UI1";
     inline constexpr const char* Gun_UI2 = "Gun_UI2";
 
     // ObjectModel用のキー
-	inline constexpr const char* Security_PC = "Security_PC";
-
+    inline constexpr const char* Security_PC = "Security_PC";
 }

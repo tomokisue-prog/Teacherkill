@@ -54,6 +54,7 @@ private:
     int selectedItemIndex_{ 0 };
     int selectedEventPointIndex_{ 0 };
     int selectedDoorIndex_{ 0 };
+    int selectedStageIndex_{ 0 };
     ItemType newItemType_ = ItemType::Medkit;
     std::optional<Item> pendingItem_;
     int newEnemyType_ = 0;
