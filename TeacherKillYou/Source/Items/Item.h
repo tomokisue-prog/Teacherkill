@@ -26,6 +26,7 @@ enum class ItemType
     Table,
     HorrorTable,
     SlideDoorProp,
+    Crowbar,
     Count
 };
 
@@ -68,6 +69,7 @@ public:
         case ItemType::Gun:
         case ItemType::AuthenticationKey:
         case ItemType::EmergencyStairsKey:
+        case ItemType::Crowbar:
             return true;
         default:
             return false;

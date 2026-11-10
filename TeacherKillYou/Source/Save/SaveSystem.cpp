@@ -68,7 +68,7 @@ namespace {
             placement.yaw = SaveData::Number(entry.at("yaw"), -PI, PI);
             placement.config = SaveData::ParseEnemyConfig(entry.at("config"));
             placement.condition = static_cast<demo::EnemySpawnCondition>(
-                SaveData::Integer(entry.value("condition", 1), 0, 2));
+                SaveData::Integer(entry.value("condition", 1), 0, int(demo::EnemySpawnCondition::CrowbarCollected)));
             placement.despawnCondition = static_cast<demo::EnemyDespawnCondition>(
                 SaveData::Integer(entry.value("despawnCondition", 0), 0, 1));
             placement.spawned = false;
@@ -288,8 +288,7 @@ bool SaveSystem::LoadScene(GameContext& gameContext, const std::string& filepath
         }
     }
     if (!stage.GetSections().empty()) {
-        gameContext.GetLighting().Init(ResourceManager::GetInstance().GetModelShaders(),
-            ResourceManager::GetInstance().GetModel(stage.GetSections().front().modelKey));
+        gameContext.GetLighting().Init(RM().GetModelShaders());
     }
 
     if (root.contains("worldItems") && root["worldItems"].is_array())
@@ -410,9 +409,9 @@ bool SaveSystem::LoadScene(GameContext& gameContext, const std::string& filepath
         }
     }
 
-    gameContext.GetPlayer().SetPosition(
-        gameContext.GetStage().FindGroundPosition(gameContext.GetPlayer().GetPosition())
-    );
+    const Vector3 start = stage.FindGroundPosition(gameContext.GetPlayer().GetPosition());
+    gameContext.GetPlayer().SetPosition(start);
+    gameContext.SetSceneStartPosition(start);
 
     if (placements) {
         auto& enemyManager = gameContext.GetEnemyManager();

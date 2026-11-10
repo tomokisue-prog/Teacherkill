@@ -1,4 +1,5 @@
 #pragma once
+#include <optional>
 
 #include "CameraController.h"
 #include "Player.h"
@@ -46,6 +47,7 @@ public:
 
     Player& GetPlayer() { return player_; }
     const Player& GetPlayer() const { return player_; }
+    void SetSceneStartPosition(Vector3 position) { sceneStartPosition_ = position; }
 
     Stage& GetStage() { return stage_; }
     const Stage& GetStage() const { return stage_; }
@@ -92,6 +94,10 @@ public:
     const SecurityPC& GetSecurityPC() const { return securityPC_; }
 
 private:
+    const DoorMove* GetNearbyDoor() const;
+    const TeleportPoint* GetNearbyElevator() const;
+    bool UpdateDialoguePoints();
+    void DrawGuidance(const Camera3D& camera) const;
     void PlaceCharacters();
     void ProcessPlayerShot();
     void UpdateShotEffects(float deltaTime);
@@ -107,6 +113,7 @@ private:
     HorrorAudio horrorAudio_;
     bool checkpointRequested_ = false;
     bool goalRequested_ = false;
+    std::optional<Vector3> sceneStartPosition_;
     CameraController cameraController_;
     Player player_;
     Stage stage_;
@@ -114,6 +121,7 @@ private:
     std::vector<DoorMove> doors_;
     std::vector<demo::EnemyPlacement> enemyPlacements_;
     GameFade gameFade_;
+    std::optional<int> elevatorTrip_;
     Inventory inventory_;
     GoalPoint goalPoint_;
     MessageWindow messageWindow_;
@@ -151,21 +159,8 @@ private:
     static constexpr float bulletMarkLifetime_ = 2.0f;
     static constexpr int maxBulletMarks_ = 40;
 
-    bool hasTriggeredLostItemDialogue_{ false };
-    bool securityTeleportUnlocked_{ false };
+    GuidanceProgress guidancePins_;
     bool pendingSecurityDialogue_{ false };
-
-    bool showGunPin_{ false };
-    Vector3 gunPinPosition_{ 0.0f, 0.0f, 0.0f };
-
-    bool showPCPin_{ false };
-    bool showAuthKeyPin_{ false };
-    bool hasTriggeredAuthKeyPickup_{ false };
-    bool showSecurityDoorPin_{ false };
-
-    bool showEmergencyStairsDoorPin_{ false };
-    bool showEmergencyKeyPin_{ false }; // 非常階段のキーへの誘導ピン
-    bool hasTriggeredEmergencyDoorDialogue_{ false }; // 非常階段ドア接触セリフの重複防止フラグ
 
     bool wasSystemCamera_{ false };
 };

@@ -15,7 +15,7 @@ namespace {
         {"Mouse", u8"視点を動かす", "Look around"},
         {"Left Shift + WASD", u8"ダッシュ", "Sprint"},
         {"Space", u8"ジャンプ", "Jump"},
-        {"E", u8"扉を開閉する", "Open or close doors"},
+        {"E", u8"調べる・扉や設備を使う", "Inspect or use doors and fixtures"},
         {"F", u8"アイテムを拾う", "Pick up items"},
         {"Left Click", u8"射撃（銃を入手した後）", "Shoot (after picking up the gun)"},
         {"R", u8"リロード", "Reload"},

@@ -1,4 +1,5 @@
 #include "Inventory.h"
+#include "ItemCatalog.h"
 #include "AudioManager.h"
 #include "CheckpointData.h"
 #include "Stage.h"
@@ -15,7 +16,6 @@ namespace
 {
     const float PICKUP_RANGE = WorldScale::Player.height * 1.1f;
     constexpr float AIM_RADIUS = 0.30f;
-    constexpr int AMMO_PICKUP_AMOUNT = 30;
 }
 
 void Inventory::Init(const Stage& stage)
@@ -101,7 +101,7 @@ bool Inventory::AddItem(ItemType item)
     return false;
 }
 
-int Inventory::FindFocusedPickup(const Camera3D& camera, Stage* stage) const
+int Inventory::FindFocusedPickup(const Camera3D& camera, Stage* stage, ItemType blockedPickup) const
 {
     float nearest = std::numeric_limits<float>::max();
     int result = -1;
@@ -109,6 +109,7 @@ int Inventory::FindFocusedPickup(const Camera3D& camera, Stage* stage) const
     for (int i = 0; i < static_cast<int>(items_.size()); ++i)
     {
         const Item& item = items_[i];
+        if (item.GetType() == blockedPickup) continue;
         float forwardDistance = 0.0f;
 
         if (!item.IsAimedAt(camera, PICKUP_RANGE, AIM_RADIUS, forwardDistance))
@@ -137,10 +138,8 @@ int Inventory::FindFocusedPickup(const Camera3D& camera, Stage* stage) const
     return result;
 }
 
-void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage)
+void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage, ItemType blockedPickup)
 {
-    lastCamera_ = camera;
-
     usedItem_ = ItemType::None;
     pickedUpItem_ = ItemType::None;
     messageTimer_ = (std::max)(0.0f, messageTimer_ - deltaTime);
@@ -154,7 +153,7 @@ void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage)
     if (selectedSlot_ != oldSlot)
         CancelHealing();
 
-    focusedPickup_ = FindFocusedPickup(camera, stage);
+    focusedPickup_ = FindFocusedPickup(camera, stage, blockedPickup);
 
     // 回復ホールド処理
     if (healing_ && focusedPickup_ < 0)
@@ -192,9 +191,9 @@ void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage)
             item.Collect();
             pickedUpItem_ = type;
             AM().PlaySe(SeId::Pickup);
-            message_ = TextFormat("+%d AMMO", AMMO_PICKUP_AMOUNT);
+            message_ = TextFormat("+%d AMMO", AmmoPickupAmount);
         }
-        else if (type == ItemType::LostItem || type == ItemType::Gun || type == ItemType::AuthenticationKey || type == ItemType::EmergencyStairsKey)
+        else if (type == ItemType::LostItem || type == ItemType::Gun || type == ItemType::AuthenticationKey || type == ItemType::EmergencyStairsKey || type == ItemType::Crowbar)
         {
             item.Collect();
             pickedUpItem_ = type;
@@ -202,7 +201,8 @@ void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage)
 
             if (type == ItemType::Gun) message_ = "Picked up GUN";
             else if (type == ItemType::AuthenticationKey) message_ = "Picked up AUTHENTICATION KEY";
-            else if (type == ItemType::EmergencyStairsKey) message_ = "Picked up EMERGENCY STAIRS KEY";
+            else if (type == ItemType::EmergencyStairsKey) message_ = "Picked up SERVICE ELEVATOR KEY";
+            else if (type == ItemType::Crowbar) message_ = "Picked up CROWBAR";
             else message_ = "Picked up LOST ITEM";
         }
         else if (AddItem(type))
@@ -237,14 +237,11 @@ void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage)
         return;
     }
 
+    if (selectedItem == ItemType::KeyCard || selectedItem == ItemType::Key) return;
     if (selectedItem == ItemType::None)
     {
         AM().PlaySe(SeId::Error);
         message_ = "Empty Slot";
-    }
-    else if (selectedItem == ItemType::KeyCard || selectedItem == ItemType::Key)
-    {
-        message_ = "Find a locked door";
     }
     else
     {
@@ -325,45 +322,6 @@ void Inventory::DrawHealingHUD() const
 
 void Inventory::DrawHUD() const
 {
-    for (const auto& item : items_)
-    {
-        if (item.GetType() == ItemType::LostItem && !item.IsCollected())
-        {
-            Vector3 worldPos = item.GetPosition();
-            worldPos.y += 0.8f;
-
-            Vector2 screenPos = GetWorldToScreen(worldPos, lastCamera_);
-
-            Vector3 toItem = Vector3Subtract(worldPos, lastCamera_.position);
-            float forwardDot = Vector3DotProduct(
-                Vector3Normalize(Vector3Subtract(lastCamera_.target, lastCamera_.position)),
-                Vector3Normalize(toItem)
-            );
-
-            if (forwardDot > 0.0f &&
-                screenPos.x >= 0 && screenPos.x <= GetScreenWidth() &&
-                screenPos.y >= 0 && screenPos.y <= GetScreenHeight())
-            {
-                float distance = Vector3Length(toItem);
-
-                float baseSize = 40.0f;
-                float scaleFactor = Clamp(6.0f / (distance + 1.0f), 0.5f, 1.5f);
-                float size = baseSize * scaleFactor;
-
-                // float への安全なキャストにより C4244 警告を解消
-                float floatOffset = sinf(static_cast<float>(GetTime()) * 4.0f) * 4.0f * scaleFactor;
-                float centerY = screenPos.y + floatOffset;
-
-                Vector2 tip = { screenPos.x, centerY + size * 0.5f };
-                Vector2 topLeft = { screenPos.x - size * 0.45f, centerY - size * 0.5f };
-                Vector2 topRight = { screenPos.x + size * 0.45f, centerY - size * 0.5f };
-
-                DrawTriangle(topLeft, tip, topRight, YELLOW);
-                DrawTriangleLines(topLeft, tip, topRight, ORANGE);
-            }
-        }
-    }
-
     const float uiScale = Clamp((std::min)(GetScreenWidth() / 1280.0f,
         GetScreenHeight() / 720.0f), 0.5f, 1.5f);
     const int slotWidth = static_cast<int>(88.0f * uiScale);
@@ -425,18 +383,24 @@ void Inventory::DrawHUD() const
     if (focusedPickup_ >= 0)
     {
         const ItemType targetType = items_[focusedPickup_].GetType();
-        std::string prompt = std::string("[F] PICK UP ") + Item::GetName(targetType);
+        const auto& font = JPFont();
+        const bool useJapanese = font.IsLoaded();
+        const auto& item = GetItemDefinition(targetType);
+        std::string prompt = useJapanese ? std::string("[F] ") + item.displayName + u8"\u3092\u62fe\u3046"
+                                         : std::string("[F] PICK UP ") + item.name;
         if (targetType == ItemType::Ammo)
             prompt += " (+30)";
 
         const int size = 20;
-        const int width = MeasureText(prompt.c_str(), size);
+        const int width = useJapanese ? int(font.MeasureText(prompt, size).x) : MeasureText(prompt.c_str(), size);
         const int px = (GetScreenWidth() - width) / 2;
-        const int py = GetScreenHeight() / 2 + 45;
+        const int py = GetScreenHeight() / 2 + 76;
         DrawRectangle(px - 10, py - 6, width + 20, 32, Color{ 0, 0, 0, 160 });
-        DrawText(prompt.c_str(), px, py, size, WHITE);
+        if (useJapanese) font.DrawText(prompt, px, py, size, WHITE);
+        else DrawText(prompt.c_str(), px, py, size, WHITE);
     }
-    else if (!healing_ && slots_[selectedSlot_] != ItemType::None)
+    else if (!healing_ && slots_[selectedSlot_] != ItemType::None &&
+        slots_[selectedSlot_] != ItemType::KeyCard && slots_[selectedSlot_] != ItemType::Key)
     {
         const ItemType selectedItem = slots_[selectedSlot_];
         const char* prompt = nullptr;
@@ -444,8 +408,6 @@ void Inventory::DrawHUD() const
 
         if (selectedItem == ItemType::Medkit)
             prompt = "HOLD [E] TO HEAL (3s)";
-        else if (selectedItem == ItemType::KeyCard || selectedItem == ItemType::Key)
-            prompt = "Find a locked door";
         else
         {
             otherPrompt = std::string("[E] USE ") + Item::GetName(selectedItem);
@@ -475,77 +437,81 @@ InventoryCheckpoint Inventory::CaptureCheckpoint() const
     return data;
 }
 
-void Inventory::RestoreCheckpoint(const InventoryCheckpoint& data)
+void Inventory::RestoreCheckpoint(const InventoryCheckpoint& data, bool useScenePlacements)
 {
     Reset();
     slots_ = data.slots;
     selectedSlot_ = std::clamp(data.selectedSlot, 0, MAX_SLOTS - 1);
-    items_.clear();
+    if (useScenePlacements) {
+        // Old coordinates refer to the previous floor layout.
+        std::vector<bool> matched(data.items.size());
+        for (auto& item : items_) {
+            if (!item.IsPickup()) continue;
+            std::size_t nearest = data.items.size();
+            float distance = std::numeric_limits<float>::max();
+            for (std::size_t i = 0; i < data.items.size(); ++i) {
+                const auto& saved = data.items[i];
+                if (matched[i] || item.GetType() != saved.type) continue;
+                const float candidate = Vector3DistanceSqr(item.GetPosition(), saved.position);
+                if (candidate < distance) {
+                    nearest = i;
+                    distance = candidate;
+                }
+            }
+            if (nearest != data.items.size()) {
+                matched[nearest] = true;
+                if (data.items[nearest].collected) item.Collect();
+            }
+        }
+        return;
+    }
+    // Scene props keep their authored positions and full rotations after a reload.
+    items_.erase(std::remove_if(items_.begin(), items_.end(), [](const Item& item) {
+        return item.IsPickup();
+    }), items_.end());
+    const bool hasSceneProps = !items_.empty();
     for (const auto& saved : data.items)
     {
-        items_.emplace_back(saved.type, saved.position);
-        items_.back().SetYaw(saved.yaw);
-        items_.back().SetScale(saved.scale);
-        if (saved.collected) items_.back().Collect();
+        Item item(saved.type, saved.position);
+        if (hasSceneProps && !item.IsPickup()) continue;
+        item.SetYaw(saved.yaw);
+        item.SetScale(saved.scale);
+        if (saved.collected) item.Collect();
+        items_.push_back(item);
     }
+}
+
+bool Inventory::HasCrowbar() const
+{
+    return IsWorldItemCollected(ItemType::Crowbar);
 }
 
 bool Inventory::IsLostItemCollected() const
 {
-    for (const auto& item : items_)
-    {
-        if (item.GetType() == ItemType::LostItem)
-        {
-            return item.IsCollected();
-        }
-    }
-    return false;
+    return IsWorldItemCollected(ItemType::LostItem);
 }
 
 bool Inventory::IsGunCollected() const
 {
-    for (const auto& item : items_)
-    {
-        if (item.GetType() == ItemType::Gun)
-        {
-            return item.IsCollected();
-        }
-    }
-    return false;
+    return IsWorldItemCollected(ItemType::Gun);
 }
 
 bool Inventory::IsAuthenticationKeyCollected() const
 {
-    for (const auto& item : items_)
-    {
-        if (item.GetType() == ItemType::AuthenticationKey)
-        {
-            return item.IsCollected();
-        }
-    }
-    return false;
+    return IsWorldItemCollected(ItemType::AuthenticationKey);
 }
 
-Vector3 Inventory::GetGunPosition() const
+bool Inventory::IsWorldItemCollected(ItemType type) const
 {
-    for (const auto& item : items_)
-    {
-        if (item.GetType() == ItemType::Gun)
-        {
-            return item.GetPosition();
-        }
-    }
-    return { 0.0f, 0.0f, 0.0f };
+    return std::any_of(items_.begin(), items_.end(), [type](const Item& item) {
+        return item.GetType() == type && item.IsCollected();
+    });
 }
 
-Vector3 Inventory::GetAuthenticationKeyPosition() const
+const Item* Inventory::FindUncollectedItem(ItemType type) const
 {
-    for (const auto& item : items_)
-    {
-        if (item.GetType() == ItemType::AuthenticationKey)
-        {
-            return item.GetPosition();
-        }
-    }
-    return { 0.0f, 0.0f, 0.0f };
+    const auto item = std::find_if(items_.begin(), items_.end(), [type](const Item& item) {
+        return item.GetType() == type && !item.IsCollected();
+    });
+    return item != items_.end() ? &*item : nullptr;
 }

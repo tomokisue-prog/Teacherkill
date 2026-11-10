@@ -12,16 +12,22 @@ EnemyId EnemyManager::Spawn(Vector3 position, const EnemyConfig& config, float y
     return id;
 }
 
-static bool HasLostItemBeenCollected(const Inventory* inventory) {
-    if (!inventory) return false;
-    for (const auto& item : inventory->GetWorldItems()) {
-        if (item.GetType() == ItemType::LostItem && item.IsCollected()) {
-            return true;
-        }
+static bool IsSpawnReady(EnemySpawnCondition condition, const Inventory* inventory) {
+    switch (condition) {
+    case EnemySpawnCondition::Normal:
+        return true;
+    case EnemySpawnCondition::LostItemCollected:
+        return inventory && inventory->IsLostItemCollected();
+    case EnemySpawnCondition::AuthenticationKeyCollected:
+        return inventory && inventory->IsAuthenticationKeyCollected();
+    case EnemySpawnCondition::KeyCardCollected:
+        return inventory && inventory->IsWorldItemCollected(ItemType::KeyCard);
+    case EnemySpawnCondition::CrowbarCollected:
+        return inventory && inventory->HasCrowbar();
+    default:
+        return false;
     }
-    return false;
 }
-
 
 void EnemyManager::AddSpawnPoint(const Vector3& position, const EnemyConfig& config, EnemySpawnCondition condition, float yaw) {
     EnemySpawnData sp;
@@ -36,38 +42,32 @@ void EnemyManager::Clear() {
     enemies_.clear();
 }
 
-void EnemyManager::RespawnFromPlacements() {
+void EnemyManager::RespawnFromPlacements(const Inventory* inventory) {
     Clear();
     for (auto& placement : spawnPoints_) {
-        placement.spawned = placement.condition == EnemySpawnCondition::Normal;
-        placement.spawnedEnemyId = placement.spawned
-            ? Spawn(placement.GetPosition(), placement.config, placement.yaw)
-            : 0;
+        placement.spawned = false;
+        placement.spawnedEnemyId = 0;
+    }
+    SpawnReadyEnemies(inventory);
+}
+
+void EnemyManager::SpawnReadyEnemies(const Inventory* inventory) {
+    for (auto& placement : spawnPoints_) {
+        if (placement.spawned || !IsSpawnReady(placement.condition, inventory)) continue;
+        placement.spawnedEnemyId = Spawn(placement.GetPosition(), placement.config, placement.yaw);
+        placement.spawned = true;
+    }
+}
+
+void EnemyManager::RestoreSpawnStatus(const Inventory& inventory) {
+    for (auto& placement : spawnPoints_) {
+        placement.spawned = IsSpawnReady(placement.condition, &inventory);
+        placement.spawnedEnemyId = 0;
     }
 }
 
 void EnemyManager::Update(float dt, const TargetInfo& target, const Stage& stage, const Inventory* inventory) {
-    // 条件付きスポーンのチェック
-    for (auto& sp : spawnPoints_) {
-        if (sp.spawned) continue;
-
-        bool shouldSpawn = false;
-        if (sp.condition == EnemySpawnCondition::Normal) {
-            shouldSpawn = true;
-        }
-        else if (sp.condition == EnemySpawnCondition::LostItemCollected) {
-            if (HasLostItemBeenCollected(inventory)) {
-                shouldSpawn = true;
-            }
-        }
-
-        if (shouldSpawn) {
-            EnemyId id = Spawn(sp.GetPosition(), sp.config, sp.yaw);
-            sp.spawned = true;
-            sp.spawnedEnemyId = id;
-        }
-    }
-
+    SpawnReadyEnemies(inventory);
     for (auto& enemy : enemies_) enemy.Update(dt, target, stage);
 }
 
@@ -77,25 +77,7 @@ void EnemyManager::Update(float dt, const Player& player, const Stage& stage, co
 
 void EnemyManager::Update(float dt, Player& player, const Stage& stage, const BoundingBox* blocker, const Inventory* inventory) {
 
-    for (auto& sp : spawnPoints_) {
-        if (sp.spawned) continue;
-
-        bool shouldSpawn = false;
-        if (sp.condition == EnemySpawnCondition::Normal) {
-            shouldSpawn = true;
-        }
-        else if (sp.condition == EnemySpawnCondition::LostItemCollected) {
-            if (HasLostItemBeenCollected(inventory)) {
-                shouldSpawn = true;
-            }
-        }
-
-        if (shouldSpawn) {
-            EnemyId id = Spawn(sp.GetPosition(), sp.config, sp.yaw);
-            sp.spawned = true;
-            sp.spawnedEnemyId = id;
-        }
-    }
+    SpawnReadyEnemies(inventory);
 
     for (auto& enemy : enemies_) {
         enemy.Update(dt, TargetInfo::FromPlayer(player), stage, blocker);

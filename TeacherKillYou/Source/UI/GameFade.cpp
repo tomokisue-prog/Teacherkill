@@ -13,6 +13,7 @@ void GameFade::StartFade(float speed)
 
 void GameFade::Update(float deltaTime)
 {
+    isMidpointTriggered_ = false;
     if (state_ == FadeState::Idle) return;
 
     if (state_ == FadeState::FadeOut)

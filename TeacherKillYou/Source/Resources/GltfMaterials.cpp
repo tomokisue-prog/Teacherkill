@@ -62,6 +62,9 @@ void ApplyMaterialFactors(Material& target, const nlohmann::json& source) {
     const auto extensions = source.value("extensions", nlohmann::json::object());
     const float strength = extensions.value("KHR_materials_emissive_strength", nlohmann::json::object()).value("emissiveStrength", 1.0f);
     target.maps[MATERIAL_MAP_EMISSION].value = peak * (std::max)(0.0f, strength);
+    const auto extras = source.find("extras");
+    target.params[3] = extras != source.end() && extras->is_object() &&
+        extras->value("unstableLight", nlohmann::json{}) == true ? 1.0f : 0.0f;
 }
 
 void UsePrimaryCoordinates(Mesh& mesh, const float* coordinates) {

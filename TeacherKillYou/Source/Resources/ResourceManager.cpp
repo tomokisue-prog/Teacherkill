@@ -34,9 +34,12 @@ namespace {
         {LoadKind::Animation, "PlayerReload", "Data/Image/HandPov/reload_raylib.glb"},
 
         // ステージモデル一覧
-        {LoadKind::Model, ResourceKeys::Model_Stage1, "Data/Image/room2.glb"},
+        {LoadKind::Model, ResourceKeys::Model_Stage1, "Data/Image/school_1f_exit.glb"},
         {LoadKind::Model, ResourceKeys::Model_Stage2, "Data/Image/room2.glb"},
-        {LoadKind::Model, ResourceKeys::Model_Stage3, "Data/Image/room2.glb"},
+        {LoadKind::Model, ResourceKeys::Model_Stage3, "Data/Image/school_3f_classrooms.glb"},
+        {LoadKind::Model, ResourceKeys::Model_Stage2Elevators, "Data/Image/school_2f_elevators.glb"},
+        {LoadKind::Model, ResourceKeys::Model_ExitShutter, "Data/Image/school_exit_shutter.glb"},
+        {LoadKind::Model, ResourceKeys::Model_Crowbar, "Data/Image/Items/Placeables/crowbar.glb"},
 
         {LoadKind::Model, ResourceKeys::Model_FemaleZombie, "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 running.fbx"},
         {LoadKind::FbxAnimation, ResourceKeys::Animation_FemaleZombieAttack, "Data/Image/ZOMBIE_FEMALE_ANIMATIONS/zombie 1 attack.fbx", ResourceKeys::Model_FemaleZombie},

@@ -28,7 +28,7 @@ namespace {
         return {{"transform", Pack(door.transform)}, {"speed", door.speed},
                 {"distance", door.distance}, {"radius", door.radius},
                 {"progress", door.progress}, {"open", door.open},
-                {"lockType", int(door.lockType)}};
+                {"lockType", int(door.lockType)}, {"conditionSatisfied", door.conditionSatisfied}};
     }
     DoorCheckpoint ParseDoor(const Json& door) {
         DoorCheckpoint result{Transform(door.at("transform")), Number(door.at("speed"), 0, 100),
@@ -36,15 +36,19 @@ namespace {
             Number(door.at("progress"), 0, 1), door.at("open").get<bool>()};
         if (door.contains("lockType"))
             result.lockType = static_cast<DoorLockType>(Integer(door.at("lockType"), 0, int(DoorLockType::CustomEventFlag)));
+        result.conditionSatisfied = door.value("conditionSatisfied", false);
         return result;
     }
     Json Pack(const CheckpointData& data) {
-        Json j{{"version", 2}, {"player", {{"position", Pack(data.player.position)}, {"hp", data.player.hp},
+        Json j{{"version", 2}, {"layoutRevision", data.layoutRevision},
+            {"player", {{"position", Pack(data.player.position)}, {"hp", data.player.hp},
             {"ammo", data.player.ammo}, {"reserve", data.player.reserveAmmo}, {"stamina", data.player.stamina}}},
             {"camera", {{"yaw", data.yaw}, {"pitch", data.pitch}}}, {"flashlight", data.flashlight},
             {"stage", {{"position", Pack(data.stagePosition)}, {"scale", data.stageScale}}},
             {"goal", {{"transform", Pack(data.goal)}, {"radius", data.goalRadius}}},
-            {"door", PackDoor(data.door)}};
+            {"door", PackDoor(data.door)},
+            {"guidance", {{"authKey", data.guidance.authKey}, {"serviceKey", data.guidance.serviceKey},
+                {"crowbar", data.guidance.shutterInspected}}}};
         j["doors"] = Json::array();
         for (const auto& door : data.doors) j["doors"].push_back(PackDoor(door));
         j["inventory"]["slots"] = Json::array();
@@ -56,7 +60,7 @@ namespace {
                 {"yaw", item.yaw}, {"scale", item.scale}});
         j["enemies"] = Json::array();
         for (const auto& e : data.enemies)
-            j["enemies"].push_back({{"config", SaveData::PackEnemyConfig(e.config)}, {"position", Pack(e.position)}, {"yaw", e.yaw}, {"hp", e.hp}});
+            j["enemies"].push_back({{"config", SaveData::PackEnemyConfig(e.config)}, {"position", Pack(e.position)}, {"yaw", e.yaw}, {"hp", e.hp}, {"spawnPoint", e.spawnPointIndex}});
         j["teleports"] = Json::array();
         for (const auto& tp : data.teleports)
             j["teleports"].push_back({{"transform", Pack(tp.transform)}, {"number", tp.number}, {"type", tp.type}, {"radius", tp.radius}});
@@ -65,6 +69,7 @@ namespace {
     CheckpointData Parse(const Json& j) {
         const int version = Integer(j.at("version"), 1, 2);
         CheckpointData d;
+        d.layoutRevision = Integer(j.value("layoutRevision", 0), 0, CheckpointData::CurrentLayoutRevision);
         const auto& p = j.at("player");
         d.player = {Vector(p.at("position")), Integer(p.at("hp"), 1, 100), Integer(p.at("ammo"), 0, 15),
             Integer(p.at("reserve"), 0, 1000000), Number(p.at("stamina"), 0, 100)};
@@ -79,6 +84,10 @@ namespace {
         if (j.contains("doors")) {
             Require(j.at("doors").is_array() && j.at("doors").size() <= 512);
             for (const auto& door : j.at("doors")) d.doors.push_back(ParseDoor(door));
+        }
+        if (j.contains("guidance")) {
+            const auto& g = j.at("guidance");
+            d.guidance = {g.value("authKey", false), g.value("serviceKey", false), g.value("crowbar", false)};
         }
         const auto& inv = j.at("inventory");
         Require(inv.at("slots").is_array() && inv.at("slots").size() == d.inventory.slots.size());
@@ -105,7 +114,8 @@ namespace {
                 c.bodyHeight = size.height;
                 c.bodyRadius = size.radius;
             }
-            d.enemies.push_back({c, Vector(e.at("position")), Number(e.at("yaw"), -PI, PI), Integer(e.at("hp"), 1, c.maxHp)});
+            d.enemies.push_back({c, Vector(e.at("position")), Number(e.at("yaw"), -PI, PI),
+                Integer(e.at("hp"), 1, c.maxHp), Integer(e.value("spawnPoint", -1), -1, int(demo::MaxEnemyPlacements) - 1)});
         }
         Require(j.at("teleports").is_array() && j.at("teleports").size() <= 512);
         for (const auto& tp : j["teleports"])

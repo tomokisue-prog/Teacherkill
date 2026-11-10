@@ -12,6 +12,9 @@ namespace demo {
         None,               // 何も選択していなければスポーンしない
         Normal,             // 「通常」
         LostItemCollected,  // 「忘れ物を拾った後スポーンする」
+        AuthenticationKeyCollected,
+        KeyCardCollected,
+        CrowbarCollected,
     };
 
     // 敵のデスポーン条件の種類
@@ -40,7 +43,9 @@ namespace demo {
         void AddSpawnPoint(const Vector3& position, const EnemyConfig& config, EnemySpawnCondition condition, float yaw = 0.0f);
 
         void Clear();
-        void RespawnFromPlacements();
+        void RespawnFromPlacements(const Inventory* inventory = nullptr);
+        void SpawnReadyEnemies(const Inventory* inventory);
+        void RestoreSpawnStatus(const Inventory& inventory);
 
         // Inventory を受け取って条件判定できるように引数を追加
 		void Update(float dt, const TargetInfo& target, const Stage& stage, const Inventory* inventory = nullptr);

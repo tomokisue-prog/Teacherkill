@@ -375,26 +375,26 @@ void DebugUI::DrawInspector(GameContext& gameContext)
         }
 
         const char* stageLabels[] = {
-            "Stage 1 (room2)",
-            "Stage 2 (room3)",
-            "Stage 3 (room4)"
+            "1F - Exit",
+            "2F - Cafeteria",
+            "3F - Classrooms",
+            "2F - Elevator Fixtures"
         };
         const char* stageKeys[] = {
             ResourceKeys::Model_Stage1,
             ResourceKeys::Model_Stage2,
-            ResourceKeys::Model_Stage3
+            ResourceKeys::Model_Stage3,
+            ResourceKeys::Model_Stage2Elevators
         };
 
         int currentStageIdx = 0;
         if (sec->modelKey == ResourceKeys::Model_Stage2) currentStageIdx = 1;
         else if (sec->modelKey == ResourceKeys::Model_Stage3) currentStageIdx = 2;
+        else if (sec->modelKey == ResourceKeys::Model_Stage2Elevators) currentStageIdx = 3;
 
         if (ImGui::Combo("Model", &currentStageIdx, stageLabels, IM_ARRAYSIZE(stageLabels)))
         {
             sec->modelKey = stageKeys[currentStageIdx];
-            if (selectedStageIndex_ == 0) {
-                gameContext.GetLighting().Init(RM().GetModelShaders(), RM().GetModel(sec->modelKey));
-            }
             sceneSaveMessage_ = nullptr;
         }
 
@@ -528,7 +528,8 @@ void DebugUI::DrawInspector(GameContext& gameContext)
                 "Test: Press M Key",
                 "Security Teleport Entered",
                 "Security PC Activated",
-                "Emergency Stairs Key Required"
+                "Service Elevator Key Required",
+                "Crowbar (Escape Shutter)"
             };
             if (ImGui::Combo("Open Condition", &openCondVal, openCondNames, IM_ARRAYSIZE(openCondNames)))
             {
@@ -710,8 +711,11 @@ void DebugUI::DrawInspector(GameContext& gameContext)
                 "Normal (Always Active)",
                 "LostItem Collected",
                 "SecurityPC Door Unlocked",
-                "EmergencyStairs Door Can Open (Key Held)",
-                "EmergencyStairs Door Opened"
+                "Service Elevator Door Can Open (Key Held)",
+                "Service Elevator Door Opened",
+                "Inspect a Locked Door (E)",
+                "Crowbar Collected",
+                "Key Card Collected"
             };
             if (ImGui::Combo("Event Condition", &condVal, condNames, IM_ARRAYSIZE(condNames)))
             {
@@ -905,7 +909,8 @@ namespace {
         {ItemType::LostItem, u8"携帯電話（忘れ物）"},
         {ItemType::Gun, u8"銃 (GUN)"},
         {ItemType::AuthenticationKey, u8"認証キー"},
-        {ItemType::EmergencyStairsKey, u8"非常階段のキー"},
+        {ItemType::EmergencyStairsKey, u8"業務用エレベーターの鍵"},
+        {ItemType::Crowbar, u8"バール"},
         {ItemType::Books, u8"本"},
         {ItemType::Chair1, u8"椅子 1"},
         {ItemType::Chair2, u8"椅子 2"},
@@ -1056,7 +1061,10 @@ void DebugUI::DrawEnemyInspector(GameContext& gameContext)
     const char* spawnConditions[] = {
         "None (Do Not Spawn)",
         "Normal (Always Spawn)",
-        "LostItem Collected"
+        "LostItem Collected",
+        "Authentication Key Collected",
+        "Key Card Collected",
+        "Crowbar Collected"
     };
     if (ImGui::Combo(u8"スポーン条件", &spawnCondition, spawnConditions, IM_ARRAYSIZE(spawnConditions))) {
         placement.condition = static_cast<demo::EnemySpawnCondition>(spawnCondition);

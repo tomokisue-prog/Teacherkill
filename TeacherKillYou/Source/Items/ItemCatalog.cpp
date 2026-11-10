@@ -19,7 +19,7 @@ namespace {
             "Data/Image/Items/Model_Gun.glb", .52f, true, false},
         {ItemType::AuthenticationKey, "AUTHENTICATION KEY", u8"認証キー", ResourceKeys::Model_Authentication_Key,
             "Data/Image/Items/Key_Card.glb", .47f, true, false},
-        {ItemType::EmergencyStairsKey, "EMERGENCY STAIRS KEY", u8"非常階段のキー", ResourceKeys::Model_EmergencyStairsKey,
+        {ItemType::EmergencyStairsKey, "SERVICE ELEVATOR KEY", u8"業務用エレベーターの鍵", ResourceKeys::Model_EmergencyStairsKey,
             "Data/Image/Items/Key_Card.glb", .47f, true, false}, // 番号順を一致させる
         {ItemType::Books, "BOOKS", u8"本", ResourceKeys::Model_Books,
             "Data/Image/Items/Placeables/books.fbx", .58f, false, false},
@@ -41,6 +41,8 @@ namespace {
             "Data/Image/Items/Placeables/table_horror.fbx", 2.6f, false, false},
         {ItemType::SlideDoorProp, "SLIDE DOOR (PROP)", u8"スライドドア（装飾）", ResourceKeys::Model_SlideDoorProp,
             "Data/Image/Items/Placeables/slide_door.fbx", 3.6f, false, false},
+        {ItemType::Crowbar, "CROWBAR", u8"バール", ResourceKeys::Model_Crowbar,
+            "Data/Image/Items/Placeables/crowbar.glb", 1.0f, true, false},
     } };
     static_assert([] {
         for (std::size_t i = 0; i < Definitions.size(); ++i)

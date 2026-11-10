@@ -16,6 +16,9 @@ enum class EventDialogueCondition
     SecurityPCDoorUnlocked,     // ドアの開ける条件がSecurityPCActivatedでそのドアが開けるようになったら有効
     EmergencyStairsDoorCanOpen, // 非常階段のキー所持（EmergencyStairsKeyドアが開ける状態）で有効
     EmergencyStairsDoorOpened,  // ドアの開ける条件がEmergencyStairsKeyのドアが開いたら有効 ★今回追加
+    LockedDoor,
+    CrowbarCollected,
+    KeyCardCollected,
 };
 
 class EventDialoguePoint : public GameObject
@@ -72,11 +75,16 @@ public:
     void SetCondition(EventDialogueCondition cond) { condition_ = cond; }
 
     // プレイヤーがエリア内にいて、かつ有効化条件を満たしているかチェック
-    bool CheckPlayerInArea(Vector3 playerPos, const Inventory& inventory, const std::vector<DoorMove>* doors = nullptr) const
+    bool CheckPlayerInArea(Vector3 playerPos, const Inventory& inventory, const std::vector<DoorMove>* doors = nullptr,
+                           const DoorMove* inspectedDoor = nullptr) const
     {
         if (triggered_) return false;
 
         if (condition_ == EventDialogueCondition::None) return false;
+        if (condition_ == EventDialogueCondition::LockedDoor &&
+            (!inspectedDoor || !inspectedDoor->IsLocked(&inventory))) return false;
+        if (condition_ == EventDialogueCondition::CrowbarCollected && !inventory.HasCrowbar()) return false;
+        if (condition_ == EventDialogueCondition::KeyCardCollected && !inventory.IsWorldItemCollected(ItemType::KeyCard)) return false;
 
         // 忘れ物取得後に有効
         if (condition_ == EventDialogueCondition::LostItemCollected && !inventory.IsLostItemCollected())

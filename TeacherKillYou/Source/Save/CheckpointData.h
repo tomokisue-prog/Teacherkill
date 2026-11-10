@@ -37,6 +37,7 @@ struct DoorCheckpoint {
     float progress = 0;
     bool open = false;
     DoorLockType lockType = DoorLockType::None;
+    bool conditionSatisfied = false;
 };
 
 struct EnemyCheckpoint {
@@ -44,6 +45,7 @@ struct EnemyCheckpoint {
     Vector3 position{};
     float yaw = 0;
     int hp = 100;
+    int spawnPointIndex = -1;
 };
 
 struct TeleportCheckpoint {
@@ -52,9 +54,17 @@ struct TeleportCheckpoint {
     int type = 0;
     float radius = 1.5f;
 };
+struct GuidanceProgress {
+    bool authKey = false;
+    bool serviceKey = false;
+    bool shutterInspected = false;
+};
 struct CheckpointData {
+    static constexpr int CurrentLayoutRevision = 2;
+    int layoutRevision = 0;
     PlayerCheckpoint player;
     InventoryCheckpoint inventory;
+    GuidanceProgress guidance;
     DoorCheckpoint door; // Legacy first door, retained for older checkpoint files.
     std::vector<DoorCheckpoint> doors; // All doors in new checkpoints.
     std::vector<EnemyCheckpoint> enemies;

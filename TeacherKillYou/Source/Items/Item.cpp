@@ -29,6 +29,7 @@ namespace {
         case ItemType::Table: return { ResourceKeys::Model_Table, 1.8f };
         case ItemType::HorrorTable: return { ResourceKeys::Model_HorrorTable, 2.6f };
         case ItemType::SlideDoorProp: return { ResourceKeys::Model_SlideDoorProp, 3.6f };
+        case ItemType::Crowbar: return { ResourceKeys::Model_Crowbar, 1.0f };
         default: return {};
         }
     }
@@ -56,7 +57,8 @@ const char* Item::GetName(ItemType type)
     case ItemType::LostItem: return "LOST ITEM";
     case ItemType::Gun:     return "GUN";
     case ItemType::AuthenticationKey: return "AUTHENTICATION KEY";
-    case ItemType::EmergencyStairsKey: return "EMERGENCY STAIRS KEY";
+    case ItemType::EmergencyStairsKey: return "SERVICE ELEVATOR KEY";
+    case ItemType::Crowbar: return "CROWBAR";
     case ItemType::Books: return "BOOKS";
     case ItemType::Chair1: return "CHAIR 1";
     case ItemType::Chair2: return "CHAIR 2";

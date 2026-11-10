@@ -25,6 +25,7 @@ enum class DoorOpenConditionType
     SecurityTeleportEntered, // 警備室テレポートに入ったとき
     SecurityPCActivated,     // 警備室PCが起動されたとき
     EmergencyStairsKey,      // 非常階段のキー所持で開く
+    Crowbar,
 };
 
 class DoorMove : public GameObject
@@ -72,6 +73,7 @@ public:
     bool IsOpenConditionSatisfied() const;
 
     bool IsOpen() const { return isOpen_; }
+    bool IsFullyOpen() const { return slideProgress_ >= 0.95f; }
     bool CanInteract(const Player& player, const Inventory* inventory = nullptr) const;
 
     bool IsLocked(const Inventory* inventory) const;
@@ -80,6 +82,7 @@ public:
 
     bool IsPlayerInInteractionRange(const Player& player) const;
 private:
+    Vector3 CurrentPosition() const;
 
     Player player;
 

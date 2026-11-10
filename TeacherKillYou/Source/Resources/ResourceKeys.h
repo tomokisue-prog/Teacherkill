@@ -21,6 +21,9 @@ namespace ResourceKeys {
     inline constexpr const char* Model_Stage1 = "Model_Stage1";
     inline constexpr const char* Model_Stage2 = "Model_Stage2";
     inline constexpr const char* Model_Stage3 = "Model_Stage3";
+    inline constexpr const char* Model_Stage2Elevators = "Model_Stage2Elevators";
+    inline constexpr const char* Model_ExitShutter = "Model_ExitShutter";
+    inline constexpr const char* Model_Crowbar = "Model_Crowbar";
 
     // アイテムモデル用キー
     inline constexpr const char* Model_KeyCard = "Model_KeyCard";

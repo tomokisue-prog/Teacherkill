@@ -52,7 +52,8 @@ bool DoorMove::IsOpenConditionSatisfied() const
     if (openConditionType_ == DoorOpenConditionType::TestMKey ||
         openConditionType_ == DoorOpenConditionType::SecurityTeleportEntered ||
         openConditionType_ == DoorOpenConditionType::SecurityPCActivated ||
-        openConditionType_ == DoorOpenConditionType::EmergencyStairsKey)
+        openConditionType_ == DoorOpenConditionType::EmergencyStairsKey ||
+        openConditionType_ == DoorOpenConditionType::Crowbar)
     {
         return openConditionSatisfied_;
     }
@@ -85,6 +86,9 @@ bool DoorMove::IsLocked(const Inventory* inventory) const
         return false;
     }
 
+    if (openConditionType_ == DoorOpenConditionType::Crowbar)
+        return !inventory || !inventory->HasCrowbar();
+
     if (openConditionType_ == DoorOpenConditionType::EmergencyStairsKey)
     {
         if (inventory != nullptr && inventory->HasEmergencyStairsKey())
@@ -111,18 +115,20 @@ bool DoorMove::IsLocked(const Inventory* inventory) const
     return false;
 }
 
+Vector3 DoorMove::CurrentPosition() const
+{
+    const float offset = openDistance_ * slideProgress_;
+    if (openConditionType_ == DoorOpenConditionType::Crowbar)
+        return Vector3Add(position_, {0, offset, 0});
+    const float angle = rotation_.y * DEG2RAD;
+    return Vector3Add(position_, {offset * cosf(angle), 0, offset * sinf(angle)});
+}
+
 bool DoorMove::IsPlayerInInteractionRange(const Player& player) const
 {
     // 常に現在のスライド位置を反映した正確なボックスを取得する
-    float radY = rotation_.y * DEG2RAD;
-    float currentSlide = openDistance_ * slideProgress_;
-    Vector3 localOffset = { currentSlide, 0.0f, 0.0f };
-    Vector3 worldOffset = {
-        localOffset.x * cosf(radY) - localOffset.z * sinf(radY),
-        localOffset.y,
-        localOffset.x * sinf(radY) + localOffset.z * cosf(radY)
-    };
-    Vector3 currentPos = Vector3Add(position_, worldOffset);
+    const float radY = rotation_.y * DEG2RAD;
+    const Vector3 currentPos = openConditionType_ == DoorOpenConditionType::Crowbar ? position_ : CurrentPosition();
 
     float width = 1.2f * scale_.x;
     float height = 2.0f * scale_.y;
@@ -195,7 +201,12 @@ void DoorMove::Update(float deltaTime, const Player& player, const Inventory* in
         {
             if (CanInteract(player, inventory))
             {
-                Toggle();
+                if (openConditionType_ == DoorOpenConditionType::Crowbar) {
+                    openConditionSatisfied_ = true;
+                    Open();
+                } else {
+                    Toggle();
+                }
             }
             else
             {
@@ -218,19 +229,10 @@ void DoorMove::Update(float deltaTime, const Player& player, const Inventory* in
 
 void DoorMove::Draw() const
 {
-    Model doorModel = ResourceManager::GetInstance().GetModel(ResourceKeys::Model_Door);
-
-    float radY = rotation_.y * DEG2RAD;
-    float currentSlide = openDistance_ * slideProgress_;
-
-    Vector3 localOffset = { currentSlide, 0.0f, 0.0f };
-    Vector3 worldOffset = {
-        localOffset.x * cosf(radY) - localOffset.z * sinf(radY),
-        localOffset.y,
-        localOffset.x * sinf(radY) + localOffset.z * cosf(radY)
-    };
-
-    Vector3 currentPos = Vector3Add(position_, worldOffset);
+    const char* modelKey = openConditionType_ == DoorOpenConditionType::Crowbar
+        ? ResourceKeys::Model_ExitShutter : ResourceKeys::Model_Door;
+    const Model doorModel = RM().GetModel(modelKey);
+    const Vector3 currentPos = CurrentPosition();
 
     rlPushMatrix();
     {
@@ -250,22 +252,14 @@ void DoorMove::Draw() const
 
 BoundingBox DoorMove::GetBoundingBox() const
 {
-    if (slideProgress_ >= 0.95f)
+    if (IsFullyOpen())
     {
         return { { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } };
     }
 
-    float radY = rotation_.y * DEG2RAD;
-    float currentSlide = openDistance_ * slideProgress_;
-
-    Vector3 localOffset = { currentSlide, 0.0f, 0.0f };
-    Vector3 worldOffset = {
-        localOffset.x * cosf(radY) - localOffset.z * sinf(radY),
-        localOffset.y,
-        localOffset.x * sinf(radY) + localOffset.z * cosf(radY)
-    };
-
-    Vector3 currentPos = Vector3Add(position_, worldOffset);
+    const float radY = rotation_.y * DEG2RAD;
+    // Keep the passage blocked until the shutter clears the opening.
+    const Vector3 currentPos = openConditionType_ == DoorOpenConditionType::Crowbar ? position_ : CurrentPosition();
 
     float width = 1.2f * scale_.x;
     float height = 2.0f * scale_.y;
@@ -286,7 +280,7 @@ BoundingBox DoorMove::GetBoundingBox() const
 
 DoorCheckpoint DoorMove::CaptureCheckpoint() const
 {
-    return { {position_, rotation_, scale_}, slideSpeed_, openDistance_, interactRadius_, slideProgress_, isOpen_, lockType_ };
+    return { {position_, rotation_, scale_}, slideSpeed_, openDistance_, interactRadius_, slideProgress_, isOpen_, lockType_, openConditionSatisfied_ };
 }
 
 void DoorMove::RestoreCheckpoint(const DoorCheckpoint& data)
@@ -295,10 +289,11 @@ void DoorMove::RestoreCheckpoint(const DoorCheckpoint& data)
     rotation_ = data.transform.rotation;
     scale_ = data.transform.scale;
     closedPosition_ = position_;
-    slideSpeed_ = data.speed;
+    if (openConditionType_ != DoorOpenConditionType::Crowbar) slideSpeed_ = data.speed;
     openDistance_ = data.distance;
     interactRadius_ = data.radius;
     slideProgress_ = Clamp(data.progress, 0, 1);
     isOpen_ = data.open;
     lockType_ = data.lockType;
+    openConditionSatisfied_ = data.conditionSatisfied;
 }

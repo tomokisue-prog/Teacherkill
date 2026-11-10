@@ -1,4 +1,6 @@
 #include "HorrorLighting.h"
+#include "ResourceManager.h"
+#include "Stage.h"
 #include "raymath.h"
 #include "rlgl.h"
 #include <algorithm>
@@ -14,6 +16,14 @@ constexpr Color NightBackground{ 15, 26, 17, 255 };
 constexpr Vector3 FluorescentTint{ 0.46f, 0.72f, 0.60f };
 constexpr Vector3 FlashlightTint{ 0.32f, 0.82f, 0.38f };
 constexpr float FixtureIntensity = 0.55f;
+
+float UnstableFixtureGain() {
+    // One slow dropout, then a gradual recovery.
+    const float cycle = std::fmod(static_cast<float>(GetTime()), 8.4f);
+    const float drop = Clamp((cycle - 5.3f) / 0.24f, 0.0f, 1.0f);
+    const float recovery = Clamp((6.5f - cycle) / 0.7f, 0.0f, 1.0f);
+    return 1.0f - 0.92f * drop * recovery;
+}
 // 照射円の各断面に足す半径（ワールド単位）。0.0で追加分なし、正の値で照射範囲を広げる。
 constexpr float FlashlightRadiusPadding = 0.0f;
 
@@ -329,8 +339,9 @@ void DrawHorrorMesh(Mesh mesh, Material material, Matrix transform, Color tint, 
         const Vector4 surface = {Clamp(material.maps[MATERIAL_MAP_ROUGHNESS].value, 0.04f, 1.0f),
             Clamp(material.maps[MATERIAL_MAP_METALNESS].value, 0.0f, 1.0f), material.params[0], material.params[1]};
         const auto& emission = material.maps[MATERIAL_MAP_EMISSION];
+        const float gain = material.params[3] > 0.5f ? UnstableFixtureGain() : 1.0f;
         const Vector4 emitted = {emission.color.r / 255.0f, emission.color.g / 255.0f,
-                                emission.color.b / 255.0f, emission.value};
+                                emission.color.b / 255.0f, emission.value * gain};
         SetShaderValue(material.shader, locations.surface, &surface, SHADER_UNIFORM_VEC4);
         SetShaderValue(material.shader, locations.emission, &emitted, SHADER_UNIFORM_VEC4);
         SetShaderValue(material.shader, locations.emissionTexture, &material.params[2], SHADER_UNIFORM_FLOAT);
@@ -354,15 +365,16 @@ void DrawHorrorModel(Model model, Vector3 position, float scale, Color tint) {
     DrawHorrorModelEx(model, position, {0, 1, 0}, 0, {scale, scale, scale}, tint);
 }
 
-void HorrorLighting::CollectBuildingLights(const Model& model) {
+std::vector<HorrorLighting::BuildingLight> HorrorLighting::CollectBuildingLights(const Model& model) {
     // 初期化時だけ発光が有効な素材から光源を抽出する。天井模様はResourceManagerで除外する。
-    buildingLights_.clear();
+    std::vector<BuildingLight> lights;
     std::vector<float> weights;
     const Matrix normals = MatrixTranspose(MatrixInvert(model.transform));
     for (int m = 0; m < model.meshCount; ++m) {
         const Material& material = model.materials[model.meshMaterial[m]];
         const auto& emission = material.maps[MATERIAL_MAP_EMISSION];
         if (emission.value <= 0.01f) continue;
+        const bool unstable = material.params[3] > 0.5f;
         const Mesh& mesh = model.meshes[m];
         if (!mesh.vertices || !mesh.normals) continue;
         Image image{};
@@ -405,17 +417,18 @@ void HorrorLighting::CollectBuildingLights(const Model& model) {
                 Vector3 center = Vector3Add(Vector3Add(Vector3Scale(positions[0], w0), Vector3Scale(positions[1], w1)), Vector3Scale(positions[2], w2));
                 center = Vector3Add(Vector3Transform(center, model.transform), Vector3Scale(normal, 0.04f));
                 const float weight = area * brightness / (steps * steps);
-                const auto existing = std::find_if(buildingLights_.begin(), buildingLights_.end(), [&](const BuildingLight& light) {
-                    return Vector3DotProduct(light.direction, normal) > 0.8f && Vector3Distance(light.position, center) < 1.2f;
+                const auto existing = std::find_if(lights.begin(), lights.end(), [&](const BuildingLight& light) {
+                    return light.unstable == unstable && Vector3DotProduct(light.direction, normal) > 0.8f &&
+                        Vector3Distance(light.position, center) < 1.2f;
                 });
-                if (existing != buildingLights_.end()) {
-                    const auto index = static_cast<std::size_t>(existing - buildingLights_.begin());
+                if (existing != lights.end()) {
+                    const auto index = static_cast<std::size_t>(existing - lights.begin());
                     existing->position = Vector3Lerp(existing->position, center, weight / (weights[index] + weight));
                     weights[index] += weight;
-                } else if (buildingLights_.size() < 64) {
-                    buildingLights_.push_back({center, normal, {emission.color.r / 255.0f,
+                } else if (lights.size() < 64) {
+                    lights.push_back({center, normal, {emission.color.r / 255.0f,
                         emission.color.g / 255.0f, emission.color.b / 255.0f,
-                        Clamp(emission.value * brightness * 0.6f, 0.3f, 5.0f) * FixtureIntensity}});
+                        Clamp(emission.value * brightness * 0.6f, 0.3f, 5.0f) * FixtureIntensity}, unstable});
                     weights.push_back(weight);
                 }
             }
@@ -423,12 +436,11 @@ void HorrorLighting::CollectBuildingLights(const Model& model) {
         if (pixels) UnloadImageColors(pixels);
         if (image.data) UnloadImage(image);
     }
-    TraceLog(LOG_INFO, "LIGHTING: %i fixture lights extracted from building emission materials", GetBuildingLightCount());
+    return lights;
 }
 
-void HorrorLighting::Init(const std::vector<Shader>& shaders, const Model& building) {
+void HorrorLighting::Init(const std::vector<Shader>& shaders) {
     // モデル用シェーダーは借用する。描画バッファ・照射マスク・画面効果はこのクラスが所有する。
-    CollectBuildingLights(building);
     modelLights_.clear();
     for (Shader shader : shaders) {
         const int enabled = GetShaderLocation(shader, "flashlightEnabled");
@@ -487,7 +499,7 @@ void HorrorLighting::SetDisplaySettings(float brightness, float greenStrength) {
     greenStrength_ = std::isfinite(greenStrength) ? Clamp(greenStrength, 0.0f, 1.0f) : 1.0f;
 }
 
-void HorrorLighting::BeginFrame(const Camera3D& view, const Camera3D& flashlight, Vector3 stagePosition, float stageScale, bool editorView) {
+void HorrorLighting::BeginFrame(const Camera3D& view, const Camera3D& flashlight, const Stage& stage, bool editorView) {
     editorView_ = editorView;
     // 表示用カメラとは別にプレイヤーの視線から光源を置き、手で持つ位置へ少しずらす。
     const Vector3 direction = Vector3Normalize(Vector3Subtract(flashlight.target, flashlight.position));
@@ -500,8 +512,28 @@ void HorrorLighting::BeginFrame(const Camera3D& view, const Camera3D& flashlight
     const Vector3 fixtureTint = AdjustGreenTint(FluorescentTint, greenStrength_);
     const Vector3 flashlightTint = AdjustGreenTint(FlashlightTint, greenStrength_);
     // ステージの移動・拡縮に追従し、表示カメラに近い8灯だけをGPUへ送る。
-    std::vector<BuildingLight> nearest = buildingLights_;
-    for (auto& light : nearest) light.position = Vector3Add(stagePosition, Vector3Scale(light.position, stageScale));
+    std::vector<BuildingLight> nearest;
+    const float unstableGain = UnstableFixtureGain();
+    for (const auto& section : stage.GetSections()) {
+        if (!section.active) continue;
+        const Model model = RM().GetModel(section.modelKey);
+        if (!model.meshes) continue;
+        auto& cache = buildingLightCache_[section.modelKey];
+        if (cache.meshes != model.meshes) {
+            cache.lights = CollectBuildingLights(model);
+            cache.meshes = model.meshes;
+        }
+
+        const Matrix rotation = MatrixRotateY(section.rotation.y * DEG2RAD);
+        for (auto light : cache.lights) {
+            light.position = Vector3Add(section.position, Vector3Transform(Vector3Scale(light.position, section.scale), rotation));
+            light.direction = Vector3Transform(light.direction, rotation);
+            if (section.scale < 0.0f) light.direction = Vector3Negate(light.direction);
+            if (light.unstable) light.color.w *= unstableGain;
+            nearest.push_back(light);
+        }
+    }
+    buildingLightCount_ = static_cast<int>(nearest.size());
     std::sort(nearest.begin(), nearest.end(), [&](const BuildingLight& a, const BuildingLight& b) {
         return Vector3DistanceSqr(a.position, view.position) < Vector3DistanceSqr(b.position, view.position);
     });
@@ -510,7 +542,7 @@ void HorrorLighting::BeginFrame(const Camera3D& view, const Camera3D& flashlight
     std::array<Vector4, MaxBuildingLights> colors{};
     for (int i = 0; i < count; ++i) {
         positions[i] = nearest[i].position;
-        directions[i] = stageScale < 0.0f ? Vector3Negate(nearest[i].direction) : nearest[i].direction;
+        directions[i] = nearest[i].direction;
         colors[i] = nearest[i].color;
         colors[i].x *= fixtureTint.x;
         colors[i].y *= fixtureTint.y;
@@ -638,6 +670,7 @@ void HorrorLighting::Shutdown() {
     focus_ = {};
     post_ = {};
     modelLights_.clear();
-    buildingLights_.clear();
+    buildingLightCache_.clear();
+    buildingLightCount_ = 0;
     editorView_ = false;
 }

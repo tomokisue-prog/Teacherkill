@@ -1,6 +1,10 @@
 ﻿#pragma once
 #include "raylib.h"
+#include <string>
+#include <unordered_map>
 #include <vector>
+
+class Stage;
 
 // モデル用シェーダーはResourceManagerが所有する。FBXではスキニング用頂点シェーダーを渡す。
 Shader LoadHorrorShader(const char* vertexCode = nullptr, bool normalMaps = false);
@@ -35,7 +39,7 @@ public:
     HorrorLighting() = default;
     HorrorLighting(const HorrorLighting&) = delete;
     HorrorLighting& operator=(const HorrorLighting&) = delete;
-    void Init(const std::vector<Shader>& shaders, const Model& building = {}); // 光源抽出は初期化時だけ行う。
+    void Init(const std::vector<Shader>& shaders);
     void Reset() { flashlightOn_ = true; }
     // PCごとの表示補正。Resetやチェックポイント復元では値を初期化しない。
     void SetDisplaySettings(float brightness, float greenStrength);
@@ -43,8 +47,8 @@ public:
     const PostProcessSettings& GetPostProcessSettings() const { return effects_; }
     Vector2 GetSceneRenderSize() const;
     // BeginFrame→3D描画→EndFrameの順に呼ぶ。viewは表示用、flashlightはプレイヤーの視線。
-    void BeginFrame(const Camera3D& view, const Camera3D& flashlight, Vector3 stagePosition = {}, float stageScale = 1.0f, bool editorView = false);
-    int GetBuildingLightCount() const { return static_cast<int>(buildingLights_.size()); }
+    void BeginFrame(const Camera3D& view, const Camera3D& flashlight, const Stage& stage, bool editorView = false);
+    int GetBuildingLightCount() const { return buildingLightCount_; }
     void EndFrame() const; // 画面効果を適用。HUDや被弾表示はこの後に描く。
     void Shutdown();
     bool IsFlashlightOn() const { return flashlightOn_; }
@@ -60,9 +64,15 @@ private:
     struct BuildingLight {
         Vector3 position, direction;
         Vector4 color;
+        bool unstable;
     };
-    void CollectBuildingLights(const Model& model);
-    std::vector<BuildingLight> buildingLights_;
+    struct BuildingLightCache {
+        const Mesh* meshes = nullptr;
+        std::vector<BuildingLight> lights;
+    };
+    static std::vector<BuildingLight> CollectBuildingLights(const Model& model);
+    std::unordered_map<std::string, BuildingLightCache> buildingLightCache_;
+    int buildingLightCount_ = 0;
     std::vector<ModelLight> modelLights_;
     RenderTexture2D scene_{};
     Texture2D focus_{}; // 同じ3D描画でライトの照射量を記録する1チャンネルのテクスチャ。

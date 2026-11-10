@@ -104,6 +104,69 @@
         "z": 1.0
       },
       "slideSpeed": 2.0
+    },
+    {
+      "lockType": 0,
+      "openConditionType": 0,
+      "openDistance": 3.65,
+      "position": {
+        "x": 7.625,
+        "y": 26.78795623779297,
+        "z": 11.1875
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 90.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.94,
+        "y": 1.66,
+        "z": 0.8
+      },
+      "slideSpeed": 2.0
+    },
+    {
+      "lockType": 0,
+      "openConditionType": 0,
+      "openDistance": 4.25,
+      "position": {
+        "x": -3.425,
+        "y": 26.78795623779297,
+        "z": -14.4375
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 90.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 2.44,
+        "y": 1.7,
+        "z": 0.8
+      },
+      "slideSpeed": 2.0
+    },
+    {
+      "lockType": 0,
+      "openConditionType": 5,
+      "openDistance": 4.3,
+      "position": {
+        "x": 0.0,
+        "y": 2.136,
+        "z": -15.5625
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 3.62,
+        "y": 2.136,
+        "z": 0.95
+      },
+      "slideSpeed": 0.16
     }
   ],
   "enemies": [
@@ -111,17 +174,17 @@
       "condition": 2,
       "config": {
         "animationSpeed": 1.5,
-        "attackDamage": 15,
+        "attackDamage": 10,
         "attackHitFraction": 0.4000000059604645,
         "attackRange": 1.600000023841858,
-        "attackRecovery": 0.6499999761581421,
+        "attackRecovery": 1.0,
         "bodyHeight": 2.9000000953674316,
         "bodyRadius": 0.36000001430511475,
         "corpseDuration": 2.0,
         "detectionRange": 10.0,
         "loseRange": 15.0,
         "maxHp": 100,
-        "moveSpeed": 3.0,
+        "moveSpeed": 2.7,
         "resumeDistance": 1.5,
         "stopDistance": 1.2000000476837158,
         "turnSpeed": 3.1415927410125732,
@@ -129,9 +192,9 @@
       },
       "despawnCondition": 1,
       "position": {
-        "x": -10.217738151550293,
-        "y": 26.90810775756836,
-        "z": 2.274096727371216
+        "x": 0.45,
+        "y": 26.78795623779297,
+        "z": 6.0
       },
       "yaw": 1.7455739974975586
     },
@@ -139,17 +202,17 @@
       "condition": 1,
       "config": {
         "animationSpeed": 1.5,
-        "attackDamage": 15,
+        "attackDamage": 18,
         "attackHitFraction": 0.4000000059604645,
         "attackRange": 1.600000023841858,
-        "attackRecovery": 0.6499999761581421,
+        "attackRecovery": 1.15,
         "bodyHeight": 2.9000000953674316,
         "bodyRadius": 0.36000001430511475,
         "corpseDuration": 2.0,
-        "detectionRange": 10.0,
-        "loseRange": 15.0,
+        "detectionRange": 8.5,
+        "loseRange": 14.0,
         "maxHp": 100,
-        "moveSpeed": 3.0,
+        "moveSpeed": 2.6,
         "resumeDistance": 1.5,
         "stopDistance": 1.2000000476837158,
         "turnSpeed": 3.1415927410125732,
@@ -167,17 +230,17 @@
       "condition": 1,
       "config": {
         "animationSpeed": 1.5,
-        "attackDamage": 224,
+        "attackDamage": 10,
         "attackHitFraction": 0.4000000059604645,
         "attackRange": 1.600000023841858,
-        "attackRecovery": 0.6499999761581421,
+        "attackRecovery": 1.1,
         "bodyHeight": 2.9000000953674316,
         "bodyRadius": 0.36000001430511475,
         "corpseDuration": 2.0,
-        "detectionRange": 10.0,
-        "loseRange": 15.0,
-        "maxHp": 1,
-        "moveSpeed": 3.0,
+        "detectionRange": 7.0,
+        "loseRange": 12.0,
+        "maxHp": 50,
+        "moveSpeed": 2.55,
         "resumeDistance": 1.5,
         "stopDistance": 1.2000000476837158,
         "turnSpeed": 3.1415927410125732,
@@ -195,17 +258,17 @@
       "condition": 1,
       "config": {
         "animationSpeed": 1.5,
-        "attackDamage": 15,
+        "attackDamage": 12,
         "attackHitFraction": 0.4000000059604645,
         "attackRange": 1.600000023841858,
-        "attackRecovery": 0.6499999761581421,
+        "attackRecovery": 1.0,
         "bodyHeight": 2.9000000953674316,
         "bodyRadius": 0.36000001430511475,
         "corpseDuration": 2.0,
-        "detectionRange": 10.0,
-        "loseRange": 15.0,
-        "maxHp": 100,
-        "moveSpeed": 3.0,
+        "detectionRange": 8.0,
+        "loseRange": 13.0,
+        "maxHp": 75,
+        "moveSpeed": 2.75,
         "resumeDistance": 1.5,
         "stopDistance": 1.2000000476837158,
         "turnSpeed": 3.1415927410125732,
@@ -223,17 +286,17 @@
       "condition": 1,
       "config": {
         "animationSpeed": 1.5,
-        "attackDamage": 15,
+        "attackDamage": 10,
         "attackHitFraction": 0.4000000059604645,
         "attackRange": 1.600000023841858,
-        "attackRecovery": 0.6499999761581421,
+        "attackRecovery": 1.05,
         "bodyHeight": 2.9000000953674316,
         "bodyRadius": 0.36000001430511475,
         "corpseDuration": 2.0,
-        "detectionRange": 10.0,
-        "loseRange": 15.0,
-        "maxHp": 100,
-        "moveSpeed": 3.0,
+        "detectionRange": 7.0,
+        "loseRange": 12.0,
+        "maxHp": 50,
+        "moveSpeed": 2.55,
         "resumeDistance": 1.5,
         "stopDistance": 1.2000000476837158,
         "turnSpeed": 3.1415927410125732,
@@ -251,17 +314,17 @@
       "condition": 1,
       "config": {
         "animationSpeed": 1.5,
-        "attackDamage": 15,
+        "attackDamage": 14,
         "attackHitFraction": 0.4000000059604645,
         "attackRange": 1.600000023841858,
-        "attackRecovery": 0.6499999761581421,
+        "attackRecovery": 1.0,
         "bodyHeight": 2.9000000953674316,
         "bodyRadius": 0.36000001430511475,
         "corpseDuration": 2.0,
-        "detectionRange": 10.0,
-        "loseRange": 15.0,
-        "maxHp": 100,
-        "moveSpeed": 3.0,
+        "detectionRange": 8.5,
+        "loseRange": 14.0,
+        "maxHp": 75,
+        "moveSpeed": 2.8,
         "resumeDistance": 1.5,
         "stopDistance": 1.2000000476837158,
         "turnSpeed": 3.1415927410125732,
@@ -274,6 +337,118 @@
         "z": -11.24271011352539
       },
       "yaw": 2.8640811443328857
+    },
+    {
+      "condition": 3,
+      "config": {
+        "animationSpeed": 1.5,
+        "attackDamage": 12,
+        "attackHitFraction": 0.4000000059604645,
+        "attackRange": 1.600000023841858,
+        "attackRecovery": 1.0,
+        "bodyHeight": 2.9000000953674316,
+        "bodyRadius": 0.36000001430511475,
+        "corpseDuration": 2,
+        "detectionRange": 8.0,
+        "loseRange": 13.0,
+        "maxHp": 75,
+        "moveSpeed": 2.65,
+        "resumeDistance": 1.5,
+        "stopDistance": 1.2000000476837158,
+        "turnSpeed": 3.1415927410125732,
+        "type": 1
+      },
+      "despawnCondition": 0,
+      "position": {
+        "x": -5.05,
+        "y": 26.78795623779297,
+        "z": -16.4
+      },
+      "yaw": -1.05
+    },
+    {
+      "condition": 4,
+      "config": {
+        "animationSpeed": 1.5,
+        "attackDamage": 14,
+        "attackHitFraction": 0.4000000059604645,
+        "attackRange": 1.600000023841858,
+        "attackRecovery": 1.1,
+        "bodyHeight": 2.9000000953674316,
+        "bodyRadius": 0.36000001430511475,
+        "corpseDuration": 2,
+        "detectionRange": 10.0,
+        "loseRange": 16.0,
+        "maxHp": 75,
+        "moveSpeed": 2.8,
+        "resumeDistance": 1.5,
+        "stopDistance": 1.2000000476837158,
+        "turnSpeed": 3.1415927410125732,
+        "type": 2
+      },
+      "despawnCondition": 0,
+      "position": {
+        "x": 4.45,
+        "y": 0,
+        "z": 3.65
+      },
+      "yaw": 1.9
+    },
+    {
+      "condition": 5,
+      "config": {
+        "animationSpeed": 1.5,
+        "attackDamage": 12,
+        "attackHitFraction": 0.4000000059604645,
+        "attackRange": 1.600000023841858,
+        "attackRecovery": 1.0,
+        "bodyHeight": 2.9000000953674316,
+        "bodyRadius": 0.36000001430511475,
+        "corpseDuration": 2,
+        "detectionRange": 12.0,
+        "loseRange": 20.0,
+        "maxHp": 50,
+        "moveSpeed": 3.15,
+        "resumeDistance": 1.5,
+        "stopDistance": 1.2000000476837158,
+        "turnSpeed": 3.1415927410125732,
+        "type": 1
+      },
+      "despawnCondition": 0,
+      "position": {
+        "x": 3.3,
+        "y": 0,
+        "z": -5
+      },
+      "yaw": 1.4
+    },
+    {
+      "condition": 5,
+      "config": {
+        "animationSpeed": 1.5,
+        "attackDamage": 18,
+        "attackHitFraction": 0.4000000059604645,
+        "attackRange": 1.600000023841858,
+        "attackRecovery": 1.15,
+        "bodyHeight": 2.9000000953674316,
+        "bodyRadius": 0.36000001430511475,
+        "corpseDuration": 2,
+        "detectionRange": 12.0,
+        "loseRange": 20.0,
+        "maxHp": 100,
+        "moveSpeed": 2.85,
+        "resumeDistance": 1.5,
+        "stopDistance": 1.2000000476837158,
+        "turnSpeed": 3.1415927410125732,
+        "type": 2
+      },
+      "despawnCondition": 0,
+      "position": {
+        "x": -3.4,
+        "y": 0.0,
+        "z": -9.4
+      },
+      "yaw": 2.05
     }
   ],
   "eventDialoguePoints": [
@@ -281,11 +456,11 @@
       "condition": 2,
       "dialogueId": "zombie_encounter",
       "position": {
-        "x": 1.6313374042510986,
-        "y": 26.780973434448242,
-        "z": 0.9320595264434814
+        "x": 5.52,
+        "y": 26.88795623779297,
+        "z": 11.18
       },
-      "radius": 3.0,
+      "radius": 1.85,
       "rotation": {
         "x": 0.0,
         "y": -0.0,
@@ -299,17 +474,17 @@
       "triggered": false
     },
     {
-      "condition": 3,
+      "condition": 1,
       "dialogueId": "3rd_floor_first",
       "position": {
-        "x": 4.192536354064941,
-        "y": 15.954117774963379,
-        "z": 18.137170791625977
+        "x": -6.95,
+        "y": 15.592744827270508,
+        "z": 17.29
       },
-      "radius": 2.0,
+      "radius": 4.5,
       "rotation": {
         "x": 0.0,
-        "y": -0.0,
+        "y": 0.0,
         "z": 0.0
       },
       "scale": {
@@ -318,15 +493,225 @@
         "z": 1.0
       },
       "triggered": false
+    },
+    {
+      "condition": 6,
+      "dialogueId": "classroom_door_blocked",
+      "position": {
+        "x": 7.625,
+        "y": 26.78795623779297,
+        "z": 0.935
+      },
+      "radius": 4.1,
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "triggered": false
+    },
+    {
+      "condition": 6,
+      "dialogueId": "security_room_locked",
+      "position": {
+        "x": 7.145,
+        "y": 26.78795623779297,
+        "z": -19.413
+      },
+      "radius": 3.3,
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "triggered": false
+    },
+    {
+      "condition": 6,
+      "dialogueId": "main_elevator_locked",
+      "position": {
+        "x": -3.421,
+        "y": 26.78795623779297,
+        "z": 15.938
+      },
+      "radius": 4.1,
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "triggered": false
+    },
+    {
+      "condition": 6,
+      "dialogueId": "3rd_floor_second",
+      "position": {
+        "x": 7.076,
+        "y": 15.592744827270508,
+        "z": -19.9
+      },
+      "radius": 3.4,
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "triggered": false
+    },
+    {
+      "condition": 4,
+      "dialogueId": "service_elevator_key_found",
+      "position": {
+        "x": -5.99,
+        "y": 15.592744827270508,
+        "z": -18.45
+      },
+      "radius": 3.4,
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "triggered": false
+    },
+    {
+      "condition": 6,
+      "dialogueId": "exit_shutter_jammed",
+      "position": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -15.5625
+      },
+      "radius": 4.2,
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "triggered": false
+    },
+    {
+      "condition": 7,
+      "dialogueId": "crowbar_found",
+      "position": {
+        "x": 10.35,
+        "y": 0.0,
+        "z": -7.75
+      },
+      "radius": 3.4,
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "triggered": false
+    },
+    {
+      "condition": 2,
+      "dialogueId": "phone_recovered",
+      "position": {
+        "x": 11.35,
+        "y": 26.78795623779297,
+        "z": 5.94
+      },
+      "radius": 3.4,
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
+      "triggered": false
+    },
+    {
+      "condition": 1,
+      "dialogueId": "first_floor_arrival",
+      "position": {
+        "x": -9.28,
+        "y": 0.04,
+        "z": 15.2
+      },
+      "radius": 6,
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
+      "triggered": false
+    },
+    {
+      "condition": 8,
+      "dialogueId": "key_card_ambush",
+      "position": {
+        "x": 9.4,
+        "y": 0,
+        "z": 1.45
+      },
+      "radius": 3.4,
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
+      "triggered": false
     }
   ],
   "goalPoint": {
     "position": {
-      "x": 7.995669841766357,
-      "y": 3.2460455894470215,
-      "z": -1.307957649230957
+      "x": 0.0,
+      "y": 0.04,
+      "z": -21.75
     },
-    "radius": 1.5,
+    "radius": 1.2,
     "rotation": {
       "x": 0.0,
       "y": -0.0,
@@ -341,9 +726,9 @@
   "items": [
     {
       "position": {
-        "x": 11.345609664916992,
-        "y": 27.30921745300293,
-        "z": 5.0
+        "x": 11.35,
+        "y": 28.10795623779297,
+        "z": 5.94
       },
       "rotation": {
         "x": 0.0,
@@ -356,9 +741,9 @@
     },
     {
       "position": {
-        "x": 7.110000133514404,
-        "y": 5.639999866485596,
-        "z": 1.149999976158142
+        "x": 9.4,
+        "y": 0.23,
+        "z": 1.45
       },
       "rotation": {
         "x": 0.0,
@@ -371,9 +756,9 @@
     },
     {
       "position": {
-        "x": 0.0,
-        "y": 5.711424827575684,
-        "z": 1.7999999523162842
+        "x": -8.45,
+        "y": 0.24,
+        "z": 4.0
       },
       "rotation": {
         "x": 0.0,
@@ -386,9 +771,9 @@
     },
     {
       "position": {
-        "x": 1.2000000476837158,
-        "y": 5.711424827575684,
-        "z": 2.0
+        "x": -5.74,
+        "y": 15.822744827270508,
+        "z": 17.29
       },
       "rotation": {
         "x": 0.0,
@@ -401,9 +786,9 @@
     },
     {
       "position": {
-        "x": 11.426093101501465,
-        "y": 27.059354782104492,
-        "z": -16.907976150512695
+        "x": 11.44,
+        "y": 27.987956237792968,
+        "z": -16.91
       },
       "rotation": {
         "x": 0.0,
@@ -416,9 +801,9 @@
     },
     {
       "position": {
-        "x": -8.529424667358398,
-        "y": 26.999725341796875,
-        "z": -14.50892162322998
+        "x": -8.53,
+        "y": 28.01795623779297,
+        "z": -14.5
       },
       "rotation": {
         "x": 0.0,
@@ -431,9 +816,9 @@
     },
     {
       "position": {
-        "x": -5.9910783767700195,
-        "y": 15.592744827270508,
-        "z": -18.448503494262695
+        "x": -5.99,
+        "y": 15.822744827270508,
+        "z": -18.45
       },
       "rotation": {
         "x": 0.0,
@@ -443,14 +828,269 @@
       "scale": 1.0,
       "type": 9,
       "yaw": 0.0
+    },
+    {
+      "position": {
+        "x": 10.35,
+        "y": 1.475,
+        "z": -7.75
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 22.0,
+        "z": 0.0
+      },
+      "scale": 1.0,
+      "type": 20,
+      "yaw": 0.38397244
+    },
+    {
+      "position": {
+        "x": 12.52,
+        "y": 28.205456,
+        "z": -0.93
+      },
+      "rotation": {
+        "x": 0,
+        "y": -18,
+        "z": 0
+      },
+      "scale": 0.86,
+      "type": 10,
+      "yaw": -0.314159265
+    },
+    {
+      "position": {
+        "x": 10.82,
+        "y": 27.16,
+        "z": 12.69
+      },
+      "rotation": {
+        "x": 0,
+        "y": -18,
+        "z": -82
+      },
+      "scale": 0.92,
+      "type": 12,
+      "yaw": -0.314159265
+    },
+    {
+      "position": {
+        "x": 6.78,
+        "y": 26.787956,
+        "z": 5.92
+      },
+      "rotation": {
+        "x": 0,
+        "y": -90,
+        "z": 0
+      },
+      "scale": 0.94,
+      "type": 14,
+      "yaw": -1.570796327
+    },
+    {
+      "position": {
+        "x": 6.38,
+        "y": 26.787956,
+        "z": 7.41
+      },
+      "rotation": {
+        "x": 0,
+        "y": 20,
+        "z": 0
+      },
+      "scale": 0.8,
+      "type": 16,
+      "yaw": 0.34906585
+    },
+    {
+      "position": {
+        "x": -12.25,
+        "y": 28.092956,
+        "z": -5.5
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": 0.8,
+      "type": 13,
+      "yaw": 0
+    },
+    {
+      "position": {
+        "x": -9.77,
+        "y": 28.092956,
+        "z": 5.06
+      },
+      "rotation": {
+        "x": 0,
+        "y": 14,
+        "z": 0
+      },
+      "scale": 0.82,
+      "type": 10,
+      "yaw": 0.244346095
+    },
+    {
+      "position": {
+        "x": -12.52,
+        "y": 26.787956,
+        "z": -11.77
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": 0.81,
+      "type": 18,
+      "yaw": 0
+    },
+    {
+      "position": {
+        "x": -13.62,
+        "y": 26.787956,
+        "z": -17.43
+      },
+      "rotation": {
+        "x": 3,
+        "y": 15,
+        "z": 0
+      },
+      "scale": 0.66,
+      "type": 15,
+      "yaw": 0.261799388
+    },
+    {
+      "position": {
+        "x": -5.72,
+        "y": 15.592745,
+        "z": 16.11
+      },
+      "rotation": {
+        "x": 0,
+        "y": 27,
+        "z": 0
+      },
+      "scale": 0.76,
+      "type": 16,
+      "yaw": 0.471238898
+    },
+    {
+      "position": {
+        "x": -4.76,
+        "y": 16.017745,
+        "z": 10.81
+      },
+      "rotation": {
+        "x": 76,
+        "y": -19,
+        "z": 0
+      },
+      "scale": 0.83,
+      "type": 11,
+      "yaw": -0.331612558
+    },
+    {
+      "position": {
+        "x": -8.03,
+        "y": 15.592745,
+        "z": -15.85
+      },
+      "rotation": {
+        "x": 0,
+        "y": 39,
+        "z": 0
+      },
+      "scale": 0.91,
+      "type": 10,
+      "yaw": 0.680678408
+    },
+    {
+      "position": {
+        "x": 10.97,
+        "y": 0.443,
+        "z": -9.58
+      },
+      "rotation": {
+        "x": 76,
+        "y": 22,
+        "z": 0
+      },
+      "scale": 0.85,
+      "type": 11,
+      "yaw": 0.383972435
+    },
+    {
+      "position": {
+        "x": 12.11,
+        "y": 1.425,
+        "z": -7.86
+      },
+      "rotation": {
+        "x": 0,
+        "y": 180,
+        "z": 0
+      },
+      "scale": 0.79,
+      "type": 13,
+      "yaw": 3.141592654
+    },
+    {
+      "position": {
+        "x": 12.76,
+        "y": 0.236,
+        "z": -9.23
+      },
+      "rotation": {
+        "x": 0,
+        "y": 30,
+        "z": -73
+      },
+      "scale": 0.77,
+      "type": 16,
+      "yaw": 0.523598776
+    },
+    {
+      "position": {
+        "x": -11.72,
+        "y": 0,
+        "z": 3.28
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": 0.93,
+      "type": 17,
+      "yaw": 0
+    },
+    {
+      "position": {
+        "x": 11.8,
+        "y": 27.01795623779297,
+        "z": -17.9
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": 1.0,
+      "type": 1,
+      "yaw": 0.0
     }
   ],
   "player": {
     "hasGun": false,
     "position": {
-      "x": 11.550821304321289,
+      "x": 4.1,
       "y": 26.78795623779297,
-      "z": -6.793117523193359
+      "z": -7.0
     },
     "rotation": {
       "x": 0.0,
@@ -486,8 +1126,8 @@
       "condition": 2,
       "pointNumber": 1,
       "position": {
-        "x": 10.35562515258789,
-        "y": 27.62567901611328,
+        "x": 9.6,
+        "y": 26.88795623779297,
         "z": -17.532854080200195
       },
       "radius": 2.0,
@@ -509,7 +1149,7 @@
       "pointNumber": 1,
       "position": {
         "x": 5.69575834274292,
-        "y": 27.553434371948242,
+        "y": 26.88795623779297,
         "z": -17.920705795288086
       },
       "radius": 2.0,
@@ -540,7 +1180,7 @@
     {
       "active": true,
       "modelKey": "Model_Stage1",
-      "name": "Stage 1",
+      "name": "1F - Exit",
       "position": {
         "x": 0.0,
         "y": 0.0,
@@ -556,7 +1196,7 @@
     {
       "active": true,
       "modelKey": "Model_Stage2",
-      "name": "Stage 2",
+      "name": "2F - Cafeteria",
       "position": {
         "x": 0.0,
         "y": 15.592744827270508,
@@ -572,10 +1212,26 @@
     {
       "active": true,
       "modelKey": "Model_Stage3",
-      "name": "Stage 3",
+      "name": "3F - Classrooms",
       "position": {
         "x": 0.0,
         "y": 26.78795623779297,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": -0.0,
+        "z": 0.0
+      },
+      "scale": 1.25
+    },
+    {
+      "active": true,
+      "modelKey": "Model_Stage2Elevators",
+      "name": "2F - Elevator Fixtures",
+      "position": {
+        "x": 0.0,
+        "y": 15.592744827270508,
         "z": 0.0
       },
       "rotation": {
@@ -590,9 +1246,9 @@
     {
       "pointNumber": 1,
       "position": {
-        "x": -7.902353286743164,
-        "y": 28.16771697998047,
-        "z": 17.50988006591797
+        "x": -7.9,
+        "y": 26.847956237792967,
+        "z": 17.5
       },
       "radius": 1.5,
       "rotation": {
@@ -610,14 +1266,14 @@
     {
       "pointNumber": 1,
       "position": {
-        "x": -7.4899468421936035,
-        "y": 16.88215446472168,
-        "z": 17.288257598876953
+        "x": -7.49,
+        "y": 15.672744827270508,
+        "z": 17.29
       },
       "radius": 1.5,
       "rotation": {
         "x": 0.0,
-        "y": -0.0,
+        "y": 90.0,
         "z": 0.0
       },
       "scale": {
@@ -630,11 +1286,11 @@
     {
       "pointNumber": 2,
       "position": {
-        "x": 9.983084678649902,
-        "y": 5.240394115447998,
-        "z": 7.525696277618408
+        "x": 10.675,
+        "y": 15.652744827270508,
+        "z": -17.675
       },
-      "radius": 1.5,
+      "radius": 1.22,
       "rotation": {
         "x": 0.0,
         "y": -0.0,
@@ -650,14 +1306,14 @@
     {
       "pointNumber": 2,
       "position": {
-        "x": -7.194887161254883,
-        "y": 5.099087238311768,
-        "z": -2.3464958667755127
+        "x": -9.28,
+        "y": 0.04,
+        "z": 15.2
       },
       "radius": 1.5,
       "rotation": {
         "x": 0.0,
-        "y": -0.0,
+        "y": 180.0,
         "z": 0.0
       },
       "scale": {
@@ -672,9 +1328,9 @@
     {
       "collected": false,
       "position": {
-        "x": 11.345609664916992,
-        "y": 27.30921745300293,
-        "z": 5.0
+        "x": 11.35,
+        "y": 28.10795623779297,
+        "z": 5.94
       },
       "rotation": {
         "x": 0.0,
@@ -686,9 +1342,9 @@
     {
       "collected": false,
       "position": {
-        "x": 7.110000133514404,
-        "y": 5.639999866485596,
-        "z": 1.149999976158142
+        "x": 9.4,
+        "y": 0.23,
+        "z": 1.45
       },
       "rotation": {
         "x": 0.0,
@@ -700,9 +1356,9 @@
     {
       "collected": false,
       "position": {
-        "x": 0.0,
-        "y": 5.711424827575684,
-        "z": 1.7999999523162842
+        "x": -8.45,
+        "y": 0.24,
+        "z": 4.0
       },
       "rotation": {
         "x": 0.0,
@@ -714,9 +1370,9 @@
     {
       "collected": false,
       "position": {
-        "x": 1.2000000476837158,
-        "y": 5.711424827575684,
-        "z": 2.0
+        "x": -5.74,
+        "y": 15.822744827270508,
+        "z": 17.29
       },
       "rotation": {
         "x": 0.0,
@@ -728,9 +1384,9 @@
     {
       "collected": false,
       "position": {
-        "x": 11.426093101501465,
-        "y": 27.059354782104492,
-        "z": -16.907976150512695
+        "x": 11.44,
+        "y": 27.987956237792968,
+        "z": -16.91
       },
       "rotation": {
         "x": 0.0,
@@ -742,9 +1398,9 @@
     {
       "collected": false,
       "position": {
-        "x": -8.529424667358398,
-        "y": 26.999725341796875,
-        "z": -14.50892162322998
+        "x": -8.53,
+        "y": 28.01795623779297,
+        "z": -14.5
       },
       "rotation": {
         "x": 0.0,
@@ -756,9 +1412,9 @@
     {
       "collected": false,
       "position": {
-        "x": -5.9910783767700195,
-        "y": 15.592744827270508,
-        "z": -18.448503494262695
+        "x": -5.99,
+        "y": 15.822744827270508,
+        "z": -18.45
       },
       "rotation": {
         "x": 0.0,
@@ -766,6 +1422,278 @@
         "z": 0.0
       },
       "type": 9
+    },
+    {
+      "position": {
+        "x": 10.35,
+        "y": 1.475,
+        "z": -7.75
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 22.0,
+        "z": 0.0
+      },
+      "scale": 1.0,
+      "type": 20,
+      "yaw": 0.38397244,
+      "collected": false
+    },
+    {
+      "position": {
+        "x": 12.52,
+        "y": 28.205456,
+        "z": -0.93
+      },
+      "rotation": {
+        "x": 0,
+        "y": -18,
+        "z": 0
+      },
+      "scale": 0.86,
+      "type": 10,
+      "yaw": -0.314159265,
+      "collected": false
+    },
+    {
+      "position": {
+        "x": 10.82,
+        "y": 27.16,
+        "z": 12.69
+      },
+      "rotation": {
+        "x": 0,
+        "y": -18,
+        "z": -82
+      },
+      "scale": 0.92,
+      "type": 12,
+      "yaw": -0.314159265,
+      "collected": false
+    },
+    {
+      "position": {
+        "x": 6.78,
+        "y": 26.787956,
+        "z": 5.92
+      },
+      "rotation": {
+        "x": 0,
+        "y": -90,
+        "z": 0
+      },
+      "scale": 0.94,
+      "type": 14,
+      "yaw": -1.570796327,
+      "collected": false
+    },
+    {
+      "position": {
+        "x": 6.38,
+        "y": 26.787956,
+        "z": 7.41
+      },
+      "rotation": {
+        "x": 0,
+        "y": 20,
+        "z": 0
+      },
+      "scale": 0.8,
+      "type": 16,
+      "yaw": 0.34906585,
+      "collected": false
+    },
+    {
+      "position": {
+        "x": -12.25,
+        "y": 28.092956,
+        "z": -5.5
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": 0.8,
+      "type": 13,
+      "yaw": 0,
+      "collected": false
+    },
+    {
+      "position": {
+        "x": -9.77,
+        "y": 28.092956,
+        "z": 5.06
+      },
+      "rotation": {
+        "x": 0,
+        "y": 14,
+        "z": 0
+      },
+      "scale": 0.82,
+      "type": 10,
+      "yaw": 0.244346095,
+      "collected": false
+    },
+    {
+      "position": {
+        "x": -12.52,
+        "y": 26.787956,
+        "z": -11.77
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": 0.81,
+      "type": 18,
+      "yaw": 0,
+      "collected": false
+    },
+    {
+      "position": {
+        "x": -13.62,
+        "y": 26.787956,
+        "z": -17.43
+      },
+      "rotation": {
+        "x": 3,
+        "y": 15,
+        "z": 0
+      },
+      "scale": 0.66,
+      "type": 15,
+      "yaw": 0.261799388,
+      "collected": false
+    },
+    {
+      "position": {
+        "x": -5.72,
+        "y": 15.592745,
+        "z": 16.11
+      },
+      "rotation": {
+        "x": 0,
+        "y": 27,
+        "z": 0
+      },
+      "scale": 0.76,
+      "type": 16,
+      "yaw": 0.471238898,
+      "collected": false
+    },
+    {
+      "position": {
+        "x": -4.76,
+        "y": 16.017745,
+        "z": 10.81
+      },
+      "rotation": {
+        "x": 76,
+        "y": -19,
+        "z": 0
+      },
+      "scale": 0.83,
+      "type": 11,
+      "yaw": -0.331612558,
+      "collected": false
+    },
+    {
+      "position": {
+        "x": -8.03,
+        "y": 15.592745,
+        "z": -15.85
+      },
+      "rotation": {
+        "x": 0,
+        "y": 39,
+        "z": 0
+      },
+      "scale": 0.91,
+      "type": 10,
+      "yaw": 0.680678408,
+      "collected": false
+    },
+    {
+      "position": {
+        "x": 10.97,
+        "y": 0.443,
+        "z": -9.58
+      },
+      "rotation": {
+        "x": 76,
+        "y": 22,
+        "z": 0
+      },
+      "scale": 0.85,
+      "type": 11,
+      "yaw": 0.383972435,
+      "collected": false
+    },
+    {
+      "position": {
+        "x": 12.11,
+        "y": 1.425,
+        "z": -7.86
+      },
+      "rotation": {
+        "x": 0,
+        "y": 180,
+        "z": 0
+      },
+      "scale": 0.79,
+      "type": 13,
+      "yaw": 3.141592654,
+      "collected": false
+    },
+    {
+      "position": {
+        "x": 12.76,
+        "y": 0.236,
+        "z": -9.23
+      },
+      "rotation": {
+        "x": 0,
+        "y": 30,
+        "z": -73
+      },
+      "scale": 0.77,
+      "type": 16,
+      "yaw": 0.523598776,
+      "collected": false
+    },
+    {
+      "position": {
+        "x": -11.72,
+        "y": 0,
+        "z": 3.28
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": 0.93,
+      "type": 17,
+      "yaw": 0,
+      "collected": false
+    },
+    {
+      "position": {
+        "x": 11.8,
+        "y": 27.01795623779297,
+        "z": -17.9
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": 1.0,
+      "type": 1,
+      "yaw": 0.0,
+      "collected": false
     }
   ]
 }

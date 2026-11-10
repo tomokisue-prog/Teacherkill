@@ -23,7 +23,9 @@ public:
     void End();
 
     // --- 更新 & 描画 ---
-    void Update(float deltaTime, const Camera3D& camera, Stage* stage = nullptr);
+    static constexpr int AmmoPickupAmount = 16;
+    void Update(float deltaTime, const Camera3D& camera, Stage* stage = nullptr,
+                ItemType blockedPickup = ItemType::None);
     void DrawWorld(bool editing = false) const;
     void DrawHUD() const;
 
@@ -38,7 +40,7 @@ public:
 
     // --- チェックポイント（セーブ / ロード） ---
     InventoryCheckpoint CaptureCheckpoint() const;
-    void RestoreCheckpoint(const InventoryCheckpoint& data);
+    void RestoreCheckpoint(const InventoryCheckpoint& data, bool useScenePlacements = false);
 
     // --- ワールド内アイテム参照（DebugUI / ギズモ編集用） ---
     std::vector<Item>& GetWorldItems() { return items_; }
@@ -48,6 +50,7 @@ public:
 
     bool IsLostItemCollected() const;
     bool IsGunCollected() const;
+    bool HasCrowbar() const;
     bool IsAuthenticationKeyCollected() const;
 
     // 非常階段キー関連
@@ -72,21 +75,8 @@ public:
         return IsEmergencyStairsKeyCollected();
     }
 
-    Vector3 GetGunPosition() const;
-    Vector3 GetAuthenticationKeyPosition() const;
-
-    // 非常階段のキーの位置取得
-    Vector3 GetEmergencyStairsKeyPosition() const
-    {
-        for (const auto& item : items_)
-        {
-            if (item.GetType() == ItemType::EmergencyStairsKey)
-            {
-                return item.GetPosition();
-            }
-        }
-        return { 0.0f, 0.0f, 0.0f };
-    }
+    bool IsWorldItemCollected(ItemType type) const;
+    const Item* FindUncollectedItem(ItemType type) const;
 
 private:
     static constexpr int MAX_SLOTS = 4;
@@ -97,8 +87,6 @@ private:
     std::vector<Item> items_;
     std::vector<Item> placements_;
     CameraController cameraController_;
-
-    Camera3D lastCamera_{};
 
     int selectedSlot_{ 0 };
     int focusedPickup_{ -1 };
@@ -112,7 +100,7 @@ private:
     float messageTimer_{ 0.0f };
 
     bool AddItem(ItemType item);
-    int FindFocusedPickup(const Camera3D& camera, Stage* stage) const;
+    int FindFocusedPickup(const Camera3D& camera, Stage* stage, ItemType blockedPickup) const;
 
     const Texture2D* GetItemIcon(ItemType type) const;
 
