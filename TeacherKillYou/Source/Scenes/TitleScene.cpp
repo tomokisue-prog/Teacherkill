@@ -287,7 +287,8 @@ void TitleScene::Init()
 void TitleScene::Update(float deltaTime)
 {
     if (intro_.IsPlaying()) {
-        if (!intro_.Update()) {
+        if (IsKeyPressed(KEY_ESCAPE) || !intro_.Update()) {
+            intro_.Stop();
             auto* game = static_cast<GameScene*>(SM().GetScene(SceneID::Game));
             game->RequestIntroFadeIn();
             SetNextScene(game);
@@ -360,6 +361,14 @@ void TitleScene::Render() const
 {
     if (intro_.IsPlaying()) {
         intro_.Draw();
+        const int size = (std::max)(16, GetScreenHeight() / 42);
+        const int margin = size;
+        const char* hint = "[ESC]  SKIP";
+        const int width = MeasureText(hint, size);
+        const int x = GetScreenWidth() - width - margin * 2;
+        const int y = GetScreenHeight() - size - margin * 2;
+        DrawRectangle(x - margin / 2, y - margin / 2, width + margin, size + margin, Fade(BLACK, .76f));
+        DrawText(hint, x, y, size, RAYWHITE);
         return;
     }
 

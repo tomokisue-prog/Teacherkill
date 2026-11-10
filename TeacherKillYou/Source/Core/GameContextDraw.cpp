@@ -147,12 +147,49 @@ void GameContext::DrawGuidance(const Camera3D& camera) const
     };
 
     if (const auto* shutter = findDoor(DoorOpenConditionType::Crowbar)) {
+        const auto guideThroughLobby = [&](Vector3 target, float height, Color color, Color outline) {
+            const Vector3 playerPos = player_.GetPosition();
+            const auto clear = [&](Vector3 from, Vector3 to) {
+                Vector3 offset = Vector3Subtract(to, from);
+                offset.y = 0.0f;
+                const float distance = Vector3Length(offset);
+                from.y = playerPos.y + 1.75f;
+                return distance <= 0.25f || !stage_.Raycast({from, offset}, distance - 0.25f).hit;
+            };
+            if (!clear(playerPos, target)) {
+                const auto waypoint = [&](const char* id) -> const EventDialoguePoint* {
+                    const auto point = std::find_if(eventDialoguePoints_.begin(), eventDialoguePoints_.end(),
+                        [id](const EventDialoguePoint& entry) { return entry.GetDialogueId() == id; });
+                    return point != eventDialoguePoints_.end() && onCurrentFloor(point->GetPosition()) ? &*point : nullptr;
+                };
+                const auto* passage = waypoint("first_floor_management_passage");
+                const auto* corner = waypoint("first_floor_lobby_corner");
+                const bool targetFromPassage = passage && clear(passage->GetPosition(), target);
+                if (targetFromPassage && clear(playerPos, passage->GetPosition())) {
+                    draw(passage->GetPosition(), 1.5f, color, outline);
+                    return;
+                }
+                if (corner && clear(playerPos, corner->GetPosition()) &&
+                    (clear(corner->GetPosition(), target) ||
+                     (targetFromPassage && clear(corner->GetPosition(), passage->GetPosition())))) {
+                    draw(corner->GetPosition(), 1.5f, color, outline);
+                    return;
+                }
+            }
+            draw(target, height, color, outline);
+        };
         if (shutter->IsFullyOpen()) {
-            draw(goalPoint_.GetPosition(), 1.6f, GREEN, LIME);
+            guideThroughLobby(goalPoint_.GetPosition(), 1.6f, GREEN, LIME);
             return;
         }
-        if (guidancePins_.shutterInspected && !inventory_.HasCrowbar() && drawItem(ItemType::Crowbar, GOLD, ORANGE)) return;
-        draw(shutter->GetPosition(), 0.4f, GREEN, LIME);
+        if (guidancePins_.shutterInspected && !inventory_.HasCrowbar()) {
+            if (const auto* crowbar = inventory_.FindUncollectedItem(ItemType::Crowbar);
+                crowbar && onCurrentFloor(crowbar->GetPosition())) {
+                guideThroughLobby(crowbar->GetPosition(), 0.5f, GOLD, ORANGE);
+                return;
+            }
+        }
+        guideThroughLobby(shutter->GetPosition(), 0.4f, GREEN, LIME);
         return;
     }
 
@@ -167,6 +204,14 @@ void GameContext::DrawGuidance(const Camera3D& camera) const
     if (const auto* mainDoor = findDoor(DoorOpenConditionType::SecurityPCActivated)) {
         if (mainDoor->IsOpenConditionSatisfied()) {
             if (drawThroughDoor(securityDoor, mainDoor->GetPosition(), MAGENTA, PURPLE)) return;
+            const auto turn = std::find_if(eventDialoguePoints_.begin(), eventDialoguePoints_.end(),
+                [](const EventDialoguePoint& point) { return point.GetDialogueId() == "main_elevator_hall_turn"; });
+            if (turn != eventDialoguePoints_.end()) {
+                const Vector3 offset = Vector3Subtract(mainDoor->GetPosition(), player_.GetPosition());
+                const Vector3 eye = Vector3Add(player_.GetPosition(), {0.0f, 1.5f, 0.0f});
+                if (stage_.Raycast({eye, offset}, Vector3Length(offset)).hit &&
+                    draw(turn->GetPosition(), 1.35f, MAGENTA, PURPLE)) return;
+            }
             if (!mainDoor->IsOpen() || !drawElevator(MAGENTA, PURPLE))
                 draw(mainDoor->GetPosition(), 1.0f, MAGENTA, PURPLE);
             return;

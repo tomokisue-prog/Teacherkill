@@ -5,11 +5,10 @@ int main()
     SceneManager::RunConfig cfg{};
 #ifdef NDEBUG
     cfg.enableDebugUI = false;
+    cfg.windowed = false;
 #else
     cfg.enableDebugUI = true;
 #endif
-    cfg.windowed = true;
-
     SM().SetRunConfig(cfg);
     SM().Init();
     SM().Run();

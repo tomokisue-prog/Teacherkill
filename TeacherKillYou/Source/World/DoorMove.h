@@ -83,6 +83,7 @@ public:
     bool IsPlayerInInteractionRange(const Player& player) const;
 private:
     Vector3 CurrentPosition() const;
+    BoundingBox BoundsAt(Vector3 position) const;
 
     Player player;
 

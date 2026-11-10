@@ -124,24 +124,23 @@ Vector3 DoorMove::CurrentPosition() const
     return Vector3Add(position_, {offset * cosf(angle), 0, offset * sinf(angle)});
 }
 
+BoundingBox DoorMove::BoundsAt(Vector3 position) const
+{
+    const float yaw = rotation_.y * DEG2RAD;
+    const float cosine = fabsf(cosf(yaw));
+    const float sine = fabsf(sinf(yaw));
+    const float halfWidth = fabsf(scale_.x) * .6f;
+    const float halfDepth = fabsf(scale_.z) * .1f;
+    const Vector3 halfSize{halfWidth * cosine + halfDepth * sine, fabsf(scale_.y),
+        halfWidth * sine + halfDepth * cosine};
+    if (openConditionType_ != DoorOpenConditionType::Crowbar) position.y += scale_.y;
+    return {Vector3Subtract(position, halfSize), Vector3Add(position, halfSize)};
+}
+
 bool DoorMove::IsPlayerInInteractionRange(const Player& player) const
 {
-    // 常に現在のスライド位置を反映した正確なボックスを取得する
-    const float radY = rotation_.y * DEG2RAD;
     const Vector3 currentPos = openConditionType_ == DoorOpenConditionType::Crowbar ? position_ : CurrentPosition();
-
-    float width = 1.2f * scale_.x;
-    float height = 2.0f * scale_.y;
-    float depth = 0.2f * scale_.z;
-
-    if (fabsf(sinf(radY)) > 0.707f)
-    {
-        std::swap(width, depth);
-    }
-
-    Vector3 halfSize = { width * 0.5f, height * 0.5f, depth * 0.5f };
-    BoundingBox box = { Vector3Subtract(currentPos, halfSize), Vector3Add(currentPos, halfSize) };
-
+    const BoundingBox box = BoundsAt(currentPos);
     Vector3 min = { box.min.x - interactRadius_, box.min.y - interactRadius_, box.min.z - interactRadius_ };
     Vector3 max = { box.max.x + interactRadius_, box.max.y + interactRadius_, box.max.z + interactRadius_ };
     BoundingBox expandedBox = { min, max };
@@ -205,7 +204,9 @@ void DoorMove::Update(float deltaTime, const Player& player, const Inventory* in
                     openConditionSatisfied_ = true;
                     Open();
                 } else {
-                    Toggle();
+                    const Vector3 playerCenter = Vector3Add(player.GetPosition(), {0, player.GetHeight() * .5f, 0});
+                    if (!isOpen_ || !CheckCollisionBoxSphere(BoundsAt(position_), playerCenter, player.GetRadius()))
+                        Toggle();
                 }
             }
             else
@@ -252,30 +253,9 @@ void DoorMove::Draw() const
 
 BoundingBox DoorMove::GetBoundingBox() const
 {
-    if (IsFullyOpen())
-    {
-        return { { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } };
-    }
-
-    const float radY = rotation_.y * DEG2RAD;
-    // Keep the passage blocked until the shutter clears the opening.
-    const Vector3 currentPos = openConditionType_ == DoorOpenConditionType::Crowbar ? position_ : CurrentPosition();
-
-    float width = 1.2f * scale_.x;
-    float height = 2.0f * scale_.y;
-    float depth = 0.2f * scale_.z;
-
-    if (fabsf(sinf(radY)) > 0.707f)
-    {
-        std::swap(width, depth);
-    }
-
-    Vector3 halfSize = { width * 0.5f, height * 0.5f, depth * 0.5f };
-
-    return {
-        Vector3Subtract(currentPos, halfSize),
-        Vector3Add(currentPos, halfSize)
-    };
+    if (IsFullyOpen()) return {};
+    // The shutter blocks the vestibule until its full opening sequence completes.
+    return BoundsAt(openConditionType_ == DoorOpenConditionType::Crowbar ? position_ : CurrentPosition());
 }
 
 DoorCheckpoint DoorMove::CaptureCheckpoint() const

@@ -22,6 +22,10 @@ namespace ResourceKeys {
     inline constexpr const char* Model_Stage2 = "Model_Stage2";
     inline constexpr const char* Model_Stage3 = "Model_Stage3";
     inline constexpr const char* Model_Stage2Elevators = "Model_Stage2Elevators";
+    inline constexpr const char* Model_Floor1 = "Model_Floor1";
+    inline constexpr const char* Model_Floor3 = "Model_Floor3";
+    inline constexpr const char* Model_Floor1Layout = "Model_Floor1Layout";
+    inline constexpr const char* Model_Floor3Layout = "Model_Floor3Layout";
     inline constexpr const char* Model_ExitShutter = "Model_ExitShutter";
     inline constexpr const char* Model_Crowbar = "Model_Crowbar";
 

@@ -12,8 +12,8 @@ void SceneManager::Init()
     // ウィンドウやImGuiの初期設定はここで行う
     // 表示領域より大きい固定サイズで起動すると、Windowsが高さだけを縮める。
     // raylibの画面サイズとマウス座標をそろえるため、収まるサイズで作成して最大化する。
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-    InitWindow(1280, 720, u8"学校脱出 3D");
+    SetConfigFlags(runConfig.windowed ? FLAG_WINDOW_RESIZABLE : FLAG_FULLSCREEN_MODE);
+    InitWindow(runConfig.windowed ? 1280 : 0, runConfig.windowed ? 720 : 0, u8"学校脱出 3D");
     if (runConfig.windowed) MaximizeWindow();
     SetTargetFPS(60);
     SetExitKey(KEY_NULL); // Esc belongs to the pause menu; the window close button still exits.

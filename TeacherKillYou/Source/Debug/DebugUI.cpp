@@ -378,19 +378,30 @@ void DebugUI::DrawInspector(GameContext& gameContext)
             "1F - Exit",
             "2F - Cafeteria",
             "3F - Classrooms",
-            "2F - Elevator Fixtures"
+            "2F - Elevator Fixtures",
+            "1F - Received floor",
+            "3F - Received floor",
+            "1F - Escape fixtures",
+            "3F - Classroom partitions"
         };
         const char* stageKeys[] = {
             ResourceKeys::Model_Stage1,
             ResourceKeys::Model_Stage2,
             ResourceKeys::Model_Stage3,
-            ResourceKeys::Model_Stage2Elevators
+            ResourceKeys::Model_Stage2Elevators,
+            ResourceKeys::Model_Floor1,
+            ResourceKeys::Model_Floor3,
+            ResourceKeys::Model_Floor1Layout,
+            ResourceKeys::Model_Floor3Layout
         };
 
         int currentStageIdx = 0;
-        if (sec->modelKey == ResourceKeys::Model_Stage2) currentStageIdx = 1;
-        else if (sec->modelKey == ResourceKeys::Model_Stage3) currentStageIdx = 2;
-        else if (sec->modelKey == ResourceKeys::Model_Stage2Elevators) currentStageIdx = 3;
+        for (int i = 0; i < IM_ARRAYSIZE(stageKeys); ++i) {
+            if (sec->modelKey == stageKeys[i]) {
+                currentStageIdx = i;
+                break;
+            }
+        }
 
         if (ImGui::Combo("Model", &currentStageIdx, stageLabels, IM_ARRAYSIZE(stageLabels)))
         {

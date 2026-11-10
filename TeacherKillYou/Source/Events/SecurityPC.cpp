@@ -1,4 +1,5 @@
 #include "SecurityPC.h"
+#include "HorrorLighting.h"
 #include "ResourceManager.h"
 #include "ResourceKeys.h"
 
@@ -30,12 +31,5 @@ void SecurityPC::Draw() const
     Model model = ResourceManager::GetInstance().GetModel(ResourceKeys::Security_PC);
     if (model.meshCount == 0) return;
 
-    DrawModelEx(
-        model,
-        position_,
-        { 0.0f, 1.0f, 0.0f },
-        rotation_.y,
-        scale_,
-        WHITE
-    );
+    DrawHorrorModelEx(model, position_, { 0.0f, 1.0f, 0.0f }, rotation_.y, scale_, WHITE);
 }

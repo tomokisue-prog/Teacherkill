@@ -21,7 +21,7 @@ struct WorldItemCheckpoint {
     ItemType type = ItemType::None;
     Vector3 position{};
     bool collected = false;
-    float yaw = 0.0f;
+    Vector3 rotation{};
     float scale = 1.0f;
 };
 struct InventoryCheckpoint {
@@ -60,7 +60,8 @@ struct GuidanceProgress {
     bool shutterInspected = false;
 };
 struct CheckpointData {
-    static constexpr int CurrentLayoutRevision = 2;
+    static constexpr int ReceivedFloorLayoutRevision = 3;
+    static constexpr int CurrentLayoutRevision = 6;
     int layoutRevision = 0;
     PlayerCheckpoint player;
     InventoryCheckpoint inventory;

@@ -38,14 +38,20 @@ nlohmann::json ReadDocument(const std::string& path) {
     return nlohmann::json::parse(jsonText);
 }
 
+int PrimaryTexCoord(const nlohmann::json& source) {
+    const auto pbr = source.value("pbrMetallicRoughness", nlohmann::json::object());
+    const auto base = pbr.value("baseColorTexture", nlohmann::json::object());
+    if (base.contains("index")) return base.value("texCoord", 0);
+    return source.value("normalTexture", nlohmann::json::object()).value("texCoord", 0);
+}
+
 void ApplyMaterialFactors(Material& target, const nlohmann::json& source) {
     const auto pbr = source.value("pbrMetallicRoughness", nlohmann::json::object());
     if (source.contains("pbrMetallicRoughness")) {
         target.maps[MATERIAL_MAP_ROUGHNESS].value = Clamp(pbr.value("roughnessFactor", 1.0f), 0.04f, 1.0f);
         target.maps[MATERIAL_MAP_METALNESS].value = Clamp(pbr.value("metallicFactor", 1.0f), 0.0f, 1.0f);
     }
-    const auto base = pbr.value("baseColorTexture", nlohmann::json::object());
-    const int uvSet = base.value("texCoord", 0);
+    const int uvSet = PrimaryTexCoord(source);
     const auto normal = source.value("normalTexture", nlohmann::json::object());
     const auto packed = pbr.value("metallicRoughnessTexture", nlohmann::json::object());
     const auto emission = source.value("emissiveTexture", nlohmann::json::object());
@@ -115,9 +121,7 @@ void ApplyGltfTextureCoordinates(Model& model, const std::string& path,
             if (materialIndex < 0 || materialIndex >= static_cast<int>(materials.size())) continue;
             const auto& material = materials.at(materialIndex);
             if (!material.contains("pbrMetallicRoughness")) continue;
-            const auto& pbr = material.at("pbrMetallicRoughness");
-            if (!pbr.contains("baseColorTexture")) continue;
-            const int uvSet = pbr.at("baseColorTexture").value("texCoord", 0);
+            const int uvSet = PrimaryTexCoord(material);
             if (uvSet == 0) continue;
             Mesh& mesh = model.meshes[m];
             if (uvSet != 1 || !mesh.texcoords2) {
@@ -189,7 +193,7 @@ std::vector<int> ApplyGlbMaterialCompanion(Model& model, const std::string& path
             const auto& source = *found;
             const auto pbr = source.value("pbrMetallicRoughness", nlohmann::json::object());
             const auto base = pbr.value("baseColorTexture", nlohmann::json::object());
-            const int uvSet = base.value("texCoord", 0);
+            const int uvSet = PrimaryTexCoord(source);
             Material& target = model.materials[i];
             std::array<MaterialMap, 12> maps;
             std::copy_n(target.maps, maps.size(), maps.begin());

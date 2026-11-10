@@ -433,7 +433,7 @@ InventoryCheckpoint Inventory::CaptureCheckpoint() const
     data.slots = slots_;
     data.selectedSlot = selectedSlot_;
     for (const auto& item : items_)
-        data.items.push_back({ item.GetType(), item.GetPosition(), item.IsCollected(), item.GetYaw(), item.GetScale() });
+        data.items.push_back({ item.GetType(), item.GetPosition(), item.IsCollected(), item.GetRotation(), item.GetScale() });
     return data;
 }
 
@@ -474,7 +474,7 @@ void Inventory::RestoreCheckpoint(const InventoryCheckpoint& data, bool useScene
     {
         Item item(saved.type, saved.position);
         if (hasSceneProps && !item.IsPickup()) continue;
-        item.SetYaw(saved.yaw);
+        item.SetRotation(saved.rotation);
         item.SetScale(saved.scale);
         if (saved.collected) item.Collect();
         items_.push_back(item);

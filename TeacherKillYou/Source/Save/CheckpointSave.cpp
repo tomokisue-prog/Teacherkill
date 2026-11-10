@@ -57,7 +57,7 @@ namespace {
         j["inventory"]["items"] = Json::array();
         for (const auto& item : data.inventory.items)
             j["inventory"]["items"].push_back({{"type", int(item.type)}, {"position", Pack(item.position)}, {"collected", item.collected},
-                {"yaw", item.yaw}, {"scale", item.scale}});
+                {"rotation", Pack(item.rotation)}, {"scale", item.scale}});
         j["enemies"] = Json::array();
         for (const auto& e : data.enemies)
             j["enemies"].push_back({{"config", SaveData::PackEnemyConfig(e.config)}, {"position", Pack(e.position)}, {"yaw", e.yaw}, {"hp", e.hp}, {"spawnPoint", e.spawnPointIndex}});
@@ -98,11 +98,13 @@ namespace {
         }
         d.inventory.selectedSlot = Integer(inv.at("selected"), 0, 3);
         Require(inv.at("items").is_array() && inv.at("items").size() <= MaxItemPlacements);
-        for (const auto& item : inv["items"])
+        for (const auto& item : inv["items"]) {
+            const Vector3 rotation = item.contains("rotation") ? Vector(item.at("rotation")) :
+                Vector3{0.0f, Number(item.value("yaw", 0.0f), -PI, PI) * RAD2DEG, 0.0f};
             d.inventory.items.push_back({static_cast<ItemType>(Integer(item.at("type"), 1, int(ItemType::Count) - 1)),
-                Vector(item.at("position")), item.at("collected").get<bool>(),
-                item.contains("yaw") ? Number(item.at("yaw"), -PI, PI) : 0.0f,
+                Vector(item.at("position")), item.at("collected").get<bool>(), rotation,
                 item.contains("scale") ? Number(item.at("scale"), .05f, 20) : 1.0f});
+        }
         Require(j.at("enemies").is_array() && j.at("enemies").size() <= demo::MaxEnemyPlacements);
         for (const auto& e : j["enemies"]) {
             // Skip the retired type without shifting IDs of the remaining enemies.

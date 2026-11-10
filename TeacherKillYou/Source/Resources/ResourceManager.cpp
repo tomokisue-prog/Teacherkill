@@ -38,6 +38,10 @@ namespace {
         {LoadKind::Model, ResourceKeys::Model_Stage2, "Data/Image/room2.glb"},
         {LoadKind::Model, ResourceKeys::Model_Stage3, "Data/Image/school_3f_classrooms.glb"},
         {LoadKind::Model, ResourceKeys::Model_Stage2Elevators, "Data/Image/school_2f_elevators.glb"},
+        {LoadKind::Model, ResourceKeys::Model_Floor1, "Data/Image/school_floor1_shell.glb"},
+        {LoadKind::Model, ResourceKeys::Model_Floor3, "Data/Image/Floor 3.glb"},
+        {LoadKind::Model, ResourceKeys::Model_Floor1Layout, "Data/Image/school_floor1_layout.glb"},
+        {LoadKind::Model, ResourceKeys::Model_Floor3Layout, "Data/Image/school_floor3_layout.glb"},
         {LoadKind::Model, ResourceKeys::Model_ExitShutter, "Data/Image/school_exit_shutter.glb"},
         {LoadKind::Model, ResourceKeys::Model_Crowbar, "Data/Image/Items/Placeables/crowbar.glb"},
 
@@ -51,7 +55,7 @@ namespace {
             {"Armature", "Armature.001", true}},
         {LoadKind::FbxAnimation, ResourceKeys::Animation_MonsterMale2Death, "Data/Image/monster male 2/monster male_dead.fbx", ResourceKeys::Model_MonsterMale2,
             {"Armature", "Armature.001", true}},
-        {LoadKind::Model, ResourceKeys::Model_Door, "Data/Image/slide door.glb"},
+        {LoadKind::Model, ResourceKeys::Model_Door, "Data/Image/school_sliding_door.glb"},
         {LoadKind::Texture, ResourceKeys::WASD_UI, "Data/Image/WASDUI.png"},
         {LoadKind::Texture, ResourceKeys::Gun_UI1, "Data/Image/GunUI1.png"},
         {LoadKind::Texture, ResourceKeys::Gun_UI2, "Data/Image/GunUI2.png"},
@@ -173,6 +177,16 @@ void ResourceManager::LoadModel(const std::string& key, const std::string& path)
     }
     else {
         ApplyGltfTextureCoordinates(model, path);
+    }
+    if (key == ResourceKeys::Model_Floor3) {
+        for (int i = 0; i < model.materialCount; ++i) {
+            auto& material = model.materials[i];
+            auto& albedo = material.maps[MATERIAL_MAP_ALBEDO].color;
+            // The imported tiles have a normal map but an albedo that quantizes to black.
+            if (material.params[0] > 0.5f && albedo.r < 2 && albedo.g < 2 && albedo.b < 2) {
+                albedo = {100, 102, 98, 255};
+            }
+        }
     }
     if (model.meshCount > 0) {
         if (!modelShader_.id) modelShader_ = LoadHorrorShader();
