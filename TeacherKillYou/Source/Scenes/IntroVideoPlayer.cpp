@@ -95,7 +95,7 @@ bool IntroVideoPlayer::Update()
     const double elapsed = (std::max)(0.0, now - startedAt_);
     if (!fadingOut_ && elapsed >= duration_)
     {
-        // Show the last frame even if a slow frame skipped over it.
+        // ˆ—‚ª’x‚ê‚½ê‡‚àÅŒã‚ÌƒtƒŒ[ƒ€‚ğ•\¦‚µ‚Ä‚©‚çˆÃ“]
         const std::size_t lastFrame = frames_.size() - 1;
         if (currentFrame_ != lastFrame && !LoadFrame(lastFrame))
         {
@@ -111,6 +111,7 @@ bool IntroVideoPlayer::Update()
         const float progress = static_cast<float>((std::max)(0.0, (std::min)(1.0,
             (now - fadeStartedAt_) / FadeOutSeconds)));
         fadeOutAlpha_ = progress * progress * (3.0f - 2.0f * progress);
+        // ‰æ–Ê‚ÌˆÃ“]‚É‡‚í‚¹‚Ä‰¹‚à‰º‚°‚é
         if (audioLoaded_ && IsAudioDeviceReady()) SetMusicVolume(audio_, volume_ * (1.0f - fadeOutAlpha_));
         if (progress >= 1.0f)
         {

@@ -10,7 +10,7 @@ CheckpointData GameContext::CaptureCheckpoint() const
     data.player = player_.CaptureCheckpoint();
     data.inventory = inventory_.CaptureCheckpoint();
     data.guidance = guidancePins_;
-    // 複数ドアのうち最初のドア、またはチェックポイント用の処理（必要に応じて対応）
+    // 先頭のドアは旧セーブ用の項目にも入れる
     for (const auto& door : doors_) data.doors.push_back(door.CaptureCheckpoint());
     if (!data.doors.empty()) data.door = data.doors.front();
     const auto& placements = enemyManager_.GetSpawnPoints();
@@ -40,7 +40,7 @@ void GameContext::RestoreCheckpoint(const CheckpointData& data)
 #ifndef NDEBUG
     debugGameplay_.ClearShots();
 #endif
-    // Loaded models and HUD textures stay alive. Transient attacks and visual effects do not.
+    // モデルやHUDは読み直さず、効果音と一時的な演出をリセット
     AM().StopAllSe();
     gameFade_.Reset();
     elevatorTrip_.reset();
@@ -85,7 +85,7 @@ void GameContext::RestoreCheckpoint(const CheckpointData& data)
     player_.SetHasGun(inventory_.IsGunCollected());
 
     if (oldLayout) {
-        // Keep the new floor transitions and restart from the authored spawn.
+        // 旧配置のセーブは現在の初期配置で再開
         enemyManager_.RespawnFromPlacements();
         for (auto& door : doors_) {
             if (door.GetOpenConditionType() == DoorOpenConditionType::SecurityTeleportEntered &&
@@ -123,7 +123,7 @@ void GameContext::RestoreCheckpoint(const CheckpointData& data)
             doors_.front().RestoreCheckpoint(saved);
         }
         if (updateFixtures) {
-            // A resized door may cover the spot where the old game let the player save.
+            // ドアの大きさが変わった場合は、重なった位置から押し出す
             Vector3 position = player_.GetPosition();
             const float radius = player_.GetRadius();
             for (const auto& door : doors_) {
@@ -186,7 +186,7 @@ void GameContext::RestoreCheckpoint(const CheckpointData& data)
     for (auto& point : securityTeleportPoints_) {
         if (point.GetTeleportType() == SecurityTeleportType::Source) point.SetTriggered(securityReached);
     }
-    // Older checkpoints may have saved the light switched off.
+    // ロード後は懐中電灯を初期状態に戻す
     lighting_.Reset();
     auto& camera = cameraController_.GetPlayerCamera();
     camera.SetEyeHeight(player_.GetHeight() * WorldScale::EyeHeightRatio);

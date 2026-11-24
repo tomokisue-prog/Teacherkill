@@ -104,7 +104,7 @@ void GameScene::BeginGameOver()
     AM().StopAmbience();
     AM().StopAllSe();
     AM().SetPaused(false);
-    // Start the death voice after stopping gameplay sounds.
+    // プレイ中の音を止めてから死亡音を鳴らす
     AM().PlaySe(SeId::PlayerDeath, 0.9f);
     AM().PlaySe(SeId::YouDied);
     EnableCursor();
@@ -138,7 +138,7 @@ void GameScene::Resume()
     if (!SaveSettings()) ShowNotice(u8"設定を保存できませんでした。現在のプレイには反映されています。", "Settings applied, but could not be saved.");
     paused_ = false;
     AM().SetPaused(false);
-    // Re-capturing the cursor can generate a mouse delta. Let one input boundary pass.
+    // カーソルを戻した直後のマウス移動で視点が飛ばないよう少し待つ
     resumeInputDelay_ = .1f;
     if (gameContext->GetCameraController().GetActiveType() == CameraType::Player) DisableCursor();
     else EnableCursor();
@@ -186,7 +186,7 @@ void GameScene::Update(float deltaTime)
 {
     if (!gameContext) return;
     if (introFadeActive_) {
-        // Start after the first black frame, even if scene initialization was slow.
+        // 最初の黒画面を描いてからフェード時間を計り始める
         if (!introFadeClockStarted_) {
             introFadeClockStarted_ = true;
             introFadeStart_ = GetTime();
@@ -195,7 +195,7 @@ void GameScene::Update(float deltaTime)
             (GetTime() - introFadeStart_) / IntroFadeInSeconds)));
         const float eased = progress * progress * (3.0f - 2.0f * progress);
         introFadeAlpha_ = 1.0f - eased;
-        if (progress < 1.0f) return; // Keep gameplay and tutorial timers still during the reveal.
+        if (progress < 1.0f) return; // 画面が開くまではゲームの更新を止める
         introFadeActive_ = false;
     }
     if (noticeTime_ > 0) noticeTime_ = (std::max)(0.0f, noticeTime_ - deltaTime);
@@ -213,7 +213,7 @@ void GameScene::Update(float deltaTime)
 #ifndef NDEBUG
         if (IsDebugMenuOpen()) {
             if (IsKeyPressed(KEY_ESCAPE)) debugMenu_.Close();
-            return; // デバッグ確認中も敵・回復・攻撃の更新は止めておく。
+            return; // デバッグ確認中はゲームの更新を止める
         }
 #endif
         switch (pauseMenu_.Update(deltaTime, settings_, checkpointAvailable_, gameContext->CanSaveCheckpoint())) {
@@ -241,7 +241,7 @@ void GameScene::Update(float deltaTime)
             break;
         case PauseAction::None: break;
         }
-        return; // World timers, healing, attacks and camera input stay frozen.
+        return; // ポーズ中は移動・回復・攻撃も止める
     }
     if (IsKeyPressed(KEY_ESCAPE) || (!IsWindowState(FLAG_WINDOW_HIDDEN) && !IsWindowFocused())) {
         OpenPause();

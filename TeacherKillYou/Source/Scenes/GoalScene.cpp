@@ -7,7 +7,7 @@
 
 namespace
 {
-    // Artwork should share the original 1280 x 720 coordinates.
+    // クリア画面の画像は1280×720を基準に配置
     constexpr const char* CoverPath = "Data/Image/UI/Win_Cover.png";
     constexpr const char* CurtainPaths[] = {
         "Data/Image/UI/Win_Curtain_1.png", "Data/Image/UI/Win_Curtain_2.png",
@@ -16,11 +16,11 @@ namespace
     constexpr const char* LeavesPath = "Data/Image/UI/Win_Leaves.png";
 
     constexpr float FadeInSeconds = 1.0f;
-    constexpr float CurtainSwayPixels = 42.0f; // Movement of the free edge, in artwork pixels.
-    constexpr float CurtainWindSpeed = 1.35f;   // Larger = faster breeze.
-    constexpr float CurtainLiftPixels = 7.0f;   // Small up/down flutter of the free edge.
+    constexpr float CurtainSwayPixels = 42.0f; // 裾の横揺れ幅
+    constexpr float CurtainWindSpeed = 1.35f;   // 風の速さ
+    constexpr float CurtainLiftPixels = 7.0f;   // 裾の上下の揺れ幅
     constexpr int FallingLeafCount = 16;
-    constexpr float LeafFallSeconds = 9.0f;    // Smaller = faster falling leaves.
+    constexpr float LeafFallSeconds = 9.0f;    // 小さいほど葉が速く落ちる
 
     float Smooth01(float value)
     {
@@ -37,7 +37,7 @@ namespace
         return texture;
     }
 
-    // Fill the window without stretching. Every layer shares this rectangle.
+    // 各画像を同じ拡大率と位置で重ねる
     Rectangle ArtworkArea()
     {
         const float w = static_cast<float>((std::max)(GetScreenWidth(), 1));
@@ -55,7 +55,6 @@ namespace
         const float scale = (std::min)(w / 1280.0f, h / 720.0f);
         const float width = 245.0f * scale;
         const float height = 55.0f * scale;
-        // Adjust this position when the designer's text image arrives.
         return {(w - width) * 0.5f, h - height - 34.0f * scale, width, height};
     }
 
@@ -65,23 +64,22 @@ namespace
         constexpr int strips = 48;
         const float scale = area.width / 1280.0f;
 
-        // Adjacent strips share their actual vertices. This creates a continuous
-        // flowing shape rather than separately shifted rectangles with seams.
+        // 帯のつなぎ目の頂点をそろえて、カーテンの隙間を防ぐ
         rlCheckRenderBatchLimit(strips * 2 * 4);
         rlSetTexture(texture.id);
         rlBegin(RL_QUADS);
         rlColor4ub(255, 255, 255, 255);
         for (int side = 0; side < 2; ++side)
         {
-            // The transparent artwork has a curtain in each outer quarter.
+            // 左右の端の1/4ずつがカーテン部分
             const float u0 = side == 0 ? 0.0f : 0.75f;
             const float u1 = side == 0 ? 0.25f : 1.0f;
             const float left = area.x + area.width * u0;
             const float right = area.x + area.width * u1;
             const auto motion = [time, side, scale](float heightRatio) -> Vector2
             {
-                // The top and outside edge stay fixed; the free edge moves
-                // more at the bottom, with two slow waves for a natural gust.
+                // 上と外側は固定し、裾ほど大きく揺らす
+                // 速さの違う波を重ねて風の強弱をつける
                 const float bend = heightRatio * heightRatio * (3.0f - 2.0f * heightRatio);
                 const float wind = 0.78f * std::sin(time * CurtainWindSpeed - heightRatio * 2.6f + side * 0.35f)
                     + 0.22f * std::sin(time * 0.63f + heightRatio * 4.0f + side * 0.8f);
@@ -117,7 +115,7 @@ namespace
         rlSetTexture(0);
     }
 
-    // Individual leaves cut from the supplied transparent 1280 x 720 layer.
+    // 葉の画像から1枚ずつ切り出す範囲
     constexpr Rectangle LeafSprites[] = {
         {248, 196, 35, 40}, {734, 654, 33, 44}, {514, 350, 36, 29},
         {665, 653, 25, 36}, {816, 411, 34, 49}, {159, 435, 25, 37},
@@ -185,8 +183,7 @@ void GoalScene::Render() const
         DrawTexturePro(cover_, source, area, {0, 0}, 0.0f, WHITE);
     }
 
-    // Animate one continuous piece of artwork, avoiding a visible fade between
-    // drawn frames. The other supplied frames remain usable as fallbacks.
+    // 1枚の画像を変形させてカーテンを揺らす
     int curtainIndex = curtains_[1].id ? 1 : (curtains_[0].id ? 0 : (curtains_[2].id ? 2 : -1));
     if (curtainIndex >= 0) DrawCurtain(curtains_[curtainIndex], area, elapsed_);
     DrawLeaves(leaves_, area, elapsed_);

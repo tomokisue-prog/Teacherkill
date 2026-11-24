@@ -115,6 +115,7 @@ int Inventory::FindFocusedPickup(const Camera3D& camera, Stage* stage, ItemType 
         if (!item.IsAimedAt(camera, PICKUP_RANGE, AIM_RADIUS, forwardDistance))
             continue;
 
+        // 手前に壁があるアイテムは拾えない
         if (stage != nullptr)
         {
             const Vector3 toItem = Vector3Subtract(item.GetPosition(), camera.position);
@@ -150,12 +151,13 @@ void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage, It
     if (IsKeyPressed(KEY_THREE)) selectedSlot_ = 2;
     if (IsKeyPressed(KEY_FOUR))  selectedSlot_ = 3;
 
+    // スロットを変えたら回復を中断
     if (selectedSlot_ != oldSlot)
         CancelHealing();
 
     focusedPickup_ = FindFocusedPickup(camera, stage, blockedPickup);
 
-    // 回復ホールド処理
+    // Eを3秒押し続けたら回復。離したら最初から
     if (healing_ && focusedPickup_ < 0)
     {
         if (!IsKeyDown(KEY_E) || slots_[selectedSlot_] != ItemType::Medkit)
@@ -176,7 +178,7 @@ void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage, It
         return;
     }
 
-    // フィールド上のアイテムを拾う
+    // 拾う操作はFキーを押したときだけ
     if (focusedPickup_ >= 0)
     {
         if (healing_) CancelHealing();
@@ -186,6 +188,7 @@ void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage, It
         Item& item = items_[focusedPickup_];
         const ItemType type = item.GetType();
 
+        // 弾はスロットに入れず、そのまま予備弾へ
         if (type == ItemType::Ammo)
         {
             item.Collect();
@@ -226,7 +229,7 @@ void Inventory::Update(float deltaTime, const Camera3D& camera, Stage* stage, It
     if (!IsKeyPressed(KEY_E))
         return;
 
-    // スロット内アイテムの使用
+    // 選択中のスロットをEキーで使う
     const ItemType selectedItem = slots_[selectedSlot_];
     if (selectedItem == ItemType::Medkit)
     {
@@ -305,6 +308,7 @@ void Inventory::DrawHealingHUD() const
             { x + iconDrawWidth, y, barDrawWidth, hudHeight },
             { 0.0f, 0.0f }, 0.0f, Color{ 85, 85, 85, 135 });
 
+        // 回復ゲージを進み具合に合わせて左から表示
         if (progress > 0.0f)
         {
             DrawTexturePro(healingBar,
@@ -327,6 +331,7 @@ void Inventory::DrawHUD() const
     const int slotWidth = static_cast<int>(88.0f * uiScale);
     const int slotHeight = static_cast<int>(slotWidth * 586.0f / 606.0f);
     const int gap = static_cast<int>(6.0f * uiScale);
+    // 4スロットを画面の下中央に並べる
     const int totalWidth = MAX_SLOTS * slotWidth + (MAX_SLOTS - 1) * gap;
     const int startX = (GetScreenWidth() - totalWidth) / 2;
     const int y = GetScreenHeight() - slotHeight - static_cast<int>(20.0f * uiScale);
@@ -443,7 +448,7 @@ void Inventory::RestoreCheckpoint(const InventoryCheckpoint& data, bool useScene
     slots_ = data.slots;
     selectedSlot_ = std::clamp(data.selectedSlot, 0, MAX_SLOTS - 1);
     if (useScenePlacements) {
-        // Old coordinates refer to the previous floor layout.
+        // 配置が変わったセーブは取得済みの状態だけ引き継ぐ
         std::vector<bool> matched(data.items.size());
         for (auto& item : items_) {
             if (!item.IsPickup()) continue;
@@ -465,7 +470,7 @@ void Inventory::RestoreCheckpoint(const InventoryCheckpoint& data, bool useScene
         }
         return;
     }
-    // Scene props keep their authored positions and full rotations after a reload.
+    // 配置済みの小物は残して、拾えるアイテムをセーブから復元
     items_.erase(std::remove_if(items_.begin(), items_.end(), [](const Item& item) {
         return item.IsPickup();
     }), items_.end());

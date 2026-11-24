@@ -9,31 +9,28 @@
 
 void SceneManager::Init()
 {
-    // ウィンドウやImGuiの初期設定はここで行う
-    // 表示領域より大きい固定サイズで起動すると、Windowsが高さだけを縮める。
-    // raylibの画面サイズとマウス座標をそろえるため、収まるサイズで作成して最大化する。
+    // 画面に収まるサイズで起動してから最大化
+    // Windowsの自動縮小で表示とマウス座標がずれないようにする
     SetConfigFlags(runConfig.windowed ? FLAG_WINDOW_RESIZABLE : FLAG_FULLSCREEN_MODE);
     InitWindow(runConfig.windowed ? 1280 : 0, runConfig.windowed ? 720 : 0, u8"学校脱出 3D");
     if (runConfig.windowed) MaximizeWindow();
     SetTargetFPS(60);
-    SetExitKey(KEY_NULL); // Esc belongs to the pause menu; the window close button still exits.
+    SetExitKey(KEY_NULL); // Escはポーズ用に使う
 #ifndef NDEBUG
     rlImGuiSetLoadFontsCallback(runConfig.enableDebugUI ? DebugMenu::LoadFonts : nullptr);
 #endif
     rlImGuiSetup(true);
 
-    // ImGuiとraylibのカーソル競合を防ぐ設定
+    // ImGuiとraylibのカーソル表示が競合しないようにする
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
 
-    // アセットの一括ロード
     AM().Init();
     GameSettings settings;
     settings.Load();
     settings.Apply(gameContext);
-    // タイトルでは日本語フォントだけを使い、3D素材はゲーム開始時に読む。
+    // タイトルでは日本語フォントだけ読み、3D素材は開始時にロード
     RM().LoadJapaneseFont();
     
-    // 各シーンにコンテキストを伝搬
     titleScene.SetGameContext(&gameContext);
     gameScene.SetGameContext(&gameContext);
     gameScene.SetDebugToolsEnabled(runConfig.enableDebugUI);
@@ -41,7 +38,6 @@ void SceneManager::Init()
 
     systemMode_.Init(&gameContext);
 
-    // 最初はタイトルシーンから開始
     currentScene = &titleScene;
     currentScene->Init();
 
@@ -49,7 +45,7 @@ void SceneManager::Init()
 
 void SceneManager::Shutdown()
 {
-    // End the active scene before destroying resources and the window.
+    // リソースを解放する前にシーンを終了
     if (currentScene) {
         currentScene->End();
         currentScene = nullptr;
@@ -77,8 +73,8 @@ bool SceneManager::LoadGameResources()
     const auto begin = std::chrono::steady_clock::now();
     EnableCursor();
     for (;;) {
-        // raylibのGPU操作は同じスレッドに保ち、素材の間に描画と入力処理を挟む。
-        // 進捗は読み込み件数の割合で、残り時間の予測値ではない。
+        // 素材を1件読むごとに画面と入力を更新。GPU操作は同じスレッドで行う
+        // 進捗は読み込み件数の割合
         if (WindowShouldClose()) return false;
         const float progress = RM().GetGameLoadProgress();
         const float scale = (std::max)(.5f, (std::min)(GetScreenWidth() / 1920.0f, GetScreenHeight() / 1080.0f));
@@ -126,7 +122,6 @@ void SceneManager::Run()
     {
         float deltaTime = GetFrameTime();
 
-        // 1. シーンおよびSystemModeの更新
         if (currentScene)
         {
             currentScene->Update(deltaTime);
@@ -143,30 +138,28 @@ void SceneManager::Run()
                 }
                 else
                 {
-                    // This scene has already ended. Avoid ending it twice in Shutdown.
+                    // ここで終了済みなので、ShutdownでEndを重ねない
                     currentScene = nullptr;
                     break;
                 }
             }
         }
 
-        // 死亡メニューにデバッグUIの描画やマウス操作を重ねない。
+        // 死亡メニュー中はデバッグUIを重ねない
         const bool showDebugUI = runConfig.enableDebugUI && currentScene == &gameScene && !gameScene.IsGameOver() && !gameScene.IsPaused();
         const bool showDebugMenu = currentScene == &gameScene && gameScene.IsDebugMenuOpen();
         if (showDebugUI) systemMode_.Update(deltaTime);
         AM().Update();
 
-        // 2. 描画処理
         BeginDrawing();
         ClearBackground({ 3, 5, 8, 255 });
 
-        // 3D/2Dシーン描画
         if (currentScene)
         {
             currentScene->Render();
         }
 
-        // プレイ中のデバッグ表示が有効な場合だけImGuiを描画する。
+        // デバッグUIはプレイ中で表示が有効なときだけ描く
         if (showDebugUI || showDebugMenu) {
             rlImGuiBegin();
             if (showDebugMenu) gameScene.DrawDebugMenu();

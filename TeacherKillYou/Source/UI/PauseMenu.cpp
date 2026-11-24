@@ -116,7 +116,7 @@ PauseAction PauseMenu::Update(float dt, GameSettings& settings, bool canLoad, bo
 
     if (settingsPage_) {
         if (IsKeyPressed(KEY_ESCAPE)) { settingsPage_ = false; selectedOption_ = SettingsOption; return PauseAction::SaveSettings; }
-        // 新しいクリックではドラッグ対象を選び直し、前のスライダーを動かさない。
+        // クリックのたびに操作中のスライダーを選び直す
         if (click) draggingSlider_ = -1;
         bool changed = false;
         for (int i = 0; i < SettingCount; ++i) {
@@ -181,7 +181,7 @@ void PauseMenu::Draw(const GameSettings& settings, bool canLoad, bool canSave) c
     const float s = Scale();
     const bool artwork = !settingsPage_ && background_.id != 0 && background_.width > 0 && background_.height > 0;
     if (artwork) {
-        // Cover the window without stretching the supplied 16:9 image.
+        // 背景画像の比率を保ったまま画面を埋める
         const float imageScale = (std::max)(GetScreenWidth() / static_cast<float>(background_.width),
                                             GetScreenHeight() / static_cast<float>(background_.height));
         const float imageWidth = background_.width * imageScale;
@@ -192,7 +192,7 @@ void PauseMenu::Draw(const GameSettings& settings, bool canLoad, bool canSave) c
         DrawTexturePro(background_, source, destination, {0, 0}, 0, WHITE);
     }
     else {
-        // The settings page retains the live game view for brightness/green previews.
+        // 設定画面ではゲームを背面に残して明るさや色を確認できるようにする
         DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), {3, 9, 11, static_cast<unsigned char>(settingsPage_ ? 24 : 225)});
     }
     if (settingsPage_) {

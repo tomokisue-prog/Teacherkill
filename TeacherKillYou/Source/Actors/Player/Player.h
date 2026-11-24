@@ -48,7 +48,7 @@ public:
     bool HasGun() const { return hasGun_; }
     void SetHasGun(bool hasGun) { hasGun_ = hasGun; }
 
-    // Item effects
+    // アイテムを使ったときの効果
     void Heal(int amount);
     void AddReserveAmmo(int amount);
 
@@ -61,6 +61,7 @@ public:
         playerHeight_ = height;
     }
 
+    // 発砲したことを1回だけGameContextに渡す
     bool ConsumeShot()
     {
         const bool fired = shotPending_;
@@ -117,6 +118,7 @@ private:
     float shootTimer_{ 0.0f };
     float reloadTimer_{ 0.0f };
 
+    // 射撃・リロードのアニメーションに合わせた秒数
     float shootDuration_{ 0.417f };
     float reloadDuration_{ 2.291667f };
 
@@ -127,6 +129,7 @@ private:
     Texture2D healthHudTexture_{};
     Rectangle healthHudSource_{};
 
+    // 1マガジン8発。予備弾は別に持つ
     int magazineCapacity_{ 8 };
     int currentAmmo_{ 8 };
     int reserveAmmo_{ 32 };
@@ -141,6 +144,7 @@ private:
     bool isSprinting_{ false };
     bool sprintExhausted_{ false };
 
+    // ダッシュ中に消費し、少し待ってから回復
     float maxStamina_{ 100.0f };
     float stamina_{ 100.0f };
 
@@ -154,7 +158,7 @@ private:
     float weaponSprintBlend_ = 0.0f;
     float weaponRoll_ = 0.0f;
 
-	// Weapon recoil 
+	// 銃の反動
     float weaponRecoilBack_ = 0.0f;
     float weaponRecoilPitch_ = 0.0f;
 

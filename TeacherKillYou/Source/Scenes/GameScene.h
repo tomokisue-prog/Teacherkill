@@ -25,7 +25,7 @@ public:
     void RequestIntroFadeIn() { introFadeRequested_ = true; }
 
 private:
-    static constexpr double IntroFadeInSeconds = 0.65; // Adjust the game fade-in duration here.
+    static constexpr double IntroFadeInSeconds = 0.65; // 動画終了後のフェード時間
     void BeginGameOver();
     void OpenPause();
     void Resume();

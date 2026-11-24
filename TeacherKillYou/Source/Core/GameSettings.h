@@ -8,7 +8,7 @@ struct GameSettings {
     float seVolume = 0.75f;
     float ambienceVolume = 0.3f;
     float mouseSensitivity = 1.0f;
-    // 1.0は従来の見え方。画面補正は各PCの設定として保存する。
+    // 明るさの基準は1.0。画面補正はPCごとに保存
     float brightness = 1.0f;
     float greenStrength = 1.0f;
     static constexpr float MinBrightness = 0.5f;

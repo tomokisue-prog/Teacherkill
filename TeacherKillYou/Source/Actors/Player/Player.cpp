@@ -25,7 +25,7 @@ namespace
         Image image = LoadImage(path);
         if (!image.data && fallback) image = LoadImage(fallback);
         if (!image.data) return;
-        // 透明な余白だけを除き、画像自体の縦横比とデザインは維持する。
+        // HUD画像の透明な余白を除く
         source = GetImageAlphaBorder(image, 0.05f);
         texture = LoadTextureFromImage(image);
         UnloadImage(image);
@@ -37,7 +37,7 @@ namespace
         const float scale = HudScale();
         const float width = 360.0f * scale;
         const float height = source.width > 0 && source.height > 0 ? width * source.height / source.width : 72.0f * scale;
-        // 下部の懐中電灯キー表示との間隔を確保する。
+        // 懐中電灯のキー表示と重ならない位置
         return {24.0f * scale, GetScreenHeight() - height - 48.0f, width, height};
     }
 
@@ -81,7 +81,7 @@ namespace
 
         const float blend = framePosition - frameA;
 
-        // Reuse storage instead of allocating on every update.
+        // 補間用の配列は使い回す
         static std::vector<Transform> blendedPose;
         blendedPose.resize(animation.boneCount);
 
@@ -100,7 +100,7 @@ namespace
                 Vector3Lerp(a.scale, b.scale, blend);
         }
 
-        // Present the blended pose as a temporary one-frame animation.
+        // 補間した姿勢を1フレーム分として反映
         Transform* poseFrames[] = { blendedPose.data() };
 
         ModelAnimation blendedAnimation = animation;
@@ -132,17 +132,17 @@ void Player::Init()
     Reset();
     if (!statusHud_.Init("Data/Image/UI/HP_Bar.png"))
     {
-        // Keep the original HUD as a fallback if the new PNG cannot load.
+        // HP画像を読めなければ旧HUDを使う
         LoadHudTexture("Data/Image/HPBackUI.png", healthHudTexture_, healthHudSource_);
     }
-    // Load even when the main HP artwork is unavailable.
+    // 弾アイコンはHP画像とは別に読み込む
     statusHud_.InitAmmoIcon("Data/Image/UI/Ammo_Bullet.jpg");
 }
 
 void Player::Reset()
 {
 #ifndef NDEBUG
-    // 無敵・無限弾は通常の進行データに残さず、開始・復元時は解除する。
+    // 開始時とロード時はデバッグ用の無敵・無限弾を解除
     debugInvincible_ = debugInfiniteAmmo_ = false;
 #endif
     position_ = { 0.0f, 4.0f, 0.0f };
@@ -197,16 +197,17 @@ void Player::Update(float deltaTime, const Stage& stage,
 
     if (!IsAlive()) return;
 
-    // Update first so pressing R blocks sprinting immediately.
+    // Rを押したフレームから走れないよう、銃の更新を先に行う
     UpdateWeapon(deltaTime);
 
     Vector3 moveDir = GetInputMoveDirection(forward, right);
 
-    // Keep movement horizontal, even when looking up or down.
+    // 上を向いていても移動は水平にする
     moveDir.y = 0.0f;
 
     const bool hasMoveInput = Vector3Length(moveDir) > 0.0f;
 
+    // 使い切ったら25%まで回復するのを待つ
     if (sprintExhausted_ && stamina_ >= maxStamina_ * 0.25f)
     {
         sprintExhausted_ = false;
@@ -224,7 +225,7 @@ void Player::Update(float deltaTime, const Stage& stage,
 
     if (wantsSprint)
     {
-        // Only grant sprint speed for the time stamina can cover.
+        // 残りスタミナで走れる時間だけ加速する
         const float sprintTime = (std::min)(
             deltaTime, stamina_ / staminaDrainRate_);
 
@@ -274,6 +275,7 @@ void Player::Update(float deltaTime, const Stage& stage,
 
 void Player::UpdateWeaponMotion(float deltaTime, bool hasMoveInput)
 {
+    // 歩行の揺れとマウス移動をなめらかにつなぐ
     const float blend = 1.0f - std::exp(-8.0f * (std::max)(deltaTime, 0.0f));
     const bool isWalkingOnGround = hasMoveInput && isGrounded_;
 
@@ -329,6 +331,7 @@ void Player::UpdateWeapon(float deltaTime)
 
         if (reloadTimer_ >= reloadDuration_)
         {
+            // リロードが終わったら不足分だけ予備弾から補充
             const int needed = magazineCapacity_ - currentAmmo_;
             const int loaded = (std::min)(needed, reserveAmmo_);
 
@@ -377,7 +380,7 @@ void Player::UpdateWeapon(float deltaTime)
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
-        // 空撃ちはSEだけを鳴らし、弾・マズルフラッシュ・命中処理を生成しない。
+        // 弾切れは空撃ち音だけ
         if (currentAmmo_ <= 0)
         {
             AM().PlaySe(SeId::DryFire);
@@ -398,7 +401,7 @@ void Player::UpdateWeapon(float deltaTime)
         shotPending_ = true;
         AM().PlaySe(SeId::Shoot);
 
-        // Weapon recoil
+        // 射撃時に銃を後ろへ引いて跳ね上げる
         weaponRecoilBack_ = (std::min)(
             weaponRecoilBack_ + 0.025f, 0.06f);
 
@@ -420,8 +423,8 @@ Vector3 Player::GetInputMoveDirection(Vector3 forward, Vector3 right) const
 
 void Player::MoveWithCollision(Vector3 moveAmount, const Stage& stage)
 {
-    // 身長や幅を変更しても、足元・胴体・頭と左右の端を同じ基準で調べる。
-    // 移動先までレイを伸ばし、大きいdeltaTimeでも壁を通り抜けないようにする。
+    // 足元・胴体・頭の高さで壁を調べる
+    // 移動先までレイを伸ばして、壁の手前で止める
     constexpr float margin = 0.001f;
     const float heights[] = {playerHeight_ * .1f, playerHeight_ * .5f, playerHeight_ - .04f};
     const float offsets[] = {-playerRadius_ * .8f, 0, playerRadius_ * .8f};
@@ -457,29 +460,27 @@ void Player::UpdateVerticalPhysics(float deltaTime, const Stage& stage)
     position_.y += velocity_.y * deltaTime;
 
 
-	// 天井の衝突判定
+	// 上昇中は頭から上にレイを出す
     if (velocity_.y > 0.0f)
     {
         constexpr float headOffset = 0.1f;
-        // プレイヤーの足元から頭のてっぺん付近までの高さを設定
         Vector3 headRayOrigin = { position_.x, previousY + playerHeight_ - headOffset, position_.z };
 
-        // 1フレーム分の移動量 + 少しの余裕を持たせたプローブ距離
+        // このフレームの上昇分まで調べる
         float probeDistance = (position_.y - previousY) + headOffset;
 
         Ray upRay = { headRayOrigin, { 0, 1, 0 } };
         RayCollision ceilingHit = stage.Raycast(upRay, probeDistance);
 
-        // 天井にヒットした場合、頭が天井にぶつかったとして位置を補正し、上方向の速度をゼロにする
         if (ceilingHit.hit)
         {
-            // ヒットした天井の下面あたりに位置を固定
+            // 頭を天井の下に戻して上昇を止める
             position_.y = ceilingHit.point.y - playerHeight_;
             velocity_.y = 0.0f;
         }
     }
 
-    // 移動前から落下区間を検査し、天井面の誤判定と床のすり抜けを防ぐ。
+    // 落下前の位置から調べて、床のすり抜けを防ぐ
     constexpr float probeHeight = 0.25f;
     const Ray downRay = { { position_.x, previousY + probeHeight, position_.z }, { 0, -1, 0 } };
     const float probeDistance = probeHeight + (std::max)(0.0f, previousY - position_.y) + 0.01f;
@@ -515,7 +516,7 @@ void Player::TakeDamage(int amount)
     damageFlashTimer_ = damageFlashDuration_;
     if (IsAlive())
     {
-        // A new hit replaces the previous voice so rapid hits stay clear.
+        // 被弾ボイスが重ならないよう、前の音を止める
         AM().StopSe(SeId::PlayerHit1);
         AM().StopSe(SeId::PlayerHit2);
         const SeId hit = GetRandomValue(0, 1) == 0 ? SeId::PlayerHit1 : SeId::PlayerHit2;
@@ -549,31 +550,30 @@ void Player::DrawDamageOverlay() const
 }
 void Player::DrawStaminaHUD() const
 {
-    // Stamina is represented by the blue arc in PlayerStatusHud.
+    // スタミナはPlayerStatusHudの青い円弧で表示
 }
 
 void Player::DrawColliderDebug() const
 {
     if (!debugDrawEnabled_) return;
 
-    // プレイヤーの足元から頭までの中心位置
     Vector3 center = {
         position_.x,
         position_.y + (playerHeight_ * 0.5f),
         position_.z
     };
 
-    // 判定範囲をワイヤーフレームの円柱で描画
+    // プレイヤーの当たり判定を表示
     DrawCylinderWires(
-        { position_.x, position_.y, position_.z }, // 底面の位置
-        playerRadius_,                             // 底面半径
-        playerRadius_,                             // 上面半径
-        playerHeight_,                             // 高さ
-        12,                                        // 分割数
-        YELLOW                                     // 黄色
+        { position_.x, position_.y, position_.z },
+        playerRadius_,
+        playerRadius_,
+        playerHeight_,
+        12,
+        YELLOW
     );
 
-    // 足元の当たり判定位置に小さな球を描画
+    // 体の中心位置を確認する球
     DrawSphereWires(center, playerRadius_, 8, 8, ORANGE);
 }
 
@@ -585,7 +585,7 @@ void Player::DrawHealthHUD() const
         return;
     }
 
-    // Keep the original graphic when the main HUD image is unavailable.
+    // HP画像がない場合の予備表示
     const Rectangle panel = HealthHudPanel(healthHudSource_);
     if (healthHudTexture_.id && healthHudSource_.width > 0 && healthHudSource_.height > 0)
         DrawTexturePro(healthHudTexture_, healthHudSource_, panel, {0, 0}, 0.0f, WHITE);
@@ -626,21 +626,21 @@ Vector3 Player::GetMuzzlePosition(const Camera3D& view) const
             QuaternionFromAxisAngle({ 0, 1, 0 }, yaw),
             QuaternionFromAxisAngle({ 1, 0, 0 }, -pitch)));
 
-    // Recoil pitch
+    // 反動による跳ね上がり
     const Quaternion recoilRotation =
         QuaternionFromAxisAngle(
             { 1.0f, 0.0f, 0.0f },
             -weaponRecoilPitch_
         );
 
-    // weapon roll
+    // 歩行・ダッシュ中の傾き
     const Quaternion rollRotation =
         QuaternionFromAxisAngle(
             { 0.0f, 0.0f, 1.0f },
             weaponRoll_
         );
 
-    // Combine camera rotation, recoil, and sway roll
+    // 視点・反動・揺れを銃口の向きにまとめる
     const Quaternion rotation = QuaternionNormalize(
         QuaternionMultiply(
             cameraRotation,
@@ -705,7 +705,7 @@ void Player::Draw(const PlayerCamera* camera) const
         pos = Vector3Add(pos, Vector3Scale(up, weaponMotionOffset_.y));
         pos = Vector3Add(pos, Vector3Scale(forward, weaponMotionOffset_.z));
 
-        // Recoil: move pistol backward
+        // 反動分だけ銃を後ろへ下げる
         pos = Vector3Subtract(
             pos,
             Vector3Scale(forward, weaponRecoilBack_)
@@ -723,7 +723,7 @@ void Player::Draw(const PlayerCamera* camera) const
         const Quaternion cameraRotation = QuaternionNormalize(
             QuaternionMultiply(yawRotation, pitchRotation));
 
-        // Local Z roll leaves the camera untouched; only pistol/arms tilt.
+        // カメラは傾けず、銃と腕だけを傾ける
         const Quaternion rotation = QuaternionNormalize(
             QuaternionMultiply(cameraRotation,
                 QuaternionFromAxisAngle({ 0.0f, 0.0f, 1.0f }, weaponRoll_)));
@@ -733,7 +733,7 @@ void Player::Draw(const PlayerCamera* camera) const
 
         QuaternionToAxisAngle(rotation, &axis, &angle);
 
-        // Apply the FPS lighting profile to the gun and arms in every animation pose.
+        // 銃と腕にもゲーム内の照明を当てる
         DrawHorrorModelEx(
             handGun,
             pos,
@@ -757,9 +757,7 @@ void Player::DrawAmmoHUD() const
     statusHud_.DrawAmmoRow(currentAmmo_, reserveAmmo_, healthPanel, isMainArtwork);
 }
 
-// =======================================
-// Med Kit - Restore HP
-// =======================================
+// 回復量は最大HPまでに収める
 void Player::Heal(int amount)
 {
     if (amount <= 0 || !IsAlive())
@@ -768,9 +766,7 @@ void Player::Heal(int amount)
     hp_ = (std::min)(hp_ + amount, maxHp_);
 }
 
-// =======================================
-// Ammo - Add Reserve Bullets
-// =======================================
+// 拾った弾は予備弾に追加
 void Player::AddReserveAmmo(int amount)
 {
     if (amount <= 0)
@@ -803,7 +799,7 @@ void Player::RestoreCheckpoint(const PlayerCheckpoint& data)
     position_ = data.position;
     hp_ = std::clamp(data.hp, 1, maxHp_);
     currentAmmo_ = std::clamp(data.ammo, 0, magazineCapacity_);
-    // Older saves can contain 15 rounds in the magazine. Preserve the excess.
+    // 旧セーブの装弾数が8発を超えていたら、余りを予備弾へ戻す
     const int excess = (std::max)(0, data.ammo - magazineCapacity_);
     reserveAmmo_ = std::clamp(data.reserveAmmo, 0, 1000000);
     reserveAmmo_ += (std::min)(excess, 1000000 - reserveAmmo_);
@@ -819,7 +815,7 @@ void Player::DebugSetInfiniteAmmo(bool enabled) {
     if (enabled) currentAmmo_ = magazineCapacity_;
 }
 void Player::DebugRefillVitals() {
-    if (!IsAlive()) return; // 死亡画面の状態を残したまま復活させない。
+    if (!IsAlive()) return; // 死亡後はデバッグ回復も受け付けない
     hp_ = maxHp_; stamina_ = maxStamina_; staminaRecoveryTimer_ = 0;
     sprintExhausted_ = false; damageFlashTimer_ = 0; damageImpactPending_ = false;
 }

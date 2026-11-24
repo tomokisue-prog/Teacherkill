@@ -2,7 +2,7 @@
 #include "raymath.h"
 #include <cmath>
 
-// Two smooth pulses per hit. The timer is owned by each damaged actor.
+// 被弾時に2回脈打って消える。残り時間は各キャラ側で持つ
 inline float DamageFlashStrength(float remaining, float duration) {
     if (remaining <= 0.0f || duration <= 0.0f) return 0.0f;
     const float envelope = Clamp(remaining / duration, 0.0f, 1.0f);

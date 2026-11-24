@@ -16,33 +16,33 @@ public:
     Inventory() = default;
     ~Inventory() = default;
 
-    // --- 初期化 / 破棄 / リセット ---
+    // 初期化と配置のリセット
     void Init(const Stage& stage);
     void Reset();
     void ApplyPlacements();
     void End();
 
-    // --- 更新 & 描画 ---
+    // 更新と描画
     static constexpr int AmmoPickupAmount = 16;
     void Update(float deltaTime, const Camera3D& camera, Stage* stage = nullptr,
                 ItemType blockedPickup = ItemType::None);
     void DrawWorld(bool editing = false) const;
     void DrawHUD() const;
 
-    // --- 回復アクション関連 ---
+    // 回復の長押し
     void CancelHealing();
     bool IsHealing() const { return healing_; }
     float GetHealingProgress() const;
 
-    // --- フレームごとのイベント参照 ---
+    // このフレームで拾った物・使った物をGameContextに渡す
     ItemType GetUsedItem() const { return usedItem_; }
     ItemType GetPickedUpItem() const { return pickedUpItem_; }
 
-    // --- チェックポイント（セーブ / ロード） ---
+    // チェックポイント
     InventoryCheckpoint CaptureCheckpoint() const;
     void RestoreCheckpoint(const InventoryCheckpoint& data, bool useScenePlacements = false);
 
-    // --- ワールド内アイテム参照（DebugUI / ギズモ編集用） ---
+    // アイテムの配置編集用
     std::vector<Item>& GetWorldItems() { return items_; }
     const std::vector<Item>& GetWorldItems() const { return items_; }
     std::vector<Item>& GetPlacements() { return placements_; }
@@ -53,7 +53,7 @@ public:
     bool HasCrowbar() const;
     bool IsAuthenticationKeyCollected() const;
 
-    // 非常階段キー関連
+    // 非常階段キーの取得確認
     bool IsEmergencyStairsKeyCollected() const
     {
         for (const auto& item : items_)

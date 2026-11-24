@@ -39,6 +39,7 @@ static void DrawHitMarker(bool isKill)
     const float outer = 14.0f;
     const float thickness = 2.0f;
 
+    // “|‚µ‚½‚Æ‚«‚Í–½’†ƒ}[ƒN‚ğÔ‚­‚·‚é
     const Color color = isKill ? RED : WHITE;
 
     DrawLineEx(
@@ -348,9 +349,7 @@ void GameContext::Draw() const
     EndMode3D();
     lighting_.EndFrame();
 
-    // ==================================
-    // 2D HUD
-    // ==================================
+    // 3D•`‰æ‚Ì‚ ‚Æ‚É”í’e‰‰o‚ÆHUD‚ğd‚Ë‚é
     if (playerView && player_.IsAlive())
     {
         lowHpBlood_.Draw();
@@ -430,6 +429,7 @@ void GameContext::DrawShotEffects() const
     rlDrawRenderBatchActive();
     rlDisableDepthMask();
 
+    // eŒû‚ÌŒõ‚Æ’e“¹‚Í‰ÁZ‡¬
     BeginBlendMode(BLEND_ADDITIVE);
 
     if (tracerActive_ && tracerDuration_ > 0.0f)
@@ -514,6 +514,7 @@ void GameContext::DrawBulletMarks() const
 
         auto drawDisc = [&](float radius, float offset, Color color)
             {
+                // •Ç‚Æd‚È‚Á‚Ä‚¿‚ç‚Â‚©‚È‚¢‚æ‚¤­‚µ•‚‚©‚¹‚é
                 const Vector3 center = Vector3Add(
                     mark.position, Vector3Scale(normal, offset));
 

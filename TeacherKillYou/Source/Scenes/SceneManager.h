@@ -25,11 +25,9 @@ public:
 
     GameContext& GetGameContext() { return gameContext; }
 
-    // コピー禁止
     SceneManager(const SceneManager&) = delete;
     SceneManager& operator=(const SceneManager&) = delete;
 
-    // 実行コンフィグ構造体とセッター
     struct RunConfig
     {
         bool windowed = true;
@@ -37,13 +35,13 @@ public:
     };
     void SetRunConfig(const RunConfig& cfg) { runConfig = cfg; }
     void ChangeScene(SceneID id);
-    // Load the gameplay resources before playing the opening movie.
+    // イントロ再生前にゲーム素材を読み込む
     bool PrepareGameResources() { return LoadGameResources(); }
 private:
     SceneManager() = default;
     ~SceneManager() = default;
 
-    // 初回のゲーム開始時だけ、進捗を描画しながら3D素材を読み込む。
+    // 初回だけロード画面を出しながら3D素材を読む
     bool LoadGameResources();
 
     GameContext gameContext;

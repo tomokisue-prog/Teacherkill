@@ -15,14 +15,14 @@ namespace {
     constexpr const char* MenuPath = "Data/Image/UI/The_Last_Classl.png";
     constexpr const char* LightningPath = "Data/Image/UI/Title_Lightning.png";
 
-    // These values control the strength and speed of the title-screen breeze.
-    constexpr float CanopySwayPixels = 18.0f; // Horizontal motion in the artwork's pixels.
-    constexpr float CanopyVerticalPixels = 13.0f; // Diagonal, up-and-down motion.
-    constexpr float CanopyTiltDegrees = 0.7f; // Subtle rotation around the upper-right corner.
+    // 木と葉の揺れ幅・速さ
+    constexpr float CanopySwayPixels = 18.0f; // 左右の揺れ
+    constexpr float CanopyVerticalPixels = 13.0f; // 上下の揺れ
+    constexpr float CanopyTiltDegrees = 0.7f; // 右上を軸にした傾き
     constexpr float WindSpeed = 0.8f;
     constexpr int FallingLeafCount = 16;
-    constexpr float LeafFallSeconds = 7.5f; // Smaller values make leaves fall faster.
-    constexpr float LeafDriftPixels = 32.0f; // Side-to-side drift at 1920 x 1080.
+    constexpr float LeafFallSeconds = 7.5f; // 小さいほど葉が速く落ちる
+    constexpr float LeafDriftPixels = 32.0f; // 葉の横揺れ幅
     constexpr float FirstLightningSeconds = 4.0f;
     constexpr float LightningFrameSeconds = 0.25f;
     constexpr float ThunderDelaySeconds = 0.37f;
@@ -47,7 +47,7 @@ void main() {
 
     enum MenuButton { StartButton, SaveButton, ExitButton, ControlsButton, ButtonCount };
 
-    // Trim the transparent margins and split the menu at the gaps in the artwork.
+    // 透明な余白を除き、画像の隙間でボタンを分ける
     constexpr Rectangle LogoSource{180.0f, 37.0f, 1157.0f, 954.0f};
     constexpr Rectangle ButtonSources[] = {
         {262.0f, 225.0f, 1011.0f, 203.0f},
@@ -99,8 +99,7 @@ void main() {
         return texture;
     }
 
-    // Fill the screen without stretching. The cover and canopy share the
-    // same screen rectangle so their original artwork positions stay aligned.
+    // 背景と木を同じ範囲に描いて位置を合わせる
     Rectangle CoverArea(const Texture2D& texture) {
         const float w = static_cast<float>(GetScreenWidth());
         const float h = static_cast<float>(GetScreenHeight());
@@ -113,10 +112,9 @@ void main() {
     void DrawWindLayer(const Texture2D& texture, Rectangle area, float x, float y,
                        float rotation, float sourceHeightRatio, float opacity) {
         if (texture.id == 0 || texture.width <= 0 || texture.height <= 0) return;
-        // Only the top half is the canopy. This also excludes the stray mark
-        // at the bottom right of the supplied image.
+        // 木の画像は上半分だけを使う
         const Rectangle source{0, 0, static_cast<float>(texture.width), texture.height * sourceHeightRatio};
-        // Rotate around the upper-right corner so the canopy stays anchored.
+        // 右上を支点に回す
         const Rectangle dest{area.x + area.width + x, area.y + y,
                              area.width, area.height * sourceHeightRatio};
         DrawTexturePro(texture, source, dest, {area.width, 0}, rotation, Fade(WHITE, opacity));
@@ -134,6 +132,7 @@ void main() {
 
     LightningFrame GetLightningFrame(float age) {
         constexpr float lightLevels[] = {0.55f, 1.0f, 0.70f, 0.48f, 0.95f};
+        // 雷の画像は消灯・点灯・点灯・消灯・点灯の順
         constexpr float boltLevels[] = {0.0f, 1.0f, 0.82f, 0.0f, 1.0f};
         constexpr int frameCount = 5;
         if (age < 0.0f || age >= LightningFrameSeconds * frameCount) return {0.0f, 0.0f};
@@ -154,7 +153,7 @@ void main() {
         return {light, bolt};
     }
 
-    // Place the bolt behind the moving canopy, near the upper-right corner.
+    // 雷は木より奥に重ねる
     void DrawLightningImage(const Texture2D& image, float opacity) {
         if (image.id == 0 || image.width <= 0 || image.height <= 0 || opacity <= 0.0f) return;
         const float screenWidth = static_cast<float>(GetScreenWidth());
@@ -165,14 +164,13 @@ void main() {
         const Rectangle area{screenWidth * 0.985f - width, screenHeight * 0.015f, width, height};
         const Rectangle source{0, 0, static_cast<float>(image.width), static_cast<float>(image.height)};
         DrawTexturePro(image, source, area, {0, 0}, 0.0f, Fade(WHITE, opacity));
-        // Add a soft blue-white glow along the bolt.
+        // 青白い光を加算で重ねる
         BeginBlendMode(BLEND_ADDITIVE);
         DrawTexturePro(image, source, area, {0, 0}, 0.0f, Fade(Color{175, 205, 255, 255}, opacity * 0.22f));
         EndBlendMode();
     }
 
-    // Rectangles in the supplied 2048 x 1423 transparent leaf image. Each
-    // sprite falls independently instead of moving the whole layer together.
+    // 葉を1枚ずつ切り出して、それぞれ別の位置から落とす
     constexpr Rectangle LeafSprites[] = {
         {1223, 62, 131, 85}, {1433, 376, 69, 105}, {1351, 509, 100, 87},
         {453, 618, 125, 95}, {712, 867, 97, 62}, {1686, 856, 97, 100},
@@ -197,7 +195,7 @@ void main() {
             const float horizontal = std::fmod(i * 0.754878f + 0.08f, 1.0f);
             const float x = screenWidth * horizontal +
                 std::sin(time * (0.7f + 0.05f * (i % 3)) + i * 1.37f) * LeafDriftPixels * uiScale;
-            // Start and wrap fully beyond the screen edge so the loop is invisible.
+            // 画面の外で折り返して、急に現れないようにする
             const float y = -height + phase * (screenHeight + 2.0f * height);
             const float angle = std::sin(time * (0.65f + 0.06f * (i % 4)) + i * 0.91f) * 16.0f;
             const Rectangle dest{x, y, width, height};
@@ -243,7 +241,7 @@ void main() {
         const Color tint = enabled ? WHITE : Color{135, 135, 135, 255};
         DrawTexturePro(menu, source, dest, {0, 0}, 0.0f, tint);
         if (enabled && hovered) {
-            // The texture's alpha keeps the light on the painted button.
+            // ボタンの不透明な部分だけ明るくする
             BeginBlendMode(BLEND_ADDITIVE);
             DrawTexturePro(menu, source, dest, {0, 0}, 0.0f, Fade(WHITE, 0.36f));
             EndBlendMode();
@@ -266,7 +264,7 @@ void TitleScene::Init()
     leaves_ = LoadTitleTexture(LeavesPath);
     logo_ = LoadTitleTexture(LogoPath);
     menu_ = LoadTitleTexture(MenuPath);
-    // A missing optional image is normal; no warning and no placeholder needed.
+    // 雷の画像があれば読み込む
     if (FileExists(LightningPath)) lightning_ = LoadTitleTexture(LightningPath);
     lightningLight_ = LoadShaderFromMemory(nullptr, LightningLightFragment);
     if (lightningLight_.id == 0 || lightningLight_.id == rlGetShaderIdDefault()) {
@@ -278,6 +276,7 @@ void TitleScene::Init()
     }
     CheckpointData checkpoint;
     checkpointAvailable_ = CheckpointSave::Load(checkpoint);
+    // タイトルBGMと風を重ねる
     AM().PlayBgm(BgmId::Title);
     AM().PlayWind();
     AM().SetWindMix(TitleWindMix);
@@ -299,8 +298,10 @@ void TitleScene::Update(float deltaTime)
     windTime_ += (std::max)(0.0f, (std::min)(deltaTime, 0.1f));
     if (windTime_ >= nextLightningAt_) {
         lastLightningAt_ = windTime_;
+        // 次の雷は8〜15秒後
         nextLightningAt_ = windTime_ + GetRandomValue(8000, 15000) / 1000.0f;
     }
+    // 光ってから少し遅れて雷鳴を鳴らす
     if (lastLightningAt_ >= 0.0f && previousWindTime < lastLightningAt_ + ThunderDelaySeconds &&
         windTime_ >= lastLightningAt_ + ThunderDelaySeconds) {
         AM().PlaySe(SeId::Thunder, 0.7f);
@@ -331,14 +332,14 @@ void TitleScene::Update(float deltaTime)
     else if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) || (click && hovered == StartButton)) {
         AM().PlaySe(SeId::Confirm);
         StopTitleAudio();
-        // Keep the existing loading screen before the opening video.
+        // 素材のロードが終わってからイントロを再生
         if (!SM().PrepareGameResources()) {
             finished = true;
             nextScene = nullptr;
             return;
         }
         if (!intro_.Start("Data/Video/IntroFrames.dat", "Data/Video/IntroAudio.ogg", AM().GetBgmVolume())) {
-            // Missing/corrupt video: still enter the game with a smooth reveal.
+            // 動画を読めない場合もフェードでゲームへ進む
             auto* game = static_cast<GameScene*>(SM().GetScene(SceneID::Game));
             game->RequestIntroFadeIn();
             SetNextScene(game);

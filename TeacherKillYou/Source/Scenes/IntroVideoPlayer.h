@@ -5,8 +5,7 @@
 #include <cstdint>
 #include <vector>
 
-// The supplied movie is packaged as JPEG frames; its soundtrack is separate.
-// This lets raylib play it without installing an extra video library.
+// イントロはJPEGの連番画像を再生し、音声は別に流す
 class IntroVideoPlayer
 {
 public:

@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <string>
 
-// Only the files supplied in the new sound package are used.
+// 並び順はAudioManager.cppのファイル一覧と合わせる
 enum class BgmId { GameOver, Title, Count };
 enum class SeId {
     Shoot, Reload, DryFire, WallImpact,
@@ -36,6 +36,7 @@ public:
     void SetWindMix(float gain);
 
     bool PlaySe(SeId id, float gain = 1.0f, float pitch = 1.0f, float pan = 0.5f);
+    // メニュー操作音はポーズ中も鳴らす
     bool PlayUiSe(SeId id, float gain = 1.0f);
     void SetSeGain(SeId id, float gain);
     void StopSe(SeId id);

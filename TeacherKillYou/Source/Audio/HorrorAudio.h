@@ -6,7 +6,7 @@ class PlayerCamera;
 class Stage;
 namespace demo { class EnemyManager; }
 
-// Footsteps follow actual movement; the heartbeat responds to remaining HP.
+// ˆÚ“®‹——£‚É‡‚í‚¹‚½‘«‰¹‚ÆAc‚èHP‚É‡‚í‚¹‚½S‰¹
 class HorrorAudio {
 public:
     void Reset(Vector3 position);

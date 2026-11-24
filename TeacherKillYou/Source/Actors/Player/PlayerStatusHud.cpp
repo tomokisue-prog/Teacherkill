@@ -21,7 +21,7 @@ bool PlayerStatusHud::Init(const char* imagePath)
         return false;
     }
 
-    // UpdateTexture below receives Color pixels, so use the same format.
+    // 書き戻すColor配列に合わせてRGBAにそろえる
     ImageFormat(&image, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
     if (image.format != PIXELFORMAT_UNCOMPRESSED_R8G8B8A8)
     {
@@ -87,7 +87,7 @@ bool PlayerStatusHud::InitAmmoIcon(const char* imagePath)
         pixels[i].a = static_cast<unsigned char>(alpha * 255.0f + 0.5f);
     }
 
-    // raylib標準のGetImageAlphaBorderを直接呼び出し
+    // 透過した余白を除いて弾の部分だけ切り出す
     bulletSource_ = ::GetImageAlphaBorder(image, 0.10f);
     if (bulletSource_.width > 0 && bulletSource_.height > 0)
         bulletTexture_ = LoadTextureFromImage(image);
@@ -141,6 +141,7 @@ void PlayerStatusHud::DrawAmmoRow(int ammo, int reserve, Rectangle healthPanel, 
     const float bulletWidth = bulletHeight * aspect;
     const float spacing = 14.0f * scale;
     const int fontSize = (std::max)(9, static_cast<int>(16.0f * scale));
+    // 予備弾は8発ごとの数と端数に分ける
     const int safeReserve = (std::max)(0, reserve);
     const int magazines = safeReserve / magazineSize;
     const int looseRounds = safeReserve % magazineSize;
@@ -216,6 +217,7 @@ void PlayerStatusHud::BuildArcMasks(int width, int height)
             if (angle < startAngle || angle > startAngle + sweepAngle) continue;
             const float progress = Clamp((angle - startAngle) / sweepAngle, 0.0f, 1.0f);
 
+            // 赤と青の円弧部分だけを更新対象にする
             const bool red = color.r > 35 && color.r > color.g * 1.55f && color.r > color.b * 1.5f;
             const bool blue = color.b > 85 && color.b > color.r + 25 && color.b > color.g + 7;
             const bool healthPixel = red && distance >= 155.0f && distance <= 198.0f;
@@ -272,6 +274,7 @@ void PlayerStatusHud::RefreshArcs(int hp, int maxHp, float stamina, float maxSta
 {
     const float staminaRatio = maxStamina > 0.0f ? Clamp(stamina / maxStamina, 0.0f, 1.0f) : 0.0f;
     const int staminaPercent = static_cast<int>(std::round(staminaRatio * 100.0f));
+    // 値が変わったときだけ画像を書き戻す
     if (hp == lastHp_ && maxHp == lastMaxHp_ && staminaPercent == lastStaminaPercent_)
         return;
 

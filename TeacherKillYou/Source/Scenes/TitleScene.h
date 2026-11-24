@@ -23,7 +23,7 @@ private:
     Texture2D leaves_{};
     Texture2D logo_{};
     Texture2D menu_{};
-    Texture2D lightning_{}; // Optional: loaded when the designer's PNG exists.
+    Texture2D lightning_{}; // 雷の画像
     Shader lightningLight_{};
     int lightningStrengthLocation_ = -1;
     int lightningViewportLocation_ = -1;

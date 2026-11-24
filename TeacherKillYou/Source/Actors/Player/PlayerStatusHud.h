@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <vector>
 
-// HUD for the supplied HP_Bar.png.
+// HP画像の赤い円弧がHP、青い円弧がスタミナ
 class PlayerStatusHud
 {
 public:

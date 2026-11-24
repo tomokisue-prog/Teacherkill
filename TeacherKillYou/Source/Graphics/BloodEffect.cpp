@@ -4,8 +4,8 @@
 #include <cmath>
 
 namespace {
-    // 血は加算合成せず、通常のアルファ合成で描く。第2描画先は懐中電灯の照射マスク。
-    // その出力のアルファを0にして、血の描画で既存の照射範囲を書き換えない。
+    // 血は通常のアルファ合成で描く
+    // 懐中電灯のマスクに影響しないよう、第2出力のアルファは0
     const char* BloodFragment = R"(#version 330
 in vec2 fragTexCoord;
 in vec4 fragColor;
@@ -27,7 +27,7 @@ void BloodEffect::Init() {
     Reset();
     if (texture_.id && shader_.id) return;
     Shutdown();
-    // 輪郭だけをぼかした小さな粒を生成する。外部のエフェクト画像は不要。
+    // 血の粒はコードで丸い画像を作る
     Image image = GenImageColor(32, 32, BLANK);
     for (int y = 0; y < image.height; ++y) {
         for (int x = 0; x < image.width; ++x) {
@@ -72,7 +72,7 @@ void BloodEffect::Spawn(Vector3 point, Vector3 normal) {
         drop.lifetime = Random(0.3f, 0.6f);
         drop.size = Random(0.025f, 0.055f);
         drop.color = {static_cast<unsigned char>(GetRandomValue(145, 195)), 8, 15, 235};
-        // 最初の1粒は命中位置に短く残し、そこから飛び散ったことを見せる。
+        // 最初の1粒を命中位置に残す
         if (i == 0) {
             drop.velocity = Vector3Scale(normal, 0.08f);
             drop.lifetime = 0.16f;
@@ -87,7 +87,7 @@ void BloodEffect::Update(float deltaTime) {
         if (drop.age >= drop.lifetime) continue;
         drop.age += deltaTime;
         if (drop.age >= drop.lifetime) continue;
-        // 重力による移動量を時間で積分し、フレームレートによる軌道の差を抑える。
+        // 重力による移動を計算して、FPSによる軌道の差を抑える
         drop.position = Vector3Add(drop.position, Vector3Add(Vector3Scale(drop.velocity, deltaTime),
             {0, -2.4f * deltaTime * deltaTime, 0}));
         drop.velocity.y -= 4.8f * deltaTime;
@@ -100,7 +100,7 @@ void BloodEffect::Draw(const Camera3D& camera) const {
     for (const auto& drop : droplets_) active |= drop.age < drop.lifetime;
     if (!active) return;
 
-    // 壁や敵に隠れる粒は描かない。半透明の粒自身は深度を書き込まない。
+    // 壁の裏の粒は隠す。粒の描画では深度を書き込まない
     rlDrawRenderBatchActive();
     rlDisableDepthMask();
     BeginBlendMode(BLEND_ALPHA);

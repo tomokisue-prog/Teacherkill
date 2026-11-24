@@ -8,16 +8,16 @@ namespace
 {
     constexpr const char* GameOverImagePath = "Data/Image/UI/Gamelose.png";
     constexpr const char* YouDiedImagePath = "Data/Image/UI/YouDied.png";
-    constexpr float BlackFadeSeconds = 0.5f;       // Gameplay fades to black.
-    constexpr float YouFadeInSeconds = 0.65f;      // YOU appears first.
-    constexpr float DiedStartSeconds = 0.85f;      // DIED starts after YOU.
+    constexpr float BlackFadeSeconds = 0.5f;       // ゲーム画面を暗くする時間
+    constexpr float YouFadeInSeconds = 0.65f;      // YOUのフェードイン時間
+    constexpr float DiedStartSeconds = 0.85f;      // DIEDを表示し始めるタイミング
     constexpr float DiedFadeInSeconds = 0.65f;
-    constexpr float YouDiedHoldSeconds = 0.4f;     // Keep both words visible briefly.
-    constexpr float GameOverFadeSeconds = 0.6f;    // Crossfade to the game-over menu.
+    constexpr float YouDiedHoldSeconds = 0.4f;     // YOU DIEDを表示したまま待つ時間
+    constexpr float GameOverFadeSeconds = 0.6f;    // メニューへの切り替え時間
     constexpr float YouDiedIntroSeconds = DiedStartSeconds + DiedFadeInSeconds + YouDiedHoldSeconds;
 
-    // Button artwork positions in Mitsuki's 1888 x 833 GameOver.png.
-    // The same rectangles are used for highlighting and mouse clicks.
+    // ボタンの切り出し位置。元画像は1888×833
+    // 明るくする範囲とクリック判定をそろえる
     constexpr float ArtworkWidth = 1888.0f;
     constexpr float ArtworkHeight = 833.0f;
     constexpr Rectangle RetryArtwork{ 724.0f, 550.0f, 475.0f, 116.0f };
@@ -73,10 +73,10 @@ namespace
             return { scale, canvas, area, retry, title };
         }
 
-        // A readable two-button menu if the PNG cannot be loaded.
-        const float width = (std::min)(420.0f * scale, canvas.width * 0.85f); // CHANGE: width
-        const float height = 64.0f * scale; // CHANGE: height
-        const float gap = 20.0f * scale; // CHANGE: space between buttons
+        // 画像がない場合は文字のボタンを描く
+        const float width = (std::min)(420.0f * scale, canvas.width * 0.85f);
+        const float height = 64.0f * scale;
+        const float gap = 20.0f * scale;
         const float x = canvas.x + (canvas.width - width) * 0.5f;
         const float y = canvas.y + canvas.height * 0.62f;
         return { scale, canvas, canvas, { x, y, width, height }, { x, y + height + gap, width, height } };
@@ -113,8 +113,8 @@ namespace
         const float screenHeight = static_cast<float>(GetScreenHeight());
         if (image.id != 0 && image.width > 0 && image.height > 0)
         {
-            // Both parts use the same original image and preserve their spacing.
-            // The transparent gap between the words lies around x = 940.
+            // 同じ画像をYOUとDIEDに分けて描く
+            // 単語の間の透明部分はx=940付近
             const float x = image.width * (31.0f / 2048.0f);
             const float y = image.height * (696.0f / 2048.0f);
             const float totalWidth = image.width * (1976.0f / 2048.0f);
@@ -198,13 +198,13 @@ GameOverAction GameOverScreen::Update(float deltaTime)
 {
     const float before = elapsed_;
     elapsed_ += (std::max)(deltaTime, 0.0f);
-    // Start the menu sounds when the YOU DIED screen begins to fade out.
+    // YOU DIEDが消え始めたら、風とゲームオーバーBGMを流す
     if (before < YouDiedIntroSeconds && elapsed_ >= YouDiedIntroSeconds) {
         AM().PlayWind();
         AM().PlayBgm(BgmId::GameOver);
     }
 
-    // Do not activate a button while YOU DIED or the menu is fading in.
+    // 演出が終わるまでボタン操作を受け付けない
     if (elapsed_ < YouDiedIntroSeconds + GameOverFadeSeconds) return GameOverAction::None;
 
     const GameOverLayout layout = MenuLayout(image_);
@@ -216,22 +216,21 @@ GameOverAction GameOverScreen::Update(float deltaTime)
         if (selectedOption_ != option) { selectedOption_ = option; AM().PlayUiSe(SeId::Hover, 0.7f); }
     };
 
-    // A stationary mouse must not override keyboard selection.
+    // マウスが止まっている間はキーボードの選択を優先
     if (Vector2LengthSqr(GetMouseDelta()) > 0.0f || clicked)
     {
         if (overRetry) select(0);
         else if (overTitle) select(1);
     }
 
-    // A click always activates the button under the pointer, even if a key
-    // was pressed during the same frame.
+    // クリックしたボタンを優先して確定
     if (clicked && overRetry) { AM().PlayUiSe(SeId::Confirm); return GameOverAction::Retry; }
     if (clicked && overTitle) { AM().PlayUiSe(SeId::Confirm); return GameOverAction::Title; }
 
     if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) select((selectedOption_ + 1) % 2);
     if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) select((selectedOption_ + 1) % 2);
 
-    // Keep the existing checkpoint feature as a shortcut, with two main buttons.
+    // セーブがあるときはCキーでも再開できる
     if (checkpointAvailable_ && IsKeyPressed(KEY_C)) { AM().PlayUiSe(SeId::Confirm); return GameOverAction::Checkpoint; }
     if (IsKeyPressed(KEY_R)) { AM().PlayUiSe(SeId::Confirm); return GameOverAction::Retry; }
     if (IsKeyPressed(KEY_B)) { AM().PlayUiSe(SeId::Confirm); return GameOverAction::Title; }
@@ -252,7 +251,7 @@ void GameOverScreen::Draw() const
     const float fade = SmoothStep01((elapsed_ - YouDiedIntroSeconds) / GameOverFadeSeconds);
     const float centerX = layout.canvas.x + layout.canvas.width * 0.5f;
 
-    // YOU fades in first; DIED appears beside it a moment later.
+    // YOU、DIEDの順に表示
     DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, black));
     if (elapsed_ < YouDiedIntroSeconds)
     {

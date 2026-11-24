@@ -259,6 +259,7 @@ const TeleportPoint* GameContext::GetNearbyElevator() const
 
 void GameContext::Update(float deltaTime)
 {
+    // €–SŒã‚Í‰ñ•œ‚à~‚ß‚é
     if (!player_.IsAlive()) {
         inventory_.CancelHealing();
         return;
@@ -468,6 +469,7 @@ void GameContext::Update(float deltaTime)
     enemyManager_.Update(deltaTime, player_, stage_, enemyDoorBlocker, &inventory_);
     enemyManager_.RemoveExpired();
 
+    // ”í’e‚Ì’Ê’m‚ğƒJƒƒ‰‚Ì—h‚ê‚É‚Â‚È‚®
     if (player_.ConsumeDamageImpact())
     {
         cameraController_.GetPlayerCamera().StartDamageImpact();
@@ -491,6 +493,7 @@ void GameContext::Update(float deltaTime)
             });
         inventory_.Update(deltaTime, camera, &stage_, mustInspectShutter ? ItemType::Crowbar : ItemType::None);
 
+        // E‚Á‚½•¨‚É‡‚í‚¹‚Äe‚ÌŠó‘Ô‚â—\”õ’e‚ğXV
         const auto pickedUp = inventory_.GetPickedUpItem();
         if (pickedUp != ItemType::None) enemyManager_.SpawnReadyEnemies(&inventory_);
         if (pickedUp == ItemType::Gun) {
@@ -502,6 +505,7 @@ void GameContext::Update(float deltaTime)
             player_.AddReserveAmmo(Inventory::AmmoPickupAmount);
         }
 
+        // ’·‰Ÿ‚µ‚ªŠ®—¹‚µ‚½ƒtƒŒ[ƒ€‚ÉHP‚ğ‰ñ•œ
         if (inventory_.GetUsedItem() == ItemType::Medkit)
         {
             player_.Heal(MEDKIT_HEAL_AMOUNT);

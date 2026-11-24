@@ -31,7 +31,7 @@ float Volume(float value, float fallback) {
     return std::isfinite(value) ? (std::max)(0.0f, (std::min)(1.0f, value)) : fallback;
 }
 float ChaseAmbienceVolume(float ambience, float bgm, float fade) {
-    // Muting the music should not mute the atmosphere too.
+    // BGMが無音なら、追跡中も環境音を下げない
     const float audible = (std::min)(1.0f, bgm / 0.35f);
     return ambience * (1.0f - ChaseAmbienceDuck * fade * audible);
 }
@@ -113,6 +113,7 @@ void AudioManager::StopBgm() {
     pausedBgm_ = false;
     bgmFade_ = 0.0f;
 }
+// 追跡状態が変わったらBGMをフェードで切り替える
 void AudioManager::SetChaseActive(bool active) {
     if (!IsReady() || !IsMusicValid(chase_)) return;
     chaseWanted_ = active;
@@ -184,7 +185,7 @@ void AudioManager::Update() {
     }
     if (windPlaying_ && IsMusicValid(wind_)) {
         windFade_ = (std::min)(1.0f, windFade_ + dt / FadeSeconds);
-        // The default BGM slider is 0.35, so the wind plays at 35% by default.
+        // 風の音量もBGM設定に合わせる
         SetMusicVolume(wind_, bgmVolume_ * windFade_ * windMix_);
         UpdateMusicStream(wind_);
     }
@@ -247,6 +248,7 @@ void AudioManager::SetAmbienceVolume(float volume) {
     if (IsReady() && IsMusicValid(ambience_))
         SetMusicVolume(ambience_, ChaseAmbienceVolume(ambienceVolume_, bgmVolume_, chaseFade_));
 }
+// ポーズ前に鳴っていた音を覚えて、再開時に続きを流す
 void AudioManager::SetPaused(bool paused) {
     if (paused_ == paused) return;
     paused_ = paused;

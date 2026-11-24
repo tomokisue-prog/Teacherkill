@@ -22,7 +22,7 @@ void GameFade::Update(float deltaTime)
         if (alpha_ >= 1.0f)
         {
             alpha_ = 1.0f;
-            isMidpointTriggered_ = true; // 真っ暗になった合図
+            isMidpointTriggered_ = true; // 真っ暗になったタイミングを通知
             state_ = FadeState::Holding;
         }
     }

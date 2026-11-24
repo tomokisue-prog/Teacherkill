@@ -20,6 +20,7 @@ void GameContext::ProcessPlayerShot()
     const Camera3D camera =
         cameraController_.GetPlayerCamera().GetRaylibCamera();
 
+    // 画面中央の視線から命中判定用のレイを出す
     const Ray ray = {
         camera.position,
         Vector3Normalize(Vector3Subtract(camera.target, camera.position))
@@ -27,6 +28,7 @@ void GameContext::ProcessPlayerShot()
 
     float closestDistance = shotRange;
 
+    // 先に壁までの距離を調べておく
     const RayCollision wallHit = stage_.Raycast(ray, shotRange);
     if (wallHit.hit)
     {
@@ -61,6 +63,7 @@ void GameContext::ProcessPlayerShot()
             hit.distance = 0.0f;
         }
 
+        // 壁より手前にいる一番近い敵を選ぶ
         if (hit.hit &&
             hit.distance >= 0.0f &&
             hit.distance < closestDistance)
@@ -78,6 +81,7 @@ void GameContext::ProcessPlayerShot()
     muzzleFlashTimer_ = 0.06f;
     muzzleFlashFrame_ = GetRandomValue(0, 3);
 
+    // 見た目の弾道は銃口から命中位置まで
     tracerStart_ = player_.GetMuzzlePosition(camera);
     tracerEnd_ = Vector3Add(
         ray.position,
@@ -96,6 +100,7 @@ void GameContext::ProcessPlayerShot()
             mark.normal = wallHit.normal;
             mark.remainingTime = bulletMarkLifetime_;
 
+            // 上限に達したら古い弾痕から消す
             if (bulletMarks_.size() >=
                 static_cast<std::vector<BulletMark>::size_type>(maxBulletMarks_))
             {
@@ -132,6 +137,7 @@ void GameContext::ProcessPlayerShot()
 
     if (result.applied)
     {
+        // ダメージが入ったときだけ血と命中マークを出す
         bloodEffect_.Spawn(tracerEnd_, impactNormal);
         hitMarkerTimer_ = 0.12f;
         hitMarkerKill_ = result.becameDead;

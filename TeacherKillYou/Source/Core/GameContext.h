@@ -99,6 +99,7 @@ private:
     bool UpdateDialoguePoints();
     void DrawGuidance(const Camera3D& camera) const;
     void PlaceCharacters();
+    // 射撃の判定と表示用エフェクト
     void ProcessPlayerShot();
     void UpdateShotEffects(float deltaTime);
     void DrawShotEffects() const;
@@ -135,6 +136,7 @@ private:
     std::vector<EventDialoguePoint> eventDialoguePoints_;
     std::vector<SecurityTeleportPoint> securityTeleportPoints_;
 
+    // 命中マーク・銃口の光・弾道の表示時間
     float hitMarkerTimer_{ 0.0f };
     bool hitMarkerKill_{ false };
 
@@ -155,6 +157,7 @@ private:
         float remainingTime = 0.0f;
     };
 
+    // 弾痕は2秒で消す。最大40個まで
     std::vector<BulletMark> bulletMarks_;
     static constexpr float bulletMarkLifetime_ = 2.0f;
     static constexpr int maxBulletMarks_ = 40;

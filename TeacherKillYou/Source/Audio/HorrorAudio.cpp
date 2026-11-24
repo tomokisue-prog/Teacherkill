@@ -30,7 +30,7 @@ void HorrorAudio::Reset(Vector3 position) {
 void HorrorAudio::Update(float dt, const Player& player, const PlayerCamera& camera,
     const demo::EnemyManager& enemies, const Stage& stage, bool playerView) {
     (void)dt;
-    // Keep the track playing until every enemy stops pursuing or searching.
+    // ’ÇÕEUŒ‚E‘{õ’†‚Ì“G‚ª1‘Ì‚Å‚à‚¢‚ê‚Î’ÇÕBGM‚ğ‘±‚¯‚é
     const auto& list = enemies.GetEnemies();
     const bool detected = playerView && player.IsAlive() && std::any_of(list.begin(), list.end(), [](const demo::Enemy& enemy) {
         const auto state = enemy.GetState();
@@ -49,7 +49,7 @@ void HorrorAudio::Update(float dt, const Player& player, const PlayerCamera& cam
         return;
     }
 
-    // Only play while actually walking on the floor, not while jumping or blocked.
+    // Ú’n’†‚ÉÀÛ‚Éi‚ñ‚¾‹——£‚Å‘«‰¹‚ğ–Â‚ç‚·
     if (player.IsGrounded() && distance > 0.0001f && distance < 0.8f) {
         stepDistance_ += distance;
         const float stride = player.IsSprinting() ? 1.35f : 0.95f;
@@ -63,13 +63,14 @@ void HorrorAudio::Update(float dt, const Player& player, const PlayerCamera& cam
     } else stepDistance_ = 0.0f;
 
     const float hp = player.GetMaxHp() > 0 ? static_cast<float>(player.GetHp()) / player.GetMaxHp() : 1.0f;
+    // HP40%ˆÈ‰º‚ÅS‰¹BŒ¸‚é‚Ù‚Ç‰¹—Ê‚ğã‚°‚é
     if (hp <= 0.4f) {
         const float gain = 0.25f + 0.6f * (1.0f - Clamp(hp / 0.4f, 0.0f, 1.0f));
         if (!AM().IsSePlaying(SeId::Heartbeat)) AM().PlaySe(SeId::Heartbeat, gain);
         else AM().SetSeGain(SeId::Heartbeat, gain);
     } else AM().StopSe(SeId::Heartbeat);
 
-    // Use the nearest moving enemy so distant crowds do not drown out the game.
+    // “G‚Ì‘«‰¹‚Í‹ß‚­‚Å“®‚¢‚Ä‚¢‚é1‘Ì•ª‚Éi‚é
     const demo::Enemy* nearest = nullptr;
     float nearestDistance = 12.0f;
     for (const auto& enemy : enemies.GetEnemies()) {
@@ -112,6 +113,7 @@ void HorrorAudio::Update(float dt, const Player& player, const PlayerCamera& cam
     const Vector3 delta = Vector3Subtract(source, listener);
     const float rayLength = Vector3Length(delta);
     const Vector3 direction = rayLength > 0.001f ? Vector3Scale(delta, 1.0f / rayLength) : Vector3{};
+    // •Ç‰z‚µ‚Ì‘«‰¹‚Í¬‚³‚­‚·‚é
     float occlusion = 1.0f;
     if (rayLength > 0.001f) {
         const auto wall = stage.Raycast({listener, direction}, rayLength);
